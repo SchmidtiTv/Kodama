@@ -13,9 +13,12 @@ src-tauri/gen/
 # Kompilierter Python-Server (wird beim Build erstellt)
 src-tauri/binaries/
 
-# Python Cache
+# Python Cache + virtualenv
 python-backend/__pycache__/
 python-backend/*.pyc
+.venv/
+python-backend/.venv/
+venv/
 
 # PyInstaller Build-Artefakte
 python-backend/build/

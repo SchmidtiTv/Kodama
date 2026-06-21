@@ -736,20 +736,10 @@ def _refresh_ytm_psidts(force=False):
                         authed = False
             except Exception:
                 pass
-        # The *SIDTS timestamp tokens (the ones that expire after ~1-2h and kill the session)
-        # don't rotate on a plain GET. YouTube reissues them on real authenticated InnerTube
-        # API calls — the same traffic that keeps a browser/ytmusicapi session warm — but
-        # ytmusicapi discards the Set-Cookie. So we make our own authenticated youtubei call
-        # here (reusing ytmusicapi's freshly-signed headers) and capture the rotated cookies.
-        try:
-            api_headers = dict(getattr(_ytm, "headers", {}) or {})
-            api_headers["Content-Type"] = "application/json"
-            api_body = {"context": {"client": {"clientName": "WEB_REMIX", "clientVersion": "1.20240731.00.00", "hl": "en"}}}
-            ry = sess.post("https://music.youtube.com/youtubei/v1/guide?key=AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30&prettyPrint=false",
-                           headers=api_headers, json=api_body, timeout=10)
-            statuses.append(f"youtubei={ry.status_code}")
-        except Exception:
-            pass
+        # NOTE: the *SIDTS timestamp tokens (which expire after ~1-2h) do NOT rotate on plain
+        # HTTP requests — only a real browser engine reissues them. That's handled separately by
+        # the hidden session-keeper WebView (see window.rs / /auth/refresh-cookies). Here we just
+        # capture the *DCC/visitor cookies that DO rotate on these GETs.
         # Capture ALL rotating short-lived cookies the server set, not just PSIDTS — the
         # *PSIDCC / SIDCC tokens also rotate and a stale one alone will kill the session.
         fresh = {c.name: c.value for c in sess.cookies
