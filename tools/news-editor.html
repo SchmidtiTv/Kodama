@@ -315,6 +315,15 @@ $("publishBtn").onclick = async () => {
 };
 
 resetForm(); refresh();
+
+// Auto-load the current live feed on open, so new entries are APPENDED to the existing list
+// instead of accidentally overwriting it on publish. (Silently no-ops when blocked, e.g. file://.)
+(async () => {
+  try {
+    const r = await fetch(NEWS_URL, { cache: "no-cache" });
+    if (r.ok) { const arr = await r.json(); if (Array.isArray(arr)) { loadEntries(arr); toast("Live-Stand geladen (" + entries.length + ")"); } }
+  } catch {}
+})();
 </script>
 </body>
 </html>
