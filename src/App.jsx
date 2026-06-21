@@ -2392,7 +2392,13 @@ function renderNewsBody(body) {
   return blocks;
 }
 
-function NewsModal({ news, unreadIds, onClose, t }) {
+function NewsModal({ news, unreadIds, onRefresh, onClose, t }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const doRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try { await onRefresh?.(); } finally { setRefreshing(false); }
+  };
   const badgeFor = (type) => {
     if (type === "beta")   return { label: t("newsBeta")   || "Closed Beta", bg: "color-mix(in srgb, #f4a020 20%, transparent)", fg: "#f4b840" };
     if (type === "note")   return { label: t("newsNote")   || "Hinweis",     bg: "rgba(255,255,255,0.08)",                       fg: "var(--text-secondary)" };
@@ -2467,6 +2473,12 @@ function NewsModal({ news, unreadIds, onClose, t }) {
               )}
             </ModalBody>
             <ModalFooter>
+              <Button variant="ghost" className="mr-auto" isDisabled={refreshing} onPress={doRefresh}>
+                <span className="flex items-center gap-1.5">
+                  <ArrowClockwise size={14} style={refreshing ? { animation: "spin2 0.8s linear infinite" } : undefined} />
+                  {t("refresh") || "Aktualisieren"}
+                </span>
+              </Button>
               <Button color="accent" variant="solid" onPress={onClose}>{t("close") || "Schließen"}</Button>
             </ModalFooter>
           </ModalDialog>
@@ -11425,31 +11437,31 @@ export default function App() {
     setFeedbackShot(shot);
     setFeedbackOpen(true);
   }, []);
+  const lastNewsLoadRef = useRef(0);
+  const loadNews = useCallback(async () => {
+    lastNewsLoadRef.current = Date.now();
+    // Prefer the remote feed (live publishing); fall back to the backend's bundled copy
+    // (dev/offline) so news still shows when the remote isn't reachable.
+    let items = null;
+    try { const r = await fetch(NEWS_URL, { cache: "no-cache" }); if (r.ok) items = await r.json(); } catch {}
+    if (!Array.isArray(items) || items.length === 0) {
+      try { const r2 = await fetch(`${API}/news`); if (r2.ok) items = await r2.json(); } catch {}
+    }
+    if (!Array.isArray(items)) return;
+    // Keep only entries whose version range covers this build (min_version / max_version).
+    setNewsItems(items.filter(n => n && n.id
+      && (!n.min_version || cmpVersion(APP_VERSION, n.min_version) >= 0)
+      && (!n.max_version || cmpVersion(APP_VERSION, n.max_version) <= 0)));
+  }, []);
   useEffect(() => {
-    let cancelled = false, lastLoad = 0;
-    const loadNews = async () => {
-      lastLoad = Date.now();
-      // Prefer the remote feed (live publishing); fall back to the backend's bundled copy
-      // (dev/offline) so news still shows when the remote isn't reachable.
-      let items = null;
-      try { const r = await fetch(NEWS_URL, { cache: "no-cache" }); if (r.ok) items = await r.json(); } catch {}
-      if (!Array.isArray(items) || items.length === 0) {
-        try { const r2 = await fetch(`${API}/news`); if (r2.ok) items = await r2.json(); } catch {}
-      }
-      if (cancelled || !Array.isArray(items)) return;
-      // Keep only entries whose version range covers this build (min_version / max_version).
-      setNewsItems(items.filter(n => n && n.id
-        && (!n.min_version || cmpVersion(APP_VERSION, n.min_version) >= 0)
-        && (!n.max_version || cmpVersion(APP_VERSION, n.max_version) <= 0)));
-    };
     loadNews();
     // Re-check periodically + when the window regains focus, so newly published news shows up
     // without restarting the app (the raw GitHub feed is CDN-cached ~5 min anyway).
     const interval = setInterval(loadNews, 15 * 60 * 1000);
-    const onFocus = () => { if (Date.now() - lastLoad > 5 * 60 * 1000) loadNews(); };
+    const onFocus = () => { if (Date.now() - lastNewsLoadRef.current > 5 * 60 * 1000) loadNews(); };
     window.addEventListener("focus", onFocus);
-    return () => { cancelled = true; clearInterval(interval); window.removeEventListener("focus", onFocus); };
-  }, []);
+    return () => { clearInterval(interval); window.removeEventListener("focus", onFocus); };
+  }, [loadNews]);
   const newsUnreadCount = newsItems.reduce((n, it) => n + (newsSeenIds.has(it.id) ? 0 : 1), 0);
   // Auto-open once on startup if there's an unread entry flagged important.
   const newsAutoOpenedRef = useRef(false);
@@ -13426,6 +13438,7 @@ export default function App() {
           <NewsModal
             news={newsItems}
             unreadIds={newsUnreadSnapshot}
+            onRefresh={loadNews}
             onClose={() => setNewsOpen(false)}
             t={(key) => translate(language, key)}
           />
