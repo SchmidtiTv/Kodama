@@ -2418,7 +2418,7 @@ function NewsModal({ news, unreadIds, onClose, t }) {
                     const b = badgeFor(n.type);
                     const unread = unreadIds?.has(n.id);
                     return (
-                      <div key={n.id} className="relative rounded-xl border border-border overflow-hidden"
+                      <div key={n.id} className="relative shrink-0 rounded-xl border border-border overflow-hidden"
                         style={unread ? { borderColor: "color-mix(in srgb, var(--accent) 45%, var(--border))" } : undefined}>
                         {n.image && <img src={n.image} alt="" className="w-full block" style={{ maxHeight: 170, objectFit: "cover" }} />}
                         <div className="px-4 py-3.5">
