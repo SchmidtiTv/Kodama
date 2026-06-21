@@ -10819,9 +10819,15 @@ function FfmpegSetupScreen({ onDone }) {
       }
     };
     check();
-  }, [onDone]);
+    // Run ONCE on mount. Depending on `onDone` (a new inline fn each App render) re-ran this
+    // mid-download and reset the phase back to "needed" → a second Download click → two
+    // parallel downloads. eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const startedRef = useRef(false);
   const startDownload = () => {
+    if (startedRef.current) return; // guard against a double-trigger → parallel downloads
+    startedRef.current = true;
     setPhase("downloading");
     setPercent(0);
 
@@ -10962,7 +10968,7 @@ function FfmpegUpdateRow() {
         if (d.status === "progress") setPercent(d.percent || 0);
         else if (d.status === "done") {
           es.close(); setPercent(100); setPhase("done");
-          try { localStorage.setItem("kiyoshi-ffmpeg-update-dismissed", info?.latest || ""); } catch {}
+          try { localStorage.setItem("kiyoshi-ffmpeg-update-dismissed", info?.latest || ""); localStorage.setItem("kiyoshi-ffmpeg-ok", "1"); } catch {}
           check();
         } else if (d.status === "error") { es.close(); setPhase("error"); }
       } catch {}
@@ -10971,7 +10977,7 @@ function FfmpegUpdateRow() {
   };
 
   const desc = loading ? t("checking")
-    : !info?.installed ? "—"
+    : !info?.installed ? (t("ffmpegNotInstalled") || "Nicht installiert")
     : info.updateAvailable ? `${info.installed} → ${info.latest}`
     : `${info.installed} · ${t("upToDate")}`;
 
@@ -10984,6 +10990,8 @@ function FfmpegUpdateRow() {
           <span className="text-t12 flex items-center gap-1.5" style={{ color: "#4caf50" }}><CheckCircle size={14} weight="fill" />{t("ffmpegUpdated")}</span>
         ) : info?.updateAvailable ? (
           <Button color="accent" variant="solid" size="sm" onPress={startUpdate}>{t("ffmpegUpdate")}</Button>
+        ) : (!loading && info && !info.installed) ? (
+          <Button color="accent" variant="solid" size="sm" onPress={startUpdate}>{t("ffmpegDownload")}</Button>
         ) : (
           <Button variant="ghost" size="sm" isIconOnly className="rounded-full text-muted" isDisabled={loading} onPress={check}>
             <ArrowClockwise size={14} style={loading ? { animation: "spin2 0.8s linear infinite" } : undefined} />
