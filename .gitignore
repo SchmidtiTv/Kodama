@@ -91,3 +91,6 @@ python-backend/custom_lyrics/
 # Stray scratch/temp files
 hard_0116.txt
 *analyze_b64.txt
+
+# Local PAT for dist publishing (never commit)
+dist_token.txt
