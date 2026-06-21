@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-beta.1";
+const APP_VERSION = "1.0.0-alpha.1";
 
 // Published news feed (edit + commit this file to publish — same host as the updater).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
