@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.4";
+const APP_VERSION = "1.0.0-alpha.5";
 
 // Published news feed (edit + commit this file to publish — same host as the updater).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama-dist/master/updates/news.json";
@@ -10570,17 +10570,32 @@ function LoginLogo() {
   );
 }
 function LoginBtn({ onClick, children, secondary, disabled }) {
+  // Native <button> with onClick instead of HeroUI's react-aria onPress: on the macOS
+  // WebView react-aria's press tracking can drop the pointerup so onPress never fires
+  // (the button highlights but the handler never runs). A DOM click event is reliable.
+  const [hov, setHov] = useState(false);
   return (
-    <Button
-      fullWidth
-      variant={secondary ? "secondary" : "solid"}
-      color={secondary ? "default" : "accent"}
-      isDisabled={disabled}
-      className="font-semibold"
-      onPress={onClick}
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: "100%", height: 44, borderRadius: 12, border: "none",
+        cursor: disabled ? "default" : "pointer",
+        fontWeight: 600, fontSize: "var(--t14)",
+        opacity: disabled ? 0.5 : 1,
+        transition: "background 0.15s, filter 0.15s",
+        background: secondary
+          ? (hov ? "var(--surface-3, rgba(255,255,255,0.10))" : "var(--surface-2, rgba(255,255,255,0.06))")
+          : "var(--accent)",
+        color: secondary ? "var(--text)" : "#fff",
+        filter: !secondary && hov ? "brightness(1.1)" : "none",
+      }}
     >
       {children}
-    </Button>
+    </button>
   );
 }
 
