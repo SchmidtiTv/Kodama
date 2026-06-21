@@ -306,7 +306,7 @@ $("publishBtn").onclick = async () => {
     const body={ message:msg, content:b64, branch }; if(sha) body.sha=sha;
     const p=await fetch(api,{method:"PUT",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(p.status===200||p.status===201){ const d=await p.json(); show("Veröffentlicht ✓  commit "+((d.commit&&d.commit.sha)||"").slice(0,7)+" — live in ~paar Minuten.",true); toast("Veröffentlicht ✓"); }
-    else if(p.status===409){ show("Konflikt: Repo wurde inzwischen geändert. Oben „Live news.json laden", Änderungen neu einbauen, erneut veröffentlichen.",false); }
+    else if(p.status===409){ show("Konflikt: Repo wurde inzwischen geändert. Oben 'Live news.json laden', Änderungen neu einbauen, erneut veröffentlichen.",false); }
     else { throw new Error("PUT "+p.status+": "+(await p.text()).slice(0,200)); }
   }catch(e){
     const cors=/Failed to fetch|NetworkError/i.test(e.message);
