@@ -4,12 +4,14 @@ All notable changes to Kodama (formerly Kiyoshi Music) are documented here.
 
 ---
 
-## [Unreleased] — 1.0 “Kodama”
+## [Unreleased]
 
-> Running log of the in-progress 1.0 milestone: the app is being rebranded to **Kodama**
-> and rebuilt on Tailwind CSS v4 + HeroUI 3. Entries accumulate here and will be consolidated
-> into the 1.0 release once the rework is complete and tested. Nothing in this section is
-> released yet.
+> Changes landing after 1.0.0-beta.1 accumulate here.
+
+## [1.0.0-beta.1] — 2026-06-21
+
+> First public **Kodama** beta (Closed Beta). The app was rebranded from Kiyoshi Music and
+> rebuilt on Tailwind CSS v4 + HeroUI 3 — this consolidates the full 1.0 rework to date.
 
 ### Added
 - **FFmpeg auto-update** — On startup the app now quietly checks gyan.dev for a newer FFmpeg
