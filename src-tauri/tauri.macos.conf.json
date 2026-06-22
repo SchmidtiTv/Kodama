@@ -1,0 +1,19 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kodama",
+        "width": 1100,
+        "height": 700,
+        "minWidth": 960,
+        "minHeight": 560,
+        "fullscreen": false,
+        "resizable": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ]
+  }
+}
