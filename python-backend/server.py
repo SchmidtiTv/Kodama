@@ -3563,15 +3563,17 @@ def img_proxy():
             resp.headers["X-Cache"] = "HIT"
             return resp
 
-    # Fetch from CDN (omit YouTube-specific Referer for non-ytimg domains)
+    # Fetch from CDN (omit YouTube-specific Referer for non-ytimg domains).
+    # Use requests (certifi CA bundle) rather than urllib: on macOS the bundled Python
+    # has no system CA certs, so urllib HTTPS fails with CERTIFICATE_VERIFY_FAILED.
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         if "ytimg.com" in url or "yt3.ggpht.com" in url or "youtube.com" in url:
             headers["Referer"] = "https://music.youtube.com/"
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = r.read()
-            content_type = r.headers.get("Content-Type", "image/jpeg")
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        data = r.content
+        content_type = r.headers.get("Content-Type", "image/jpeg")
         # Write to disk cache
         if _cache_enabled["images"]:
             with open(cache_path, "wb") as f:

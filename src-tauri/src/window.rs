@@ -148,6 +148,9 @@ pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> R
     .inner_size(900.0, 680.0)
     .center()
     .decorations(true)
+    // Force a Chrome UA: the default macOS WKWebView UA is Safari-like and YT Music/Google
+    // shows a "browser not optimized" wall. Matches the UA used for /auth/cookie-login.
+    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     .data_directory(login_data_dir)
     .build()
     .map_err(|e| e.to_string())?;

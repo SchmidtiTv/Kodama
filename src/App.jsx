@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.8";
+const APP_VERSION = "1.0.0-alpha.9";
 
 // Published news feed (edit + commit this file to publish — same host as the updater).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama-dist/master/updates/news.json";
@@ -214,6 +214,10 @@ const OS_INFO = (() => {
   const arch = /x64|Win64|WOW64|x86_64/.test(ua) ? "x64" : (/arm64|aarch64/i.test(ua) ? "arm64" : "");
   return arch ? `${os} · ${arch}` : os;
 })();
+
+// macOS uses a native titled window (traffic lights + native drag), so the custom
+// titlebar/drag-region is Windows-only. (Borderless windows swallow clicks on macOS.)
+const IS_MAC = /Mac OS X|Macintosh/.test(navigator.userAgent || "");
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v1.0.0";
@@ -776,10 +780,9 @@ function TitleBar() {
       position: "fixed", top: 4, left: 0, right: 0, zIndex: 9998,
       pointerEvents: "none",
     }}>
-      {/* DIAG: data-tauri-drag-region removed to test if it swallows mouseup on macOS */}
-      <div style={{
+      <div data-tauri-drag-region style={{
         position: "absolute", top: 0, left: 80, right: 80, bottom: 0,
-        pointerEvents: "none",
+        pointerEvents: "all",
       }} />
       <div style={{ display: "flex", gap: 2, position: "relative", pointerEvents: "all" }}>
         {buttons.map(btn => (
@@ -10571,32 +10574,17 @@ function LoginLogo() {
   );
 }
 function LoginBtn({ onClick, children, secondary, disabled }) {
-  // Native <button> with onClick instead of HeroUI's react-aria onPress: on the macOS
-  // WebView react-aria's press tracking can drop the pointerup so onPress never fires
-  // (the button highlights but the handler never runs). A DOM click event is reliable.
-  const [hov, setHov] = useState(false);
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        width: "100%", height: 44, borderRadius: 12, border: "none",
-        cursor: disabled ? "default" : "pointer",
-        fontWeight: 600, fontSize: "var(--t14)",
-        opacity: disabled ? 0.5 : 1,
-        transition: "background 0.15s, filter 0.15s",
-        background: secondary
-          ? (hov ? "var(--surface-3, rgba(255,255,255,0.10))" : "var(--surface-2, rgba(255,255,255,0.06))")
-          : "var(--accent)",
-        color: secondary ? "var(--text)" : "#fff",
-        filter: !secondary && hov ? "brightness(1.1)" : "none",
-      }}
+    <Button
+      fullWidth
+      variant={secondary ? "secondary" : "solid"}
+      color={secondary ? "default" : "accent"}
+      isDisabled={disabled}
+      className="font-semibold"
+      onPress={onClick}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -12910,7 +12898,7 @@ export default function App() {
             backdrop for the WHOLE app (z-index:-1 → paints over bg-base but under all content,
             so it shows through the transparent sidebar/canvas while cards keep their own bg). */}
         <AmbientBackdrop thumbnail={ambientBackground ? currentTrack?.thumbnail : null} />
-        {!fullscreen && <TitleBar />}
+        {!fullscreen && !IS_MAC && <TitleBar />}
         <div style={{
           width: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth),
           minWidth: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth),
