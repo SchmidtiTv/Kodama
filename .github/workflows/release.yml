@@ -65,7 +65,6 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VITE_DIST_TOKEN: ${{ secrets.DIST_READ_TOKEN }}
         with:
           args: --target x86_64-pc-windows-msvc --bundles nsis
       - name: Collect Windows artifacts
@@ -132,10 +131,8 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VITE_DIST_TOKEN: ${{ secrets.DIST_READ_TOKEN }}
-          # Ad-hoc code signing (no Apple Developer account). Turns the scary "is damaged"
-          # Gatekeeper message into "unidentified developer", which users bypass with a
-          # one-time right-click -> Open (no Terminal/xattr). Not notarized.
+          # Ad-hoc sign (harmless; main Gatekeeper bypass is the curl install.sh, which
+          # avoids the quarantine flag entirely).
           APPLE_SIGNING_IDENTITY: "-"
         with:
           args: --target aarch64-apple-darwin --bundles app,dmg
@@ -192,20 +189,14 @@ jobs:
             gh release create "$TAG" --repo "$DIST" --title "Kodama $TAG" --notes "$NOTES" $PRE
           gh release upload "$TAG" "$WIN_EXE" "$WIN_SIG" "$DMG" "$MAC_TGZ" "$MAC_SIG" --repo "$DIST" --clobber
 
-          # Use the asset API URLs (api.github.com/.../releases/assets/<id>), not
-          # browser_download_url: a fine-grained read PAT 404s on browser_download_url but
-          # downloads fine from the asset API with Accept: application/octet-stream.
-          ASSETS=$(gh api "repos/$DIST/releases/tags/$TAG" --jq '.assets')
-          WURL=$(echo "$ASSETS" | jq -r --arg n "$(basename "$WIN_EXE")" '.[]|select(.name==$n)|.url')
-          MURL=$(echo "$ASSETS" | jq -r --arg n "$(basename "$MAC_TGZ")" '.[]|select(.name==$n)|.url')
-          [ -n "$WURL" ] && [ -n "$MURL" ] || { echo "::error::could not resolve asset API URLs"; echo "$ASSETS"; exit 1; }
-
+          # Public dist repo: plain browser_download_url works (no token needed).
+          base_url="https://github.com/$DIST/releases/download/$TAG"
           jq -n \
             --arg version "v${VERSION}" \
             --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg notes "$NOTES" \
-            --arg wurl "$WURL" --arg wsig "$(cat "$WIN_SIG")" \
-            --arg murl "$MURL" --arg msig "$(cat "$MAC_SIG")" \
+            --arg wurl "$base_url/$(basename "$WIN_EXE")" --arg wsig "$(cat "$WIN_SIG")" \
+            --arg murl "$base_url/$(basename "$MAC_TGZ")" --arg msig "$(cat "$MAC_SIG")" \
             '{version:$version, pub_date:$pub_date, notes:$notes,
               platforms:{
                 "windows-x86_64":{url:$wurl, signature:$wsig},
@@ -216,10 +207,12 @@ jobs:
           git clone --depth 1 "https://x-access-token:${DIST_TOKEN}@github.com/${DIST}.git" dist_repo
           mkdir -p dist_repo/updates
           cp latest.json dist_repo/updates/latest.json
+          # Keep the macOS one-liner installer in sync at the repo root.
+          [ -f installer/install.sh ] && cp installer/install.sh dist_repo/install.sh
           cd dist_repo
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add updates/latest.json
-          git diff --cached --quiet && echo "latest.json unchanged" || git commit -m "release: $TAG"
+          git add updates/latest.json install.sh 2>/dev/null || git add updates/latest.json
+          git diff --cached --quiet && echo "nothing to publish" || git commit -m "release: $TAG"
           git push
           echo "Published $TAG (windows-x86_64 + darwin-aarch64) to $DIST."

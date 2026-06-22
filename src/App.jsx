@@ -187,27 +187,10 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.17";
+const APP_VERSION = "1.0.0-alpha.18";
 
-// Closed-beta dist repo (Kodama-dist) is PRIVATE. A fine-grained read-only PAT (Contents:
-// Read on that repo only) is injected at build time and sent as a Bearer token so the
-// updater + news feed can still read it. Embedded in the bundle = extractable, but it only
-// grants read to the dist repo and is revocable.
-const DIST_TOKEN = import.meta.env.VITE_DIST_TOKEN || "";
-// Two header sets — the GitHub endpoints need DIFFERENT Accept and reject the other:
-//  • Contents API (manifest + news) only accepts application/vnd.github.raw.
-//  • release-asset API (installer download) only accepts application/octet-stream (a
-//    combined Accept makes it return JSON metadata instead of the binary).
-// Tauri's updater lets check() and download() take separate headers, so we use each.
-const DIST_HEADERS = DIST_TOKEN
-  ? { Authorization: `Bearer ${DIST_TOKEN}`, Accept: "application/vnd.github.raw" }
-  : {};
-const DIST_HEADERS_DL = DIST_TOKEN
-  ? { Authorization: `Bearer ${DIST_TOKEN}`, Accept: "application/octet-stream" }
-  : {};
-
-// Published news feed — read via the Contents API so it works on the private dist repo.
-const NEWS_URL = "https://api.github.com/repos/KiyoshiTheDevil/Kodama-dist/contents/updates/news.json";
+// Published news feed (edit + commit updates/news.json in the public Kodama-dist repo).
+const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama-dist/master/updates/news.json";
 
 // Compare dotted version strings (e.g. "1.0.0" vs "0.9.40-beta"). Returns -1 / 0 / 1.
 function cmpVersion(a, b) {
@@ -11355,8 +11338,7 @@ export default function App() {
     const lang = localStorage.getItem("kiyoshi-lang") || "de";
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
-      // Headers authenticate against the private dist repo (manifest fetch + asset download).
-      const update = await check(DIST_TOKEN ? { headers: DIST_HEADERS } : undefined);
+      const update = await check();
       if (update?.available) {
         setUpdateInfo({
           version: update.version,
@@ -11389,7 +11371,7 @@ export default function App() {
           setUpdateDownloadProgress(total > 0 ? Math.round((downloaded / total) * 100) : null);
         }
         if (event.event === "Finished") setUpdateDownloadProgress(100);
-      }, DIST_TOKEN ? { headers: DIST_HEADERS_DL } : undefined);
+      });
       setUpdateDownloaded(true);
     } catch {
       const lang = getInitialLang();
@@ -11478,7 +11460,7 @@ export default function App() {
     // Prefer the remote feed (live publishing); fall back to the backend's bundled copy
     // (dev/offline) so news still shows when the remote isn't reachable.
     let items = null;
-    try { const r = await fetch(NEWS_URL, { cache: "no-cache", headers: DIST_HEADERS }); if (r.ok) items = await r.json(); } catch {}
+    try { const r = await fetch(NEWS_URL, { cache: "no-cache" }); if (r.ok) items = await r.json(); } catch {}
     if (!Array.isArray(items) || items.length === 0) {
       try { const r2 = await fetch(`${API}/news`); if (r2.ok) items = await r2.json(); } catch {}
     }
