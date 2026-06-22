@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.13";
+const APP_VERSION = "1.0.0-alpha.14";
 
 // Closed-beta dist repo (Kodama-dist) is PRIVATE. A fine-grained read-only PAT (Contents:
 // Read on that repo only) is injected at build time and sent as a Bearer token so the
@@ -1371,8 +1371,19 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         </div>
       )}
 
-      {/* Header: toggle button always visible, logo only when expanded */}
-      <div className={cn("flex items-center gap-2 px-3 pb-4", collapsed ? "justify-center" : "justify-start")}>
+      {/* Header: toggle button always visible, logo only when expanded.
+          macOS: left-pad past the native traffic lights so they sit inline, left of the
+          app icon + title (collapsed: pad the top instead since there's no room sideways);
+          make the whole header bar draggable (buttons stay clickable as children). */}
+      <div
+        {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
+        className={cn(
+          "flex items-center gap-2 pb-4",
+          collapsed ? "justify-center px-3" : "justify-start",
+          !collapsed && (IS_MAC ? "pl-[76px] pr-3" : "px-3"),
+          collapsed && IS_MAC && "pt-8",
+        )}
+      >
         <Button
           variant="ghost" size="sm" isIconOnly
           onPress={onToggleCollapse}
@@ -12910,16 +12921,6 @@ export default function App() {
         <div onAnimationEnd={() => setFlashbang(false)} style={{ position: "fixed", inset: 0, zIndex: 999999, pointerEvents: "none", background: "white", animation: "flashbangFade 3s ease-out forwards" }} />
       )}
       <div data-ambient={ambientBackground && currentTrack?.thumbnail ? "true" : undefined} style={{ display: "flex", height: `${100 / uiZoom}vh`, background: "var(--bg-base)", position: "relative", isolation: "isolate", cursor: fullscreen && !cursorVisible ? "none" : "default", zoom: uiZoom }}>
-        {/* macOS: draggable strip over the sidebar's top (the webview covers the native titlebar,
-            so dragging needs data-tauri-drag-region). Scoped to the sidebar width so it sits in
-            the traffic-light area and never blocks the main content. The sidebar column adds a
-            matching top inset below so its header clears the traffic lights. */}
-        {IS_MAC && !fullscreen && (
-          <div data-tauri-drag-region style={{
-            position: "fixed", top: 0, left: 0, height: 28, zIndex: 40, pointerEvents: "all",
-            width: sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth,
-          }} />
-        )}
         {/* Experimental: the playing track's cover as a heavily-blurred, theme-tinted ambient
             backdrop for the WHOLE app (z-index:-1 → paints over bg-base but under all content,
             so it shows through the transparent sidebar/canvas while cards keep their own bg). */}
@@ -12930,7 +12931,7 @@ export default function App() {
           minWidth: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth),
           flexShrink: 0, overflow: "hidden",
           transition: sidebarResizing ? "none" : "width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1)",
-          padding: fullscreen ? 0 : (IS_MAC ? "32px 4px 8px 8px" : "8px 4px 8px 8px"),
+          padding: fullscreen ? 0 : "8px 4px 8px 8px",
           position: "relative",
         }}>
           <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenAccountTab={() => { setSettingsTab("account"); setSettingsOpen(true); }} onOpenUpdateTab={() => { setSettingsTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
@@ -13003,11 +13004,16 @@ export default function App() {
             </div>
           )}
         </div>
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        <div
+          {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
+          style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+          {/* macOS: the gap above the content card (this column's exposed top margin) is a
+              drag region, so the window can be moved from the top of the main area too — the
+              card and everything inside it stay clickable (they're children, not the region). */}
           <div style={{
             flex: 1, minHeight: 0, overflow: "hidden",
             borderRadius: "var(--r-xl)",
-            margin: queueOpen ? `8px ${queueWidth + 16}px 4px 4px` : "8px 8px 4px 4px",
+            margin: queueOpen ? `${IS_MAC ? 16 : 8}px ${queueWidth + 16}px 4px 4px` : `${IS_MAC ? 16 : 8}px 8px 4px 4px`,
             transition: queueResizing ? "none" : (animations ? "margin 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease" : "none"),
             opacity: (overlayOpen || settingsOpen || settingsClosing) ? 0 : 1,
             pointerEvents: (overlayOpen || settingsOpen || settingsClosing) ? "none" : "auto",
