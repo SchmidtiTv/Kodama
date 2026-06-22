@@ -187,19 +187,23 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.15";
+const APP_VERSION = "1.0.0-alpha.16";
 
 // Closed-beta dist repo (Kodama-dist) is PRIVATE. A fine-grained read-only PAT (Contents:
 // Read on that repo only) is injected at build time and sent as a Bearer token so the
 // updater + news feed can still read it. Embedded in the bundle = extractable, but it only
 // grants read to the dist repo and is revocable.
 const DIST_TOKEN = import.meta.env.VITE_DIST_TOKEN || "";
-// Combined Accept so one header set works for both GitHub endpoints the updater hits:
-// Contents API (manifest + news) honours vnd.github.raw; the release-asset API (installer
-// download) honours octet-stream. Each endpoint picks the media type it supports.
-// (browser_download_url 404s with a fine-grained PAT, so latest.json uses asset-API URLs.)
+// Two header sets — the GitHub endpoints need DIFFERENT Accept and reject the other:
+//  • Contents API (manifest + news) only accepts application/vnd.github.raw.
+//  • release-asset API (installer download) only accepts application/octet-stream (a
+//    combined Accept makes it return JSON metadata instead of the binary).
+// Tauri's updater lets check() and download() take separate headers, so we use each.
 const DIST_HEADERS = DIST_TOKEN
-  ? { Authorization: `Bearer ${DIST_TOKEN}`, Accept: "application/octet-stream, application/vnd.github.raw" }
+  ? { Authorization: `Bearer ${DIST_TOKEN}`, Accept: "application/vnd.github.raw" }
+  : {};
+const DIST_HEADERS_DL = DIST_TOKEN
+  ? { Authorization: `Bearer ${DIST_TOKEN}`, Accept: "application/octet-stream" }
   : {};
 
 // Published news feed — read via the Contents API so it works on the private dist repo.
@@ -11385,7 +11389,7 @@ export default function App() {
           setUpdateDownloadProgress(total > 0 ? Math.round((downloaded / total) * 100) : null);
         }
         if (event.event === "Finished") setUpdateDownloadProgress(100);
-      });
+      }, DIST_TOKEN ? { headers: DIST_HEADERS_DL } : undefined);
       setUpdateDownloaded(true);
     } catch {
       const lang = getInitialLang();
