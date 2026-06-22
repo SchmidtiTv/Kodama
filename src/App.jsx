@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.10";
+const APP_VERSION = "1.0.0-alpha.11";
 
 // Closed-beta dist repo (Kodama-dist) is PRIVATE. A fine-grained read-only PAT (Contents:
 // Read on that repo only) is injected at build time and sent as a Bearer token so the
