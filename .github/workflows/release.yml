@@ -134,9 +134,11 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Ad-hoc sign (harmless; main Gatekeeper bypass is the curl install.sh, which
-          # avoids the quarantine flag entirely).
-          APPLE_SIGNING_IDENTITY: "-"
+          # NO macOS code signing: ad-hoc signing the app bundle enables library validation,
+          # which then rejects the PyInstaller-bundled Python.framework (different Team ID) and
+          # the sidecar server fails to load ("Failed to load Python shared library"). Leaving
+          # the app unsigned keeps the nested framework loadable; Gatekeeper is handled by the
+          # curl install.sh (curl-downloaded apps get no quarantine flag).
         with:
           args: --target aarch64-apple-darwin --bundles app,dmg
       - name: Collect macOS artifacts
