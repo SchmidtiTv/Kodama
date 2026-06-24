@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.22";
+const APP_VERSION = "1.0.0-alpha.23";
 
 // Published news feed (edit + commit updates/news.json in the public Kodama repo).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
@@ -1358,35 +1358,60 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         </div>
       )}
 
-      {/* Header: toggle button always visible, logo only when expanded.
-          macOS: left-pad past the native traffic lights so they sit inline, left of the
-          app icon + title (collapsed: pad the top instead since there's no room sideways);
-          make the whole header bar draggable (buttons stay clickable as children). */}
+      {/* Header. macOS (variant D): the search field sits at the very top, flanked by the
+          native traffic lights (left padding clears them); refresh + collapse move to the
+          right. Windows/Linux keep the logo + title header with the search row below.
+          On macOS the bar is a drag region (the empty traffic-light pad is the grab area;
+          the search field + buttons stay interactive as children). */}
       <div
         {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
         className={cn(
-          "flex items-center gap-2 pb-4",
+          "flex items-center gap-2",
+          (IS_MAC && !collapsed) ? "pb-3" : "pb-4",
           collapsed ? "justify-center px-3" : "justify-start",
-          !collapsed && (IS_MAC ? "pl-[76px] pr-3" : "px-3"),
+          !collapsed && (IS_MAC ? "pl-[72px] pr-2.5" : "px-3"),
           collapsed && IS_MAC && "pt-8",
         )}
       >
-        <Button
-          variant="ghost" size="sm" isIconOnly
-          onPress={onToggleCollapse}
-          className="shrink-0 relative z-[201] rounded-full"
-          style={{ visibility: settingsOpen ? "hidden" : "visible", contain: "layout style" }}
-          onMouseEnter={e => {
-            if (collapsed) {
-              const r = e.currentTarget.getBoundingClientRect();
-              setTooltip({ text: t("expand"), x: r.right + 10, y: r.top + r.height / 2 });
-            }
-          }}
-          onMouseLeave={() => setTooltip(null)}
-        >
-          {collapsed ? <CaretLineRight size={16} /> : <CaretLineLeft size={16} />}
-        </Button>
-        {!collapsed && (
+        {/* Collapse toggle: leading on Windows/Linux and when collapsed; on macOS-expanded
+            it moves to the trailing side (after the search). */}
+        {(!IS_MAC || collapsed) && (
+          <Button
+            variant="ghost" size="sm" isIconOnly
+            onPress={onToggleCollapse}
+            className="shrink-0 relative z-[201] rounded-full"
+            style={{ visibility: settingsOpen ? "hidden" : "visible", contain: "layout style" }}
+            onMouseEnter={e => {
+              if (collapsed) {
+                const r = e.currentTarget.getBoundingClientRect();
+                setTooltip({ text: t("expand"), x: r.right + 10, y: r.top + r.height / 2 });
+              }
+            }}
+            onMouseLeave={() => setTooltip(null)}
+          >
+            {collapsed ? <CaretLineRight size={16} /> : <CaretLineLeft size={16} />}
+          </Button>
+        )}
+
+        {!collapsed && (IS_MAC ? (
+          <>
+            <div className="flex-1 min-w-0" style={{ contain: "layout style" }}>
+              <SearchFieldRoot value={query} onChange={setQuery} onSubmit={handleSubmit} className="w-full">
+                <SearchFieldGroup>
+                  <SearchFieldSearchIcon><MagnifyingGlass size={16} /></SearchFieldSearchIcon>
+                  <SearchFieldInput placeholder={t("search")} />
+                  <SearchFieldClearButton />
+                </SearchFieldGroup>
+              </SearchFieldRoot>
+            </div>
+            <Button variant="ghost" size="sm" isIconOnly onPress={onRefreshView} className="shrink-0 rounded-full" title={t("refresh")} style={{ contain: "layout style" }}>
+              <ArrowClockwise size={14} />
+            </Button>
+            <Button variant="ghost" size="sm" isIconOnly onPress={onToggleCollapse} className="shrink-0 rounded-full" title={t("collapse") || "Collapse"} style={{ contain: "layout style" }}>
+              <CaretLineLeft size={16} />
+            </Button>
+          </>
+        ) : (
           <>
             <img src="/Kodama%20Logo.png" alt="Kodama" width="20" height="20" className="shrink-0" />
             <span className="text-t15 font-medium whitespace-nowrap">Kodama</span>
@@ -1402,13 +1427,13 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               </Button>
             </div>
           </>
-        )}
+        ))}
       </div>
 
-      {/* Search (only expanded) — contain:layout style isolates React Aria's
-          data-attribute updates from triggering app-wide style recalculations
-          without the paint-clipping of contain:content. */}
-      {!collapsed && (
+      {/* Search row — Windows/Linux only (macOS shows the search inside the header above).
+          contain:layout style isolates React Aria's data-attribute updates from app-wide
+          style recalcs without the paint-clipping of contain:content. */}
+      {!collapsed && !IS_MAC && (
         <div className="px-3 mb-3" style={{ contain: "layout style" }}>
           <SearchFieldRoot
             value={query}
