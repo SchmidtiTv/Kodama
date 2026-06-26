@@ -269,6 +269,26 @@ os.makedirs(LYRICS_CACHE_DIR, exist_ok=True)
 CUSTOM_LYRICS_DIR = os.path.join(_base_dir, "custom_lyrics")
 os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
 
+# yt-dlp self-update: YouTube changes constantly and the bundled yt-dlp goes stale between
+# app releases. A newer yt-dlp wheel dropped in here is prepended to sys.path so `import
+# yt_dlp` uses it instead of the bundled copy — the user can update yt-dlp on demand (like
+# the FFmpeg updater) without rebuilding the whole app.
+YTDLP_UPDATE_DIR = os.path.join(_base_dir, "ytdlp")
+os.makedirs(YTDLP_UPDATE_DIR, exist_ok=True)
+
+def _activate_ytdlp_update():
+    """Put the newest downloaded yt-dlp wheel first on sys.path (shadows the bundled copy).
+    Safe before yt_dlp is imported — it's imported lazily inside the extraction functions."""
+    try:
+        import glob as _glob
+        wheels = sorted(_glob.glob(os.path.join(YTDLP_UPDATE_DIR, "yt_dlp-*.whl")))
+        if wheels and wheels[-1] not in sys.path:
+            sys.path.insert(0, wheels[-1])
+    except Exception:
+        pass
+
+_activate_ytdlp_update()
+
 # Active YTMusic instance and current profile
 _ytm = None
 _current_profile = None
@@ -4310,6 +4330,69 @@ def ffmpeg_check_update():
     latest = _ffmpeg_latest_version()
     update = bool(installed and latest and _ver_tuple(latest) > _ver_tuple(installed))
     return jsonify({"installed": installed, "latest": latest, "updateAvailable": update})
+
+
+# ─── yt-dlp updater ─────────────────────────────────────────────────────────
+def _active_ytdlp_version():
+    try:
+        import yt_dlp
+        return getattr(yt_dlp.version, "__version__", None) or getattr(yt_dlp, "__version__", None)
+    except Exception:
+        return None
+
+def _cmp_ytdlp(a, b):
+    """Compare yt-dlp date versions (e.g. 2025.06.24). Returns 1 / 0 / -1."""
+    def parse(v):
+        return [int(p) if p.isdigit() else 0 for p in str(v).replace("-", ".").split(".")]
+    pa, pb = parse(a), parse(b)
+    n = max(len(pa), len(pb)); pa += [0]*(n-len(pa)); pb += [0]*(n-len(pb))
+    return (pa > pb) - (pa < pb)
+
+@app.route("/ytdlp/check-update")
+def ytdlp_check_update():
+    installed = _active_ytdlp_version()
+    latest = None
+    try:
+        latest = requests.get("https://pypi.org/pypi/yt-dlp/json", timeout=10).json()["info"]["version"]
+    except Exception:
+        pass
+    update = bool(installed and latest and _cmp_ytdlp(latest, installed) > 0)
+    return jsonify({"installed": installed, "latest": latest, "updateAvailable": update})
+
+@app.route("/ytdlp/update", methods=["POST"])
+def ytdlp_update():
+    """Download the latest yt-dlp wheel from PyPI, activate it on sys.path and reload, so the
+    new version takes effect without an app restart (yt_dlp is imported lazily)."""
+    import glob as _glob
+    try:
+        data = requests.get("https://pypi.org/pypi/yt-dlp/json", timeout=15).json()
+        wheel_url = wheel_name = None
+        for u in data.get("urls", []):
+            if u.get("packagetype") == "bdist_wheel" and u.get("filename", "").endswith(".whl"):
+                wheel_url, wheel_name = u["url"], u["filename"]; break
+        if not wheel_url:
+            return jsonify({"ok": False, "error": "no wheel on PyPI"}), 502
+        dest = os.path.join(YTDLP_UPDATE_DIR, wheel_name)
+        tmp = dest + ".part"
+        with requests.get(wheel_url, stream=True, timeout=120) as wr:
+            wr.raise_for_status()
+            with open(tmp, "wb") as f:
+                for chunk in wr.iter_content(65536):
+                    if chunk: f.write(chunk)
+        os.replace(tmp, dest)
+        # Keep only the freshest wheel.
+        for old in _glob.glob(os.path.join(YTDLP_UPDATE_DIR, "yt_dlp-*.whl")):
+            if old != dest:
+                try: os.remove(old)
+                except OSError: pass
+        # Activate: prepend + drop cached module so the next lazy `import yt_dlp` picks it up.
+        if dest not in sys.path:
+            sys.path.insert(0, dest)
+        for m in [m for m in sys.modules if m == "yt_dlp" or m.startswith("yt_dlp.")]:
+            del sys.modules[m]
+        return jsonify({"ok": True, "version": _active_ytdlp_version()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 502
 
 
 @app.route("/ffmpeg/download")

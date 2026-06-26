@@ -187,7 +187,7 @@ const _MAX_FRONTEND_LOGS = 500;
 })();
 
 // ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = "1.0.0-alpha.24";
+const APP_VERSION = "1.0.0-alpha.25";
 
 // Published news feed (edit + commit updates/news.json in the public Kodama repo).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
@@ -5218,6 +5218,9 @@ function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccen
                 {/* FFmpeg version + update */}
                 <div className="h-px my-3.5 bg-border" />
                 <FfmpegUpdateRow />
+
+                {/* yt-dlp version + update (keep current when YouTube changes break playback) */}
+                <YtDlpUpdateRow />
               </>
             )}
 
@@ -11090,6 +11093,56 @@ function FfmpegUpdateRow() {
         <div className="text-t12 mt-1.5 flex items-center gap-1.5" style={{ color: "#ff7070" }}>{t("ffmpegUpdateFailed")}</div>
       )}
     </>
+  );
+}
+
+// yt-dlp version + on-demand update. yt-dlp is pure Python, so the backend can swap in a
+// newer wheel at runtime — lets the user fix YouTube extraction breakage ("Sign in to confirm
+// you're not a bot") without waiting for a full app release.
+function YtDlpUpdateRow() {
+  const t = useLang();
+  const [info, setInfo] = useState(null);      // { installed, latest, updateAvailable }
+  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState("idle");  // idle | updating | done | error
+
+  const check = useCallback(async () => {
+    setLoading(true);
+    try { setInfo(await fetch(`${API}/ytdlp/check-update`).then(r => r.json())); }
+    catch { setInfo(null); }
+    setLoading(false);
+  }, []);
+  useEffect(() => { check(); }, [check]);
+
+  const startUpdate = async () => {
+    setPhase("updating");
+    try {
+      const d = await fetch(`${API}/ytdlp/update`, { method: "POST" }).then(r => r.json());
+      if (d.ok) { setPhase("done"); check(); }
+      else setPhase("error");
+    } catch { setPhase("error"); }
+  };
+
+  const desc = loading ? t("checking")
+    : !info?.installed ? "—"
+    : info.updateAvailable ? `${info.installed} → ${info.latest}`
+    : `${info.installed} · ${t("upToDate")}`;
+
+  return (
+    <SettingRow label="yt-dlp" description={desc} icon={<DownloadSimple size={15} />}>
+      {phase === "updating" ? (
+        <span className="text-t12 text-muted flex items-center gap-1.5"><ArrowClockwise size={13} style={{ animation: "spin2 0.8s linear infinite" }} /></span>
+      ) : phase === "done" ? (
+        <span className="text-t12 flex items-center gap-1.5" style={{ color: "#4caf50" }}><CheckCircle size={14} weight="fill" />{t("ffmpegUpdated") || "Aktualisiert"}</span>
+      ) : phase === "error" ? (
+        <Button color="accent" variant="solid" size="sm" onPress={startUpdate}>{t("ffmpegUpdate") || "Update"}</Button>
+      ) : info?.updateAvailable ? (
+        <Button color="accent" variant="solid" size="sm" onPress={startUpdate}>{t("ffmpegUpdate") || "Update"}</Button>
+      ) : (
+        <Button variant="ghost" size="sm" isIconOnly className="rounded-full text-muted" isDisabled={loading} onPress={check}>
+          <ArrowClockwise size={14} style={loading ? { animation: "spin2 0.8s linear infinite" } : undefined} />
+        </Button>
+      )}
+    </SettingRow>
   );
 }
 
