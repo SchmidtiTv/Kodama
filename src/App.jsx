@@ -4159,7 +4159,7 @@ function AccountSettingsTab({ accounts, activeAccount, onSwitch, onAdd, onReauth
   );
 }
 
-function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccentDynamicChange, accentSat, onAccentSatChange, accentLight, onAccentLightChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
+function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccentDynamicChange, accentSat, onAccentSatChange, accentLight, onAccentLightChange, theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, onObsPortSave,
   customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut,
   accounts, activeAccount, onAccountSwitch, onAccountAdd, onAccountReauth, onAccountRemove, onAccountRename, onAccountLogout, onAccountAvatarChange,
@@ -4780,6 +4780,9 @@ function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccen
                 <SectionLabel>{t("general")}</SectionLabel>
                 <SettingRow label={t("autoplay")} description={t("autoplayDesc")} icon={<PlayCircle />}>
                   <Toggle value={autoplay} onChange={onAutoplayChange} />
+                </SettingRow>
+                <SettingRow label={t("progressivePlayback") || "Progressives Laden"} description={t("progressivePlaybackDesc") || "Schnellerer Start: streamt den Song statt ihn erst komplett herunterzuladen. Aus = klassisch (lädt vollständig, stabiler auf schwachen Geräten)."} icon={<WaveformLines />}>
+                  <Toggle value={playbackProgressive} onChange={onPlaybackProgressiveChange} />
                 </SettingRow>
                 <SettingRow label={<span style={{ display: "flex", alignItems: "center", gap: 6 }}>{t("crossfade")}<span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", background: "var(--accent)", color: "#fff", padding: "2px 5px", borderRadius: 4, lineHeight: 1.4 }}>Beta</span></span>} description={`${t("crossfadeDesc")}: ${crossfade}s`} icon={<Sliders />}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -5724,8 +5727,11 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected, onCreatePlaylist }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, playbackProgressive = true, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected, onCreatePlaylist }) {
   const [progress, setProgress] = useState(0);
+  // Stable ref so fetchUrl can read the current playback mode without re-subscribing.
+  const playbackProgressiveRef = useRef(playbackProgressive);
+  playbackProgressiveRef.current = playbackProgressive;
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
     const saved = parseFloat(localStorage.getItem("kiyoshi-volume"));
@@ -5887,9 +5893,15 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
         return cachedUrl;
       }
     } catch {}
-    // When Rust audio is active, download via yt-dlp to disk and return file path.
-    // Rust reads from disk — no HTTP proxy overhead.
     const useRust = audioRef.current && audioRef.current._fallback === false;
+    // Progressive (default): hand the Rust core the range-streaming proxy URL so it starts
+    // playing as soon as the header is fetched, instead of waiting for a full yt-dlp download.
+    if (useRust && playbackProgressiveRef.current) {
+      const proxyUrl = `${API}/audio-stream/${videoId}`;
+      urlCachePut(videoId, proxyUrl);
+      return proxyUrl;
+    }
+    // Classic: download via yt-dlp to disk and return the file path (Rust reads from disk).
     if (useRust) {
       try {
         const r = await fetch(`${API}/stream-prepare/${videoId}`);
@@ -12479,6 +12491,11 @@ export default function App() {
     const s = parseInt(localStorage.getItem("kiyoshi-crossfade"));
     return isNaN(s) ? 0 : s;
   });
+  // Progressive playback (default): stream the song for a fast start. Off = classic full
+  // download first (more stable on weak devices). Both stay in the Rust audio core.
+  const [playbackProgressive, setPlaybackProgressive] = useState(
+    () => localStorage.getItem("kodama-playback-mode") !== "classic"
+  );
 
   // ── Profile / Auth ──
   const [profiles, setProfiles] = useState([]);
@@ -13279,6 +13296,7 @@ export default function App() {
             queueOpen={queueOpen}
             onToggleQueue={() => setQueueOpen(q => !q)}
             crossfade={crossfade}
+            playbackProgressive={playbackProgressive}
             fullscreen={fullscreen}
             onToggleFullscreen={async () => {
               const { invoke } = await import('@tauri-apps/api/core');
@@ -13495,6 +13513,8 @@ export default function App() {
             onAutoplayChange={v => { setAutoplay(v); localStorage.setItem("kiyoshi-autoplay", v); }}
             crossfade={crossfade}
             onCrossfadeChange={v => { setCrossfade(v); localStorage.setItem("kiyoshi-crossfade", v); }}
+            playbackProgressive={playbackProgressive}
+            onPlaybackProgressiveChange={v => { setPlaybackProgressive(v); localStorage.setItem("kodama-playback-mode", v ? "progressive" : "classic"); }}
             closeTray={closeTray}
             onCloseTrayChange={v => { setCloseTray(v); localStorage.setItem("kiyoshi-close-tray", String(v)); import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_close_to_tray", { enabled: v }).catch(() => {})); }}
             discordRpc={discordRpc}

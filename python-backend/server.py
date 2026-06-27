@@ -2513,6 +2513,72 @@ def stream_prepare(video_id):
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
 
+# ── Progressive streaming proxy ─────────────────────────────────────────────
+# Range-forwarding proxy so the Rust audio core can stream a song (fast start) instead of
+# downloading it whole first, while keeping playback in the app process (OBS-capturable).
+# The resolved googlevideo URL is cached per video (it's expensive to extract and the Rust
+# source makes several range requests per song).
+_audio_stream_url_cache = {}  # video_id -> (url, expiry_ts)
+
+def _resolve_audio_url(video_id):
+    import requests as req
+    now = time.time()
+    ent = _audio_stream_url_cache.get(video_id)
+    if ent and ent[1] > now:
+        return ent[0]
+    try:
+        d = req.get(f"http://127.0.0.1:9847/stream/{video_id}", timeout=60).json()
+    except Exception:
+        return None
+    if d.get("premium_only"):
+        return "premium_only"
+    url = d.get("url")
+    if url:
+        _audio_stream_url_cache[video_id] = (url, now + 5 * 3600)
+    return url
+
+@app.route("/audio-stream/<video_id>")
+def audio_stream(video_id):
+    import requests as req
+    from flask import Response
+    range_header = request.headers.get("Range")
+    up_headers = {"User-Agent": "Mozilla/5.0"}
+    if range_header:
+        up_headers["Range"] = range_header
+
+    upstream = None
+    for attempt in range(2):
+        url = _resolve_audio_url(video_id)
+        if url == "premium_only":
+            return jsonify({"premium_only": True}), 403
+        if not url:
+            return jsonify({"error": "no_url"}), 502
+        try:
+            upstream = req.get(url, headers=up_headers, stream=True, timeout=60)
+        except Exception as e:
+            _audio_stream_url_cache.pop(video_id, None)
+            if attempt == 0:
+                continue
+            return jsonify({"error": str(e)}), 502
+        # Expired/blocked signed URL → drop cache and re-resolve once.
+        if upstream.status_code in (403, 410) and attempt == 0:
+            _audio_stream_url_cache.pop(video_id, None)
+            continue
+        break
+
+    resp_headers = {"Accept-Ranges": "bytes"}
+    for h in ("Content-Type", "Content-Length", "Content-Range"):
+        v = upstream.headers.get(h)
+        if v:
+            resp_headers[h] = v
+    ctype = upstream.headers.get("Content-Type", "audio/mp4")
+    def gen():
+        for chunk in upstream.iter_content(chunk_size=65536):
+            if chunk:
+                yield chunk
+    return Response(gen(), status=upstream.status_code, headers=resp_headers, content_type=ctype)
+
+
 @app.route("/library/playlists")
 def library_playlists():
     try:

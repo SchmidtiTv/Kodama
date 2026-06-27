@@ -191,6 +191,8 @@
   "minutes": "min",
   "autoplay": "Autoplay",
   "autoplayDesc": "Automatically play next song",
+  "progressivePlayback": "Progressive loading",
+  "progressivePlaybackDesc": "Faster start: streams the song instead of downloading it fully first. Off = classic (downloads completely, more stable on weaker devices).",
   "crossfade": "Crossfade",
   "crossfadeDesc": "Crossfade between songs",
   "closeTray": "Close to Tray",

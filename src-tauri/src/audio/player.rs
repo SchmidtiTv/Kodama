@@ -93,11 +93,17 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
 
         let mut sink: Option<rodio::Sink> = None;
         let mut audio_data: Option<Vec<u8>> = None;
+        // For progressive (HTTP-streamed) playback: the proxy URL to re-stream from on seek.
+        let mut progressive_url: Option<String> = None;
         let mut duration: f64 = 0.0;
         let mut volume: f32 = 0.16f32;
         let mut seek_offset: f64 = 0.0;
 
         let (data_tx, data_rx) = std::sync::mpsc::channel::<(Vec<u8>, f64, u64)>();
+        // Progressive path delivers an already-probed, ready-to-play StreamingSource built off
+        // the audio thread (so the probe's network reads don't block command handling).
+        let (source_tx, source_rx) =
+            std::sync::mpsc::channel::<(super::decoder::StreamingSource, u64, bool)>();
         let mut play_gen: u64 = 0;
 
         loop {
@@ -146,6 +152,33 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                 }
             }
 
+            // Progressive (HTTP-streamed) sources, already probed off-thread.
+            while let Ok((mut source, gen, start_paused)) = source_rx.try_recv() {
+                if gen != play_gen {
+                    eprintln!("[Audio] Ignoring stale stream source (gen {gen} != {play_gen})");
+                    continue;
+                }
+                if let Some(s) = sink.take() {
+                    s.stop();
+                }
+                // seek_offset was set by the Play/Seek handler (the source decodes from there).
+                duration = source.total_duration().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+                match rodio::Sink::try_new(&handle) {
+                    Ok(new_sink) => {
+                        new_sink.set_volume(volume);
+                        *current_analysis.lock().unwrap() = Some(source.enable_analysis());
+                        new_sink.append(source);
+                        if start_paused {
+                            new_sink.pause();
+                        }
+                        let _ = app.emit("audio-loaded", serde_json::json!({ "duration": duration }));
+                        sink = Some(new_sink);
+                        eprintln!("[Audio] Progressive stream playing, duration={duration:.1}s");
+                    }
+                    Err(e) => eprintln!("[Audio] Sink error: {e}"),
+                }
+            }
+
             while let Ok(cmd) = rx.try_recv() {
                 match cmd {
                     AudioCmd::Play { url, seek_to } => {
@@ -155,8 +188,35 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                         duration = 0.0;
                         seek_offset = 0.0;
                         audio_data = None;
+                        progressive_url = None;
                         play_gen += 1;
                         let gen = play_gen;
+
+                        // Progressive: the /audio-stream proxy streams with byte-range support →
+                        // build the streaming source off-thread and play as soon as it's probed.
+                        if url.contains("/audio-stream/") {
+                            progressive_url = Some(url.clone());
+                            seek_offset = seek_to; // source decodes from seek_to; report offset
+                            let stx = source_tx.clone();
+                            let dl_app = app.clone();
+                            std::thread::spawn(move || {
+                                eprintln!("[Audio] Progressive stream (gen {gen})");
+                                let built = super::http_source::HttpStream::new(url)
+                                    .map_err(|e| e.to_string())
+                                    .and_then(|hs| {
+                                        super::decoder::StreamingSource::new_streaming(Box::new(hs), seek_to)
+                                    });
+                                match built {
+                                    Ok(source) => { let _ = stx.send((source, gen, false)); }
+                                    Err(e) => {
+                                        eprintln!("[Audio] Progressive load error (gen {gen}): {e}");
+                                        let _ = dl_app.emit("audio-error", format!("Stream failed: {e}"));
+                                    }
+                                }
+                            });
+                            continue;
+                        }
+
                         let dtx = data_tx.clone();
                         let dl_app = app.clone();
 
@@ -213,10 +273,30 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                         }
                         duration = 0.0;
                         audio_data = None;
+                        progressive_url = None;
                     }
                     AudioCmd::Seek(t) => {
-                        if let Some(ref data) = audio_data {
-                            let was_paused = sink.as_ref().map(|s| s.is_paused()).unwrap_or(false);
+                        let was_paused = sink.as_ref().map(|s| s.is_paused()).unwrap_or(false);
+                        if let Some(url) = progressive_url.clone() {
+                            // Progressive: re-open the ranged HTTP stream at the seek position.
+                            if let Some(s) = sink.take() {
+                                s.stop();
+                            }
+                            seek_offset = t;
+                            play_gen += 1;
+                            let gen = play_gen;
+                            let stx = source_tx.clone();
+                            std::thread::spawn(move || {
+                                let built = super::http_source::HttpStream::new(url)
+                                    .map_err(|e| e.to_string())
+                                    .and_then(|hs| {
+                                        super::decoder::StreamingSource::new_streaming(Box::new(hs), t)
+                                    });
+                                if let Ok(source) = built {
+                                    let _ = stx.send((source, gen, was_paused));
+                                }
+                            });
+                        } else if let Some(ref data) = audio_data {
                             if let Some(s) = sink.take() {
                                 s.stop();
                             }

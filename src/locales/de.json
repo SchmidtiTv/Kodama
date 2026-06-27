@@ -191,6 +191,8 @@
   "minutes": "Min.",
   "autoplay": "Autom. Wiedergabe",
   "autoplayDesc": "Nächsten Song automatisch abspielen",
+  "progressivePlayback": "Progressives Laden",
+  "progressivePlaybackDesc": "Schnellerer Start: streamt den Song statt ihn erst komplett herunterzuladen. Aus = klassisch (lädt vollständig, stabiler auf schwachen Geräten).",
   "crossfade": "Überblendung",
   "crossfadeDesc": "Sanfte Überblendung zwischen Songs",
   "closeTray": "In Tray minimieren",

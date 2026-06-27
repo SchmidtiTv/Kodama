@@ -222,6 +222,112 @@ pub fn spawn_decoder(data: Vec<u8>, track_id: u32, ring: Arc<SampleRing>, seek_t
     });
 }
 
+// Like spawn_decoder but reads from a seekable streaming MediaSource (HTTP). Probes once,
+// hands the format info back over `info_tx`, then decodes progressively into the ring.
+pub fn spawn_decoder_streaming(
+    source: Box<dyn symphonia::core::io::MediaSource>,
+    ring: Arc<SampleRing>,
+    seek_to_secs: f64,
+    info_tx: std::sync::mpsc::SyncSender<Result<ProbeResult, String>>,
+) {
+    std::thread::spawn(move || {
+        use symphonia::core::codecs::DecoderOptions;
+        use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
+        use symphonia::core::io::MediaSourceStream;
+        use symphonia::core::meta::MetadataOptions;
+        use symphonia::core::probe::Hint;
+        use symphonia::core::units::Time;
+
+        let mss = MediaSourceStream::new(source, Default::default());
+        let probed = match symphonia::default::get_probe().format(
+            &Hint::new(),
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        ) {
+            Ok(p) => p,
+            Err(e) => {
+                let _ = info_tx.send(Err(format!("probe error: {e}")));
+                ring.set_done();
+                return;
+            }
+        };
+
+        let mut format = probed.format;
+        let (channels, sample_rate, track_id, total_duration, codec_params) = {
+            let track = match format.default_track() {
+                Some(t) => t,
+                None => {
+                    let _ = info_tx.send(Err("no default track".to_string()));
+                    ring.set_done();
+                    return;
+                }
+            };
+            let sr = track.codec_params.sample_rate.unwrap_or(48000);
+            (
+                track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2),
+                sr,
+                track.id,
+                track
+                    .codec_params
+                    .n_frames
+                    .map(|frames| std::time::Duration::from_secs_f64(frames as f64 / sr as f64)),
+                track.codec_params.clone(),
+            )
+        };
+        let _ = info_tx.send(Ok(ProbeResult { channels, sample_rate, total_duration, track_id }));
+
+        let mut decoder = match symphonia::default::get_codecs()
+            .make(&codec_params, &DecoderOptions::default())
+        {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("[Audio] streaming codec error: {e}");
+                ring.set_done();
+                return;
+            }
+        };
+
+        if seek_to_secs > 0.05 {
+            let _ = format.seek(
+                SeekMode::Coarse,
+                SeekTo::Time { time: Time::from(seek_to_secs), track_id: None },
+            );
+        }
+
+        loop {
+            let packet = match format.next_packet() {
+                Ok(p) => p,
+                Err(symphonia::core::errors::Error::IoError(ref e))
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    break
+                }
+                Err(symphonia::core::errors::Error::ResetRequired) => break,
+                Err(_) => break,
+            };
+            if packet.track_id() != track_id {
+                continue;
+            }
+            let decoded = match decoder.decode(&packet) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            let spec = *decoded.spec();
+            let num_frames = decoded.frames();
+            let mut sample_buf =
+                symphonia::core::audio::SampleBuffer::<f32>::new(num_frames as u64, spec);
+            sample_buf.copy_interleaved_ref(decoded);
+            for &s in sample_buf.samples() {
+                while !ring.push(s) {
+                    std::thread::sleep(std::time::Duration::from_micros(100));
+                }
+            }
+        }
+        ring.set_done();
+    });
+}
+
 impl StreamingSource {
     pub fn new(data: Vec<u8>) -> Result<Self, String> {
         Self::new_with_seek(data, 0.0)
@@ -240,6 +346,35 @@ impl StreamingSource {
             info.channels, info.sample_rate
         );
 
+        Ok(StreamingSource {
+            ring,
+            channels: info.channels,
+            sample_rate: info.sample_rate,
+            total_duration: info.total_duration,
+            analysis: None,
+            tap_pos: 0,
+        })
+    }
+
+    // Progressive playback: decode straight from a seekable streaming MediaSource (HTTP) so
+    // we start as soon as the header/moov is fetched instead of after a full download.
+    pub fn new_streaming(
+        source: Box<dyn symphonia::core::io::MediaSource>,
+        seek_to_secs: f64,
+    ) -> Result<Self, String> {
+        let ring_cap = 48000usize * 2 * 12; // ~12 s stereo buffer (generous; exact rate unknown yet)
+        let ring = Arc::new(SampleRing::new(ring_cap));
+        let (info_tx, info_rx) =
+            std::sync::mpsc::sync_channel::<Result<ProbeResult, String>>(1);
+
+        spawn_decoder_streaming(source, Arc::clone(&ring), seek_to_secs, info_tx);
+
+        // Block only until the format is probed (header/moov), not the whole file.
+        let info = info_rx.recv().map_err(|e| format!("probe channel: {e}"))??;
+        eprintln!(
+            "[Audio] Streaming(HTTP) decoder started: {}ch, {}Hz, seek={seek_to_secs:.1}s",
+            info.channels, info.sample_rate
+        );
         Ok(StreamingSource {
             ring,
             channels: info.channels,
