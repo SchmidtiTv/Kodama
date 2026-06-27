@@ -30,6 +30,8 @@ rodio      = { version = "0.20", features = ["symphonia-all"] }
 symphonia  = { version = "0.5",  features = ["all"] }
 rustfft    = "6"
 base64     = "0.22"
+# OS media controls (Windows SMTC, macOS Now Playing, Linux MPRIS) + media keys.
+souvlaki   = "0.7"
 
 [target.'cfg(windows)'.dependencies]
 # xcap (bug-report screenshot) doesn't compile on macOS (xcap 0.0.14 macos backend) — Windows only.

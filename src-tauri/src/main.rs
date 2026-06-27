@@ -5,6 +5,7 @@ mod discord;
 mod window;
 mod server;
 mod obs;
+mod media;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
@@ -155,6 +156,10 @@ fn main() {
                 window::remove_window_border(&w);
             }
 
+            // OS media controls (SMTC / Now Playing / MPRIS). setup() runs on the main thread,
+            // which souvlaki requires (and where the main window's HWND is available).
+            media::init(app.handle());
+
             #[cfg(windows)]
             start_audio_session_tagger();
 
@@ -211,6 +216,7 @@ fn main() {
             set_fullscreen, open_login_window, close_login_window, open_composer_window,
             remove_window_border_for,
             update_discord_rpc, clear_discord_rpc,
+            media::media_update, media::media_clear,
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_volume,
             relaunch_app, quit_app, stop_server_cmd,

@@ -6095,6 +6095,33 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     else { a.play(); setIsPlaying(true); }
   };
 
+  // OS media controls (Windows SMTC / macOS Now Playing / Linux MPRIS + keyboard media keys)
+  // emit a `media-control` event from Rust; drive the player from it. Subscribe once and read
+  // the latest handlers through a ref so we don't re-bind the listener on every render.
+  const mediaCtlRef = useRef({});
+  mediaCtlRef.current = { togglePlay, getAdjacentTrack, setTrack, setIsPlaying };
+  useEffect(() => {
+    let unlisten;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen("media-control", (e) => {
+        const { action, position } = e.payload || {};
+        const h = mediaCtlRef.current;
+        const a = audioRef.current;
+        switch (action) {
+          case "play":     if (a && a.paused) { a.play(); h.setIsPlaying(true); } break;
+          case "pause":    if (a && !a.paused) { a.pause(); h.setIsPlaying(false); } break;
+          case "toggle":   h.togglePlay(); break;
+          case "next":     { const tk = h.getAdjacentTrack("next"); if (tk) h.setTrack(tk); break; }
+          case "previous": { const tk = h.getAdjacentTrack("prev"); if (tk) h.setTrack(tk); break; }
+          case "stop":     if (a) { a.pause(); h.setIsPlaying(false); } break;
+          case "seek":     if (a && typeof position === "number") a.currentTime = position; break;
+          default: break;
+        }
+      }).then(fn => { unlisten = fn; });
+    });
+    return () => { if (unlisten) unlisten(); };
+  }, []);
+
   // Seek drag state for the HeroUI seek slider (seconds while dragging, else null).
   const [seekDrag, setSeekDrag] = useState(null);
 
@@ -11979,8 +12006,9 @@ export default function App() {
       if (cancelled) return;
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        if (!discordRpc || !currentTrack) {
+        if (!currentTrack) {
           invoke("clear_discord_rpc").catch(() => {});
+          invoke("media_clear").catch(() => {});
           return;
         }
         const a = audioRef.current;
@@ -11990,6 +12018,23 @@ export default function App() {
         const artistStr = Array.isArray(currentTrack.artists)
           ? currentTrack.artists.map(a => a?.name || a).join(", ")
           : (currentTrack.artists || "");
+
+        // OS media controls (SMTC / Now Playing / MPRIS) — always on, independent of Discord.
+        invoke("media_update", {
+          title: currentTrack.title || "",
+          artist: artistStr,
+          album: currentTrack.album || "",
+          thumbnail: currentTrack.thumbnail || "",
+          duration: dur,
+          elapsed: a?.currentTime || 0,
+          paused: !isPlaying,
+        }).catch(() => {});
+
+        // Discord Rich Presence — opt-in via setting.
+        if (!discordRpc) {
+          invoke("clear_discord_rpc").catch(() => {});
+          return;
+        }
         invoke("update_discord_rpc", {
           title: currentTrack.title || "",
           artist: artistStr,
