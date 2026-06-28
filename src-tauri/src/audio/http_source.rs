@@ -1,26 +1,28 @@
 // A seekable HTTP audio source for symphonia: progressive playback without downloading the
-// whole file first. Reads sequentially over one connection; on seek (symphonia jumping to the
-// mp4 `moov` atom, or a user scrub) it re-opens with a `Range:` request. The upstream (a local
-// proxy → googlevideo) supports byte ranges, so this gives fast start while keeping playback in
-// the Rust audio process (so OBS Application Audio Capture + the Rust visualizer still work).
+// whole file first, and without a new HTTP round-trip per buffer refill.
 //
-// The reqwest Response isn't Sync, but symphonia's MediaSource requires Send + Sync, so the
-// mutable bits live behind a Mutex (only ever touched from the single decoder thread anyway).
+// One background thread downloads the file sequentially over a SINGLE connection into a
+// growing in-memory buffer. read()/seek() are served from that buffer — seeks anywhere within
+// the downloaded region are instant, and a read past the download point blocks until the
+// downloader catches up. This keeps playback in the Rust process (OBS + visualizer) and gives
+// a fast start for fast-start (moov-at-front) files: the decoder reads the header + first
+// samples as soon as they arrive while the rest streams in. (For moov-at-end files it ends up
+// waiting for the full download, same as classic — but still correct.)
 use std::io::{self, Read, Seek, SeekFrom};
-use std::sync::Mutex;
+use std::sync::{Arc, Condvar, Mutex};
 
 use symphonia::core::io::MediaSource;
 
-pub struct HttpStream {
-    url: String,
-    client: reqwest::blocking::Client,
-    inner: Mutex<Inner>,
+struct Shared {
+    data: Vec<u8>,
+    total: Option<u64>,
+    complete: bool,
+    errored: bool,
 }
 
-struct Inner {
+pub struct HttpStream {
+    shared: Arc<(Mutex<Shared>, Condvar)>,
     pos: u64,
-    len: Option<u64>,
-    reader: Option<reqwest::blocking::Response>,
 }
 
 impl HttpStream {
@@ -29,77 +31,109 @@ impl HttpStream {
             .timeout(std::time::Duration::from_secs(60))
             .build()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let s = HttpStream {
-            url,
-            client,
-            inner: Mutex::new(Inner { pos: 0, len: None, reader: None }),
-        };
-        s.open_at(0)?;
-        Ok(s)
-    }
 
-    fn open_at(&self, pos: u64) -> io::Result<()> {
-        let resp = self
-            .client
-            .get(&self.url)
-            .header(reqwest::header::RANGE, format!("bytes={}-", pos))
+        // Open the stream and learn the total length before returning so byte_len() is known.
+        let resp = client
+            .get(&url)
+            .header(reqwest::header::RANGE, "bytes=0-")
             .send()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let status = resp.status();
         if !(status.is_success() || status.as_u16() == 206) {
             return Err(io::Error::new(io::ErrorKind::Other, format!("HTTP {}", status)));
         }
-        let mut inner = self.inner.lock().unwrap();
-        if inner.len.is_none() {
-            // Prefer the total from `Content-Range: bytes start-end/total`; fall back to
-            // Content-Length on a from-zero request.
-            if let Some(total) = resp
-                .headers()
-                .get(reqwest::header::CONTENT_RANGE)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| s.rsplit('/').next().map(str::trim))
-                .and_then(|t| t.parse::<u64>().ok())
-            {
-                inner.len = Some(total);
-            } else if pos == 0 {
-                inner.len = resp.content_length();
-            }
+        let total = resp
+            .headers()
+            .get(reqwest::header::CONTENT_RANGE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.rsplit('/').next().map(str::trim))
+            .and_then(|t| t.parse::<u64>().ok())
+            .or_else(|| resp.content_length());
+
+        let shared = Arc::new((
+            Mutex::new(Shared {
+                data: Vec::with_capacity(total.unwrap_or(1 << 20) as usize),
+                total,
+                complete: false,
+                errored: false,
+            }),
+            Condvar::new(),
+        ));
+
+        // Background downloader: sequential, single connection.
+        {
+            let shared = Arc::clone(&shared);
+            std::thread::spawn(move || {
+                let mut resp = resp;
+                let mut buf = [0u8; 65536];
+                loop {
+                    match resp.read(&mut buf) {
+                        Ok(0) => {
+                            let (m, cv) = &*shared;
+                            m.lock().unwrap().complete = true;
+                            cv.notify_all();
+                            break;
+                        }
+                        Ok(n) => {
+                            let (m, cv) = &*shared;
+                            m.lock().unwrap().data.extend_from_slice(&buf[..n]);
+                            cv.notify_all();
+                        }
+                        Err(_) => {
+                            let (m, cv) = &*shared;
+                            let mut g = m.lock().unwrap();
+                            g.errored = true;
+                            g.complete = true;
+                            cv.notify_all();
+                            break;
+                        }
+                    }
+                }
+            });
         }
-        inner.pos = pos;
-        inner.reader = Some(resp);
-        Ok(())
+
+        Ok(HttpStream { shared, pos: 0 })
     }
 }
 
 impl Read for HttpStream {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut inner = self.inner.lock().unwrap();
-        let n = match inner.reader.as_mut() {
-            Some(r) => r.read(buf)?,
-            None => 0,
-        };
-        inner.pos += n as u64;
-        Ok(n)
+        let (m, cv) = &*self.shared;
+        let mut g = m.lock().unwrap();
+        loop {
+            let have = g.data.len() as u64;
+            if self.pos < have {
+                let start = self.pos as usize;
+                let n = (have - self.pos).min(buf.len() as u64) as usize;
+                buf[..n].copy_from_slice(&g.data[start..start + n]);
+                self.pos += n as u64;
+                return Ok(n);
+            }
+            if g.complete {
+                if g.errored && have == 0 {
+                    return Err(io::Error::new(io::ErrorKind::Other, "download failed"));
+                }
+                return Ok(0); // genuine EOF
+            }
+            // Read is ahead of the download — wait for more bytes.
+            g = cv.wait(g).unwrap();
+        }
     }
 }
 
 impl Seek for HttpStream {
     fn seek(&mut self, from: SeekFrom) -> io::Result<u64> {
-        let (pos, len) = {
-            let inner = self.inner.lock().unwrap();
-            (inner.pos, inner.len)
-        };
+        let total = { self.shared.0.lock().unwrap().total };
         let target = match from {
             SeekFrom::Start(p) => p,
-            SeekFrom::Current(d) => (pos as i64 + d).max(0) as u64,
+            SeekFrom::Current(d) => (self.pos as i64 + d).max(0) as u64,
             SeekFrom::End(d) => {
-                let l = len.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "unknown length"))?;
+                let l = total.ok_or_else(|| io::Error::new(io::ErrorKind::Other, "unknown length"))?;
                 (l as i64 + d).max(0) as u64
             }
         };
-        if target != pos {
-            self.open_at(target)?;
-        }
+        // Pure position update — bytes are served from the growing buffer (no re-request).
+        self.pos = target;
         Ok(target)
     }
 }
@@ -109,6 +143,6 @@ impl MediaSource for HttpStream {
         true
     }
     fn byte_len(&self) -> Option<u64> {
-        self.inner.lock().unwrap().len
+        self.shared.0.lock().unwrap().total
     }
 }
