@@ -1,8 +1,8 @@
 <div align="center">
+  <img width="210" height="48" alt="Kodama Logo Full" src="https://github.com/user-attachments/assets/e003560b-1760-4657-a8fc-454195293937" />
 </div>
 
 <div align="center">
-  <h1>Kodama</h1>
   <p>An unofficial YouTube Music desktop client — built with Tauri 2 &amp; React.</p>
 
   [![Version](https://img.shields.io/badge/version-1.0.0-a855f7?style=flat-square)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
@@ -14,8 +14,7 @@
 
 ---
 
-This page is under construction! Will be updated soon!
-=='<img width="210" height="48" alt="Kodama Logo Full" src="https://github.com/user-attachments/assets/e003560b-1760-4657-a8fc-454195293937" />
+This page is under construction! Will be updated soon! =='
 
 
 ## For Developers
