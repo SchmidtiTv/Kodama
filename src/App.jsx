@@ -4166,6 +4166,18 @@ function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccen
   tab, setTab }) {
   const anim = useAnimations();
   const t = useLang();
+  // Visualizer preview scales with the window height (live on resize) so on short windows it
+  // shrinks — both the box AND the cover — leaving room to reach the options below.
+  const [winH, setWinH] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setWinH(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const vizPreviewH = Math.round(Math.max(260, Math.min(620, winH * 0.48)));
+  const vizCoverSize = Math.round(Math.max(130, Math.min(260, vizPreviewH * 0.42)));
+  const [vizPreviewOpen, setVizPreviewOpen] = useState(() => localStorage.getItem("kodama-viz-preview") !== "collapsed");
+  const toggleVizPreview = () => setVizPreviewOpen(o => { const n = !o; localStorage.setItem("kodama-viz-preview", n ? "open" : "collapsed"); return n; });
   const [debugUnlocked, setDebugUnlocked] = useState(() => localStorage.getItem("kiyoshi-debug-unlocked") === "true");
   const [debugTapCount, setDebugTapCount] = useState(0);
   const [debugToast, setDebugToast] = useState(null); // "unlocked" | "already" | null
@@ -4573,18 +4585,32 @@ function SettingsPanel({ onClose, accent, onAccentChange, accentDynamic, onAccen
             )}
             {tab === "visualizer" && (
               <>
-                {/* Live preview — reflects the current track + config in real time */}
-                <div className="mb-4 rounded-xl overflow-hidden border border-border sticky z-10 shrink-0" style={{ height: "min(620px, 58vh)", top: -8, background: "var(--bg-base)" }}>
-                  {vizPreviewTrack?.thumbnail && (<>
-                    <div style={{ position: "absolute", inset: "-10%", backgroundImage: `url(${thumb(vizPreviewTrack.thumbnail)})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(56px) saturate(1.4) brightness(0.7)", transform: "scale(1.2)" }} />
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.42)" }} />
-                  </>)}
-                  <div style={{ position: "absolute", inset: 0 }}>
-                    {vizPreviewTrack
-                      ? <CoverView track={vizPreviewTrack} isPlaying={vizPreviewPlaying} onClose={() => {}} ambientVisualizer vizConfig={vizConfig} coverSize={260} />
-                      : <div className="flex items-center justify-center h-full text-t13 text-muted">{t("visualizerPreviewHint") || "Play a song to preview the visualizer"}</div>}
+                {/* Live preview — reflects the current track + config in real time.
+                    Collapsible so the options below are always reachable on short windows. */}
+                {vizPreviewOpen ? (
+                  <div className="mb-4 rounded-xl overflow-hidden border border-border sticky z-10 shrink-0" style={{ height: vizPreviewH, top: -8, background: "var(--bg-base)" }}>
+                    {vizPreviewTrack?.thumbnail && (<>
+                      <div style={{ position: "absolute", inset: "-10%", backgroundImage: `url(${thumb(vizPreviewTrack.thumbnail)})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(56px) saturate(1.4) brightness(0.7)", transform: "scale(1.2)" }} />
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.42)" }} />
+                    </>)}
+                    <div style={{ position: "absolute", inset: 0 }}>
+                      {vizPreviewTrack
+                        ? <CoverView track={vizPreviewTrack} isPlaying={vizPreviewPlaying} onClose={() => {}} ambientVisualizer vizConfig={vizConfig} coverSize={vizCoverSize} />
+                        : <div className="flex items-center justify-center h-full text-t13 text-muted">{t("visualizerPreviewHint") || "Play a song to preview the visualizer"}</div>}
+                    </div>
+                    <button onClick={toggleVizPreview} title={t("hidePreview") || "Vorschau einklappen"}
+                      className="absolute top-2 right-2 z-20 flex items-center gap-1 rounded-full px-2.5 py-1 text-t12 text-white"
+                      style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)" }}>
+                      <EyeSlash size={14} /><CaretUp size={12} />
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <button onClick={toggleVizPreview}
+                    className="mb-4 w-full flex items-center justify-center gap-2 rounded-xl border border-border text-t13 text-secondary hover:bg-hover transition-colors"
+                    style={{ height: 44 }}>
+                    <Eye size={16} />{t("showPreview") || "Vorschau anzeigen"}<CaretDown size={13} />
+                  </button>
+                )}
                 <SettingRow label={t("visualizer")} description={t("visualizerDesc")} icon={<WaveformLines />}>
                   <Toggle value={ambientVisualizer} onChange={onToggleAmbientVisualizer} />
                 </SettingRow>

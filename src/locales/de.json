@@ -183,6 +183,8 @@
   "visualizerResponse": "Reaktionsfreudigkeit",
   "visualizerColor": "Farbe",
   "visualizerBlobs": "Ambient-Blobs",
+  "showPreview": "Vorschau anzeigen",
+  "hidePreview": "Vorschau einklappen",
   "coverPulse": "Cover-Puls",
   "custom": "Eigene",
   "downloadQueue": "Download-Warteschlange",

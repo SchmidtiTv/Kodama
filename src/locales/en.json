@@ -181,6 +181,8 @@
   "visualizerResponse": "Responsiveness",
   "visualizerColor": "Colour",
   "visualizerBlobs": "Ambient blobs",
+  "showPreview": "Show preview",
+  "hidePreview": "Hide preview",
   "coverPulse": "Cover pulse",
   "custom": "Custom",
   "ambientBackground": "Ambient Background (Experimental)",
