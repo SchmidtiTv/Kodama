@@ -29,9 +29,14 @@
 
 Grab the latest build from the [**Releases**](https://github.com/KiyoshiTheDevil/Kodama/releases/latest) page:
 
-- **Windows:** run the `*_x64-setup.exe` installer.
-- **macOS (Apple Silicon):** the build is currently **unsigned**; see the release notes for the
-  install instructions (Gatekeeper bypass).
+**Windows:** download and run the `*_x64-setup.exe` installer from the latest release.
+
+**macOS (Apple Silicon):** the build is **unsigned**, so install it with this command (it
+downloads the latest release and avoids Gatekeeper's quarantine):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/install.sh | bash
+```
 
 The app updates itself in place once installed.
 
