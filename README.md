@@ -3,19 +3,41 @@
 </div>
 
 <div align="center">
-  <p>An unofficial YouTube Music desktop client — built with Tauri 2 &amp; React.</p>
+  <p>An unofficial desktop player for YouTube Music.</p>
 
-  [![Version](https://img.shields.io/badge/version-1.0.0-a855f7?style=for-the-badge)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
-  [![Platform](https://img.shields.io/badge/platform-Windows-0078d4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
+  [![Version](https://img.shields.io/github/v/release/KiyoshiTheDevil/Kodama?include_prereleases&style=for-the-badge&color=a855f7&label=version)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
+  [![Platform](https://img.shields.io/badge/platform-Windows_%7C_macOS-0078d4?style=for-the-badge)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
   [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8db?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app)
   [![Crowdin](https://img.shields.io/badge/translate-Crowdin-2e3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/kiyoshi-music)
-  [![License](https://img.shields.io/badge/license-Personal_Use-ef4444?style=for-the-badge)](#disclaimer)
+  [![License](https://img.shields.io/badge/license-AGPL_v3-3da639?style=for-the-badge)](LICENSE)
 </div>
 
 ---
 
-This page is under construction! Will be updated soon! =='
+> Kodama is in active **alpha**.
 
+## Features
+
+- **Synced lyrics** with word- and syllable-level timing, plus **Unison** community lyrics.
+- **Lyrics Composer** for creating and editing your own.
+- **Crossfade** and a built-in **visualizer**.
+- **Remote control** from your phone.
+- **OBS overlay** for streaming.
+- **Offline downloads**, Discord Rich Presence, and Last.fm scrobbling.
+
+## Download
+
+Grab the latest build from the [**Releases**](https://github.com/KiyoshiTheDevil/Kodama/releases/latest) page:
+
+- **Windows:** run the `*_x64-setup.exe` installer.
+- **macOS (Apple Silicon):** the build is currently **unsigned**; see the release notes for the
+  install instructions (Gatekeeper bypass).
+
+The app updates itself in place once installed.
+
+## Screenshots
+
+<!-- TODO: add fresh screenshots of the current app (player, lyrics, library, settings). -->
 
 ## For Developers
 
@@ -64,9 +86,16 @@ npm run tauri build
 
 See [CHANGELOG.md](CHANGELOG.md) for a full version history.
 
----
+## License
+
+Kodama is licensed under the **[GNU Affero General Public License v3.0](LICENSE)** (AGPL-3.0).
+You are free to use, study, modify and redistribute it, provided derivative works remain under
+the same license and their source is made available.
+
+The bundled lyrics Composer is a vendored component licensed under the AGPL-3.0 as well.
 
 ## Disclaimer
 
-Kodama is an unofficial client and is not affiliated with or endorsed by YouTube or Google.  
-It uses the unofficial YouTube Music API for personal use only. Use at your own risk.
+Kodama is an **unofficial** client and is **not affiliated with or endorsed by YouTube or
+Google**. It relies on the unofficial YouTube Music API and is provided for personal use, as-is
+and without warranty. Use at your own risk.
