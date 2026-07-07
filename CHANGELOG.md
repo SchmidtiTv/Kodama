@@ -8,6 +8,11 @@ All notable changes to Kodama (formerly Kiyoshi Music) are documented here.
 
 > Changes landing after the latest release accumulate here.
 
+## [1.0.0-alpha.28] — 2026-07-07
+
+### Fixed
+- **Last.fm now works in installed builds** — scrobbling and loving tracks were unavailable in the packaged app (Last.fm showed *"Not configured"*), even though it worked in development. The credentials are now bundled correctly.
+
 ## [1.0.0-alpha.27] — 2026-07-06
 
 ### Added
