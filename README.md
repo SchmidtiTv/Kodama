@@ -44,6 +44,9 @@ Automatic Updates on macOS are currently not functional. Hopefully I can fix it 
 
 <!-- TODO: add fresh screenshots of the current app (player, lyrics, library, settings). -->
 
+A Google account is not required to use the player, Premium isn't required either.
+Please be aware, that some content might be inaccessable due to Premium restrictions.
+
 ## For Developers
 
 ### Prerequisites
