@@ -96,3 +96,6 @@ hard_0116.txt
 
 # Local PAT for dist publishing (never commit)
 dist_token.txt
+
+# Maintainer-only tooling (news editor mit GitHub-Publish etc.) — nicht ins Public-Repo
+tools/
