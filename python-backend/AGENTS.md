@@ -15,9 +15,22 @@ The following route families are already registered by the app factory:
 - Cache controls: `src/routes/cache/`
 - Standalone/root routes: `src/routes/root/`
 - Streaming: `src/routes/streaming/`
+- Music library and detail pages: `src/routes/library/`
 
 The matching legacy handlers have been removed from `server.py` after each
 family was ported.
+
+The library family (`/library/*`, `/playlist/*`, `/radio/*`, `/album/*`,
+`/artist/*`, `/song/meta`, `/song/credits`) lives under `src/routes/library/`,
+grouped by subject (`library`, `playlist`, `radio`, `album`, `artist`, `song`)
+with shared `_services.py` accessors and a `_formatters.py` track normalizer.
+Local-profile SQLite goes through `Profile.local_database`/`is_local`; playlist
+and album disk caches are the `Playlist` and `Album` services in
+`src/lib/music/`, registered as `app.extensions["playlist_cache"]` and
+`["album_cache"]`. Cache feature flags read from `CacheSettings.enabled`, the
+active YTMusic client from `session.get_active_client()`, and thumbnail/artist
+normalization from `YoutubeResponseMapper`. The small `/song/credits` scrape
+cache stays a module-level dict in `library/song.py`.
 
 The streaming family (`/stream`, `/stream-prepare`, `/audio-stream` and its
 `/warm` variant) is served by `StreamService` in `src/lib/music/stream.py`,
@@ -43,21 +56,16 @@ Non-route infrastructure ported out of `server.py`'s module top-level:
 The remaining `server.py` routes should be migrated by coherent subject, not in
 file order:
 
-1. Music library and detail pages
-   - `/library/*`, `/playlist/*`, `/radio/*`
-   - `/album/*`, `/artist/*`, `/song/meta/*`, `/song/credits/*`
-   - Local-profile SQLite behavior and playlist/album disk caches.
-
-2. Discovery
+1. Discovery
    - `/podcast/*`, `/mood/*`
    - Any remaining response-normalization helpers they require.
 
-3. Download, export, and tool updates
+2. Download, export, and tool updates
    - `/song/download/*`, `/song/cached/*`, `/downloads/queue`
    - `/song/export/*`, `/ffmpeg/*`, `/ytdlp/*`
    - Download state, ffmpeg discovery, export status, and update workflows.
 
-4. Operations and integrations
+3. Operations and integrations
    - `/debug/info`
    - `/overlay/*`
    - `/remote/*`

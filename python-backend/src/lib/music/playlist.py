@@ -1,24 +1,31 @@
-"""In-memory playlist cache helper."""
+"""In-memory and on-disk playlist cache.
+
+The in-memory layer is an LRU keyed by playlist id; the on-disk layer is a JSON
+file per (profile, playlist) pair so different profiles never collide.
+"""
 
 import collections
 import json
 import os
 import time
 
-from src.config import config_ytmusic
+from src.config import Config, config_dirs, config_ytmusic
 
 
 class Playlist:
+    # Old server.py: _playlist_cache
     def __init__(self):
         self.playlist_cache = collections.OrderedDict()
 
-    def playlist_disk_path(self, playlist_id):
-        profile = _current_profile or "default" # idk
+    # Old server.py: _playlist_disk_path
+    def playlist_disk_path(self, playlist_id, profile):
+        prefix = profile or "default"
         safe = playlist_id.replace("/", "_").replace("\\", "_")
-        return os.path.join(config_ytmusic.PLAYLIST_CACHE_DIR, f"{profile}_{safe}.json")
+        return os.path.join(config_dirs.PLAYLIST_CACHE_DIR, f"{prefix}_{safe}.json")
 
-    def load_playlist_disk(self, playlist_id, ttl=config_ytmusic.PLAYLIST_CACHE_TTL):
-        path = self.playlist_disk_path(playlist_id)
+    # Old server.py: _load_playlist_disk
+    def load_playlist_disk(self, playlist_id, profile, ttl=Config.PLAYLIST_CACHE_TTL):
+        path = self.playlist_disk_path(playlist_id, profile)
         if not os.path.exists(path):
             return None
         if time.time() - os.path.getmtime(path) > ttl:
@@ -34,21 +41,24 @@ class Playlist:
         except Exception:
             return None
 
-    def save_playlist_disk(self, playlist_id, data):
-        path = self.playlist_disk_path(playlist_id)
+    # Old server.py: _save_playlist_disk
+    def save_playlist_disk(self, playlist_id, profile, data):
+        path = self.playlist_disk_path(playlist_id, profile)
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False)
         except Exception:
             pass
 
-    def purge_playlist_cache(self, playlist_id):
+    # Old server.py: _purge_playlist_cache
+    def purge_playlist_cache(self, playlist_id, profile):
         self.playlist_cache.pop(playlist_id, None)
-        p = self.playlist_disk_path(playlist_id)
-        if os.path.exists(p):
-            os.remove(p)
+        path = self.playlist_disk_path(playlist_id, profile)
+        if os.path.exists(path):
+            os.remove(path)
 
-    def put(self, playlist_id: str, data) -> None:
+    # Old server.py: _playlist_cache_put
+    def put(self, playlist_id, data):
         """Insert/update a playlist and evict the least-recently-used entry."""
         self.playlist_cache[playlist_id] = data
         self.playlist_cache.move_to_end(playlist_id)

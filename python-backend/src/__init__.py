@@ -2,12 +2,14 @@ from flask import Flask
 
 from src.config import Config
 from src.lib import (
+    Album,
     CacheSettings,
     LastFM,
     ComposerBridge,
     ComposerSettings,
     LyricsService,
     MusixMatch,
+    Playlist,
     Profile,
     StreamService,
     YoutubeMusicSession,
@@ -41,6 +43,8 @@ def create_app():
             cache_settings=app.extensions["cache_settings"],
             musixmatch=MusixMatch(),
         )
+        app.extensions["playlist_cache"] = Playlist()
+        app.extensions["album_cache"] = Album()
 
         ytdlp = YTDLP(
             profiles=profile_repository,

@@ -6,7 +6,9 @@ from .integrations.feedback import load_feedback_webhook
 from .integrations.lastfm import LastFM
 from .integrations.musixmatch import MusixMatch
 from .integrations.ytdlp import YTDLP
+from .music.album import Album
 from .music.lyrics import LyricsService
+from .music.playlist import Playlist
 from .music.stream import StreamService
 from .music.youtube_data import YoutubeResponseMapper
 from .music.youtube_music import YoutubeMusicSession, YoutubeMusicSessionState
@@ -19,6 +21,7 @@ from .runtime.network import setup_ipv4_first
 from .runtime.maintenance import DelayedCleanup, DirectoryInspector
 
 __all__ = [
+    "Album",
     "DelayedCleanup",
     "DirectoryInspector",
     "CacheSettings",
@@ -28,6 +31,7 @@ __all__ = [
     "LastFM",
     "LyricsService",
     "MusixMatch",
+    "Playlist",
     "Profile",
     "ProfileAuthHeaders",
     "StreamService",
