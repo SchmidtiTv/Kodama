@@ -103,7 +103,13 @@ def submit_feedback():
     os_info = (data.get("os") or "?").strip()
     reporter = (data.get("reporter") or "").strip()
     include_logs = bool(data.get("includeLogs", True))
-    if not title and not description:
+    area = (data.get("area") or "").strip()
+    steps = (data.get("steps") or "").strip()
+    expected = (data.get("expected") or "").strip()
+    diag = data.get("diag") if isinstance(data.get("diag"), dict) else {}
+    current_track = data.get("currentTrack") if isinstance(data.get("currentTrack"), dict) else {}
+    console_errors = data.get("consoleErrors") if isinstance(data.get("consoleErrors"), list) else []
+    if not title and not description and not steps:
         return jsonify({"error": "empty"}), 400
 
     color = {"Bug": 0xE24B4A, "Absturz": 0xA32D2D, "UI / Design": 0x378ADD,
@@ -115,14 +121,39 @@ def submit_feedback():
     ]
     if severity:
         fields.append({"name": "Severity", "value": severity, "inline": True})
+    if area:
+        fields.append({"name": "Area", "value": area, "inline": True})
+    # ── Auto-diagnostics: the triage-critical bits inline for a quick scan ──
+    if diag:
+        prof = diag.get("profile") or {}
+        auth = diag.get("authed")
+        auth_str = "authed" if auth is True else ("NOT authed" if auth is False else "unknown")
+        prof_str = "none" if not prof.get("active") else (prof.get("type") or "account")
+        fields.append({"name": "Auth", "value": f"{prof_str} · {auth_str}", "inline": True})
+        if diag.get("ytdlp"):
+            fields.append({"name": "yt-dlp", "value": str(diag.get("ytdlp"))[:40], "inline": True})
+        lse = diag.get("lastStreamError")
+        if isinstance(lse, dict) and lse.get("videoId"):
+            fields.append({"name": "Last stream error", "value": f"`{lse.get('videoId')}` — {str(lse.get('error') or '')[:200]}", "inline": False})
+    if current_track.get("videoId"):
+        fields.append({"name": "Current track", "value": f"{str(current_track.get('title') or '')[:80]} `{current_track.get('videoId')}`", "inline": False})
+    # ── Structured body: description + repro steps + expected/actual ──
+    body_parts = []
+    if description:
+        body_parts.append(description)
+    if steps:
+        body_parts.append(f"**Steps to reproduce:**\n{steps}")
+    if expected:
+        body_parts.append(f"**Expected vs actual:**\n{expected}")
+    full_desc = "\n\n".join(body_parts) or "—"
     embed = {
         "title": (title or "(no title)")[:240],
-        "description": (description or "—")[:3900],
+        "description": full_desc[:3900],
         "color": color,
-        "fields": fields,
+        "fields": fields[:24],
     }
     if reporter:
-        embed["footer"] = {"text": f"from {reporter[:80]}"}
+        embed["footer"] = {"text": f"contact: {reporter[:80]}"}
 
     files = {}
     # Optional screenshot (base64, with or without a data: URL prefix) → inline embed image.
@@ -142,6 +173,11 @@ def submit_feedback():
     if include_logs and _LOG_RING:
         log_text = "\n".join(list(_LOG_RING)[-80:])
         files["file_log"] = ("backend-log.txt", log_text, "text/plain")
+    if console_errors:
+        ce_text = "\n".join(str(e)[:600] for e in console_errors[-40:])
+        files["file_console"] = ("console-errors.txt", ce_text, "text/plain")
+    if diag or current_track:
+        files["file_diag"] = ("diagnostics.json", json.dumps({"diag": diag, "currentTrack": current_track}, indent=2, default=str), "application/json")
     try:
         if files:
             resp = requests.post(FEEDBACK_WEBHOOK_URL,
@@ -154,6 +190,25 @@ def submit_feedback():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+@app.route("/diag")
+def diag():
+    """Diagnostic snapshot for bug reports: versions + profile/auth state + last stream error."""
+    def _ver(name):
+        try:
+            m = __import__(name)
+            return getattr(m, "__version__", None) or getattr(getattr(m, "version", None), "__version__", None)
+        except Exception:
+            return None
+    prof_type = ("local" if is_local_profile(_current_profile) else "account") if _current_profile else None
+    return jsonify({
+        "ytdlp": _ver("yt_dlp"),
+        "ytmusicapi": _ver("ytmusicapi"),
+        "python": sys.version.split()[0],
+        "profile": {"active": bool(_current_profile), "type": prof_type},
+        "authed": _LAST_AUTHED,
+        "lastStreamError": _LAST_STREAM_ERROR,
+    })
 
 # When frozen as a PyInstaller --onefile bundle store all user data in a
 # platform-appropriate location so uninstallers can clean it up cleanly.
@@ -302,6 +357,8 @@ _activate_ytdlp_update()
 # Active YTMusic instance and current profile
 _ytm = None
 _current_profile = None
+_LAST_AUTHED = None          # last known session-auth state (from the cookie refresh) — for /diag
+_LAST_STREAM_ERROR = None    # {videoId, error, at} of the most recent failed stream extraction
 _PLAYLIST_CACHE_MAX = 20
 _playlist_cache  = collections.OrderedDict()  # in-memory LRU, max 20 entries
 _credits_cache   = {}  # video_id -> list of {role, persons}  (permanent, small)
@@ -328,6 +385,12 @@ def _schedule_cleanup(d, key, delay=300):
         time.sleep(delay)
         d.pop(key, None)
     threading.Thread(target=_do, daemon=True).start()
+
+def _artist_names(artist_list):
+    """Safe ', '-joined artist names. Tolerates a None list, non-dict entries and missing/null
+    names — YT sometimes returns those (podcasts, uploads, some regions) and the naive
+    ", ".join(a["name"] for a in …) crashed the whole endpoint on a single bad track."""
+    return ", ".join(a.get("name") for a in (artist_list or []) if isinstance(a, dict) and a.get("name"))
 
 def _artist_links(artist_list):
     """Return [{name, browseId}, ...] for all artists that have a name."""
@@ -720,7 +783,7 @@ def load_profile(name):
         print(f"[auth] load_profile failed for {name}: {e}", flush=True)
         return False
     _current_profile = name
-    _playlist_cache = {}
+    _playlist_cache.clear()
     # Immediately top up the rotating anti-bot cookie so the very first hours stay valid.
     threading.Thread(target=_refresh_ytm_psidts, kwargs={"force": True}, daemon=True).start()
     return True
@@ -733,7 +796,7 @@ def load_profile(name):
 _psidts_last_refresh = 0.0
 
 def _refresh_ytm_psidts(force=False):
-    global _psidts_last_refresh
+    global _psidts_last_refresh, _LAST_AUTHED
     try:
         if _ytm is None or not _current_profile or is_local_profile(_current_profile):
             return
@@ -813,6 +876,8 @@ def _refresh_ytm_psidts(force=False):
         except Exception:
             pass
         _psidts_last_refresh = now
+        if authed is not None:
+            _LAST_AUTHED = authed
         print(f"[cookies] session refreshed (authed={authed}): {', '.join(sorted(fresh.keys()))} | {', '.join(statuses)}", flush=True)
     except Exception as e:
         print(f"[cookies] PSIDTS refresh failed (non-fatal): {e}", flush=True)
@@ -1444,7 +1509,7 @@ def logout():
 
     _current_profile = None
     _ytm = None
-    _playlist_cache = {}
+    _playlist_cache.clear()
     return jsonify({"ok": True})
 
 @app.route("/auth/validate")
@@ -2256,7 +2321,7 @@ def liked_songs():
         tracks = []
         for t in songs.get("tracks", []):
             artist_list = t.get("artists", [])
-            artists = ", ".join(a["name"] for a in artist_list)
+            artists = _artist_names(artist_list)
             artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
             album = t.get("album", {})
             thumbs = t.get("thumbnails", [])
@@ -2400,14 +2465,150 @@ def _is_hard_error(err_str):
 def _is_unavailable(err_str):
     return any(k in err_str for k in ("Video unavailable", "This video is not available"))
 
+# ─── PO Token path (bgutil, script mode) ─────────────────────────────────────
+# The authenticated web/web_music clients only hand out real audio formats when
+# a GVS PO token is supplied. Generating one needs three things beyond yt-dlp:
+#   1) the bgutil generator (Node, script mode) -> mints the token
+#   2) yt-dlp-ejs (bundled with the yt-dlp[default] extra) -> solves signature/nsig
+#   3) a Node >= 22 runtime, passed explicitly (auto-detection does not register it)
+# If any piece is missing the whole path is skipped and the legacy tiers run as
+# before, so this can never make extraction worse than it was.
+_MIN_NODE_MAJOR = 22
+
+def _node_major(node_path):
+    import subprocess, re
+    try:
+        out = subprocess.run([node_path, "--version"], capture_output=True, text=True,
+                             timeout=5).stdout.strip()
+        m = re.match(r"v?(\d+)", out)
+        return int(m.group(1)) if m else 0
+    except Exception:
+        return 0
+
+def _find_node22():
+    """Path to a Node >= 22 executable, or None. Env override wins, then the
+    bundled node (next to the server exe), then whatever is on PATH."""
+    import shutil
+    node_name = "node.exe" if sys.platform == "win32" else "node"
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    parent = os.path.dirname(exe_dir)
+    cands = [os.environ.get("KODAMA_NODE")]
+    for d in (exe_dir, parent, os.path.join(parent, "Resources"), os.path.join(exe_dir, "..", "Resources")):
+        cands.append(os.path.join(d, node_name))
+    cands.append(shutil.which("node"))
+    for c in cands:
+        if c and os.path.isfile(c) and _node_major(c) >= _MIN_NODE_MAJOR:
+            return c
+    return None
+
+def _find_pot_server_dir():
+    """The bgutil generator 'server' dir (holds build/generate_once.js), or None.
+    Probes both `potgen/server` and `resources/potgen/server` under every plausible
+    root so it works regardless of how the Tauri bundle nests its resources."""
+    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+    parent = os.path.dirname(exe_dir)
+    roots = [exe_dir, parent, os.path.join(parent, "Resources"),
+             os.path.join(exe_dir, "..", "Resources"), _base_dir,
+             os.path.dirname(os.path.abspath(__file__))]
+    bases = [os.environ.get("KODAMA_POT_SERVER")]
+    for b in roots:
+        bases.append(os.path.join(b, "potgen", "server"))
+        bases.append(os.path.join(b, "resources", "potgen", "server"))
+    for b in bases:
+        if b and os.path.isfile(os.path.join(b, "build", "generate_once.js")):
+            return b
+    return None
+
+_NODE22 = _find_node22()
+_POT_SERVER_DIR = _find_pot_server_dir()
+_POT_AVAILABLE = bool(_NODE22 and _POT_SERVER_DIR)
+print(f"[pot] node>=22={_NODE22} | generator={_POT_SERVER_DIR} | enabled={_POT_AVAILABLE}", flush=True)
+
+def _pot_opts():
+    """ydl_opts enabling web_music + bgutil PO token + Node runtime.
+    With the bgutil server running, yt-dlp auto-uses the fast http provider
+    (warm integrity-token minter on 127.0.0.1:4416); the configured script
+    provider stays as a last-ditch fallback if the server subprocess is down."""
+    return {
+        "extractor_args": {
+            "youtube": {"player_client": ["web_music"]},
+            "youtubepot-bgutilscript": {"server_home": [_POT_SERVER_DIR]},
+        },
+        "js_runtimes": {"node": {"path": _NODE22}},
+    }
+
+# Start the bgutil PO-token generator in HTTP/server mode as a managed subprocess.
+# Server mode keeps ONE warm BotGuard integrity-token minter alive (+ token cache),
+# instead of script mode spawning a fresh minter per song — which gets throttled
+# after a few songs into "Failed to generate an integrity token". Verified: server
+# mode resolves many songs in a row where script mode fails after 1–2.
+_pot_proc = None
+def _start_pot_server():
+    global _pot_proc
+    if not _POT_AVAILABLE:
+        return
+    import subprocess, atexit
+    main_js = os.path.join(_POT_SERVER_DIR, "build", "main.js")
+    if not os.path.isfile(main_js):
+        print(f"[pot] server entry not found: {main_js}", flush=True)
+        return
+    try:
+        flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
+        _pot_proc = subprocess.Popen(
+            [_NODE22, main_js], cwd=_POT_SERVER_DIR,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags,
+        )
+        atexit.register(lambda: (_pot_proc and _pot_proc.poll() is None and _pot_proc.terminate()))
+        print(f"[pot] bgutil server started (pid {_pot_proc.pid}) on :4416", flush=True)
+    except Exception as e:
+        print(f"[pot] failed to start bgutil server: {e}", flush=True)
+
+_start_pot_server()
+
 @app.route("/stream/<video_id>")
 def stream_url(video_id):
+    global _LAST_STREAM_ERROR
     last_err = None
     _t_total = time.time()
 
-    # ── Tier 1: browser cookies — always fresh, user is logged in there ───────
-    # Tried first because app session cookies may be stale; browser cookies are
-    # updated every time the user visits YouTube and are never expired.
+    # ── Tier 0: authenticated web_music + GVS PO token (the real fix) ─────────
+    # Bypasses BOTH the PO-token wall (Premium-only tracks) and the anonymous
+    # mobile-client "Sign in to confirm you're not a bot" check, because it runs
+    # as the logged-in web client with a freshly minted PO token. Only active
+    # when node>=22 + the bgutil generator are present (see _POT_AVAILABLE);
+    # otherwise we fall straight through to the legacy tiers below.
+    if _POT_AVAILABLE:
+        _t = time.time()
+        try:
+            info = _ydl_extract_url(video_id, _M4A_FMT, extra_opts=_pot_opts(), skip_auth=False)
+            url = _stream_url_from_info(info)
+            if url:
+                _logging.info(f"[stream] {video_id} OK via web_music+PO token in {time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)")
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            _logging.warning(f"[stream] {video_id} web_music+PO token FAILED in {time.time()-_t:.1f}s: {e}")
+
+    # ── Tier 1: app session (authenticated web + anonymous mobile/web) ───────
+    # Tried FIRST because it's the fast common path: app cookies are kept fresh by the session
+    # keeper, and the anonymous mobile clients resolve most tracks with no cookies at all. The
+    # browser-cookie tier below is slow and usually fails on Windows (locked DB / DPAPI), so it
+    # only runs as a last-ditch source of fresh Premium cookies — not up front on every song.
+    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+        _t = time.time()
+        try:
+            info = _ydl_extract_url(video_id, fmt, extra_opts=extra, skip_auth=no_auth)
+            url = _stream_url_from_info(info)
+            if url:
+                _logging.info(f"[stream] {video_id} OK via attempt {extra} no_auth={no_auth} in {time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)")
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            _logging.warning(f"[stream] {video_id} attempt {extra} no_auth={no_auth} FAILED in {time.time()-_t:.1f}s: {e}")
+            if _is_hard_error(str(e)):
+                break
+
+    # ── Tier 2: browser cookies — last-ditch fresh/Premium cookies (slow, often fails). ───────
     for browser_opts in _browser_cookie_opts():
         browser = browser_opts["cookiesfrombrowser"][0]
         _t = time.time()
@@ -2420,21 +2621,6 @@ def stream_url(video_id):
         except Exception as e:
             last_err = e
             _logging.warning(f"[stream] {video_id} browser={browser} FAILED in {time.time()-_t:.1f}s: {e}")
-            if _is_hard_error(str(e)):
-                break
-
-    # ── Tier 2: _STREAM_ATTEMPTS (app cookies + anonymous mobile/web) ────────
-    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
-        _t = time.time()
-        try:
-            info = _ydl_extract_url(video_id, fmt, extra_opts=extra, skip_auth=no_auth)
-            url = _stream_url_from_info(info)
-            if url:
-                _logging.info(f"[stream] {video_id} OK via attempt {extra} no_auth={no_auth} in {time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)")
-                return jsonify({"url": url})
-        except Exception as e:
-            last_err = e
-            _logging.warning(f"[stream] {video_id} attempt {extra} no_auth={no_auth} FAILED in {time.time()-_t:.1f}s: {e}")
             if _is_hard_error(str(e)):
                 break
 
@@ -2464,6 +2650,7 @@ def stream_url(video_id):
     err_str = str(last_err) if last_err else "No URL found"
     premium = "Music Premium" in err_str
     unavailable = _is_unavailable(err_str)
+    _LAST_STREAM_ERROR = {"videoId": video_id, "error": err_str[:400], "at": int(time.time())}
     _logging.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
     return jsonify({"error": err_str, "premium_only": premium, "unavailable": unavailable}), 500
 
@@ -2494,7 +2681,11 @@ def stream_prepare(video_id):
     import yt_dlp
     outtmpl = os.path.join(cache_dir, "%(id)s.%(ext)s")
     last_err = None
-    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+    # Tier 0: authenticated web_music + GVS PO token first (bypasses the PO-token
+    # wall / bot-check that otherwise 403s the media URL at download time), then
+    # fall through to the legacy client tiers. Only prepended when available.
+    attempts = ([(_M4A_FMT, _pot_opts(), False)] if _POT_AVAILABLE else []) + list(_STREAM_ATTEMPTS)
+    for fmt, extra, no_auth in attempts:
         try:
             ydl_opts = {
                 "format": fmt,
@@ -2822,12 +3013,18 @@ def stream_playlist(playlist_id):
                 return
 
             def fmt(t):
-                artist_list = t.get("artists", [])
-                artists = ", ".join(a["name"] for a in artist_list)
-                artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
-                thumbs = t.get("thumbnails", [])
+                # Defensive: YT occasionally returns tracks with artists=null or an artist entry
+                # missing "name" (podcasts, uploads, some regions). The old a["name"] crashed the
+                # whole stream on a single bad track → "playlist shows 0 songs".
+                artist_list = t.get("artists") or []
+                names = [a.get("name") for a in artist_list if isinstance(a, dict) and a.get("name")]
+                artists = ", ".join(names)
+                artist_browse_id = ""
+                if artist_list and isinstance(artist_list[0], dict):
+                    artist_browse_id = artist_list[0].get("id") or ""
+                thumbs = t.get("thumbnails") or []
                 thumb = _pick_thumb(thumbs)
-                album = t.get("album") or {}
+                album = t.get("album") if isinstance(t.get("album"), dict) else {}
                 return {
                     "videoId": t.get("videoId", ""),
                     "setVideoId": t.get("setVideoId", ""),
@@ -2841,6 +3038,16 @@ def stream_playlist(playlist_id):
                     "thumbnail": thumb,
                     "isExplicit": bool(t.get("isExplicit", False)),
                 }
+
+            def safe_fmt(t):
+                # One malformed track must never zero the whole playlist — skip + log it instead.
+                try:
+                    return fmt(t)
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"[playlist] {playlist_id}: skipped a track that failed to format: {e}", flush=True)
+                    return None
 
             def send(obj):
                 return f"data: {json.dumps(obj)}\n\n"
@@ -2872,7 +3079,7 @@ def stream_playlist(playlist_id):
             if playlist_id == "LM":
                 yield send({"type": "loading", "message": "Liked Songs werden abgerufen\u2026", "progress": 0})
                 songs = get_ytmusic().get_liked_songs(limit=None)
-                all_tracks = [fmt(t) for t in songs.get("tracks", []) if t.get("videoId")]
+                all_tracks = [x for x in (safe_fmt(t) for t in songs.get("tracks", []) if t.get("videoId")) if x]
                 total = len(all_tracks)
                 yield send({"type": "header", "title": "Liked Songs", "thumbnail": "", "total": total})
                 for i in range(0, total, CHUNK):
@@ -2890,7 +3097,7 @@ def stream_playlist(playlist_id):
             playlist = get_ytmusic().get_playlist(playlist_id, limit=None)
             thumbs = playlist.get("thumbnails") or []
             thumbnail = _pick_thumb(thumbs)
-            all_tracks = [fmt(t) for t in playlist.get("tracks", []) if t.get("videoId")]
+            all_tracks = [x for x in (safe_fmt(t) for t in playlist.get("tracks", []) if t.get("videoId")) if x]
             total = len(all_tracks)
 
             yield send({"type": "header", "title": playlist.get("title", ""), "thumbnail": thumbnail, "total": total})
@@ -2905,6 +3112,11 @@ def stream_playlist(playlist_id):
             yield send({"type": "done"})
 
         except Exception as e:
+            # Log it — the SSE error is otherwise invisible in the backend log, which made the
+            # "playlists show 0 songs" reports impossible to diagnose from logs alone.
+            import traceback
+            traceback.print_exc()
+            print(f"[playlist] {playlist_id} failed: {e}", flush=True)
             yield send({"type": "error", "message": str(e)})
 
     return Response(
@@ -2916,7 +3128,13 @@ def stream_playlist(playlist_id):
 @app.route("/radio/<playlist_id>")
 def get_radio(playlist_id):
     try:
-        watch = get_ytmusic().get_watch_playlist(playlistId=playlist_id, limit=50)
+        # Song radio: seed an autoplay mix from a single track (?videoId=…). Otherwise treat the
+        # path segment as a radio/watch playlist id (e.g. an artist's radioId).
+        vid = request.args.get("videoId")
+        if vid:
+            watch = get_ytmusic().get_watch_playlist(videoId=vid, radio=True, limit=50)
+        else:
+            watch = get_ytmusic().get_watch_playlist(playlistId=playlist_id, limit=50)
         tracks = []
         for t in watch.get("tracks", []):
             if not t.get("videoId"):
@@ -2975,7 +3193,7 @@ def get_playlist(playlist_id):
                 if not t.get("videoId"):
                     continue
                 artist_list = t.get("artists", [])
-                artists = ", ".join(a["name"] for a in artist_list)
+                artists = _artist_names(artist_list)
                 artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                 thumbs = t.get("thumbnails", [])
                 thumbnail = _pick_thumb(thumbs)
@@ -3001,7 +3219,7 @@ def get_playlist(playlist_id):
             if not t.get("videoId"):
                 continue
             artist_list = t.get("artists", [])
-            artists = ", ".join(a["name"] for a in artist_list)
+            artists = _artist_names(artist_list)
             artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
             thumbs = t.get("thumbnails", [])
             thumbnail = _pick_thumb(thumbs)
@@ -3039,13 +3257,13 @@ def get_album(browse_id):
         album = get_ytmusic().get_album(browse_id)
         tracks = []
         album_artists = album.get("artists", [])
-        album_artist_name = ", ".join(a["name"] for a in album_artists)
+        album_artist_name = _artist_names(album_artists)
         album_artist_browse_id = album_artists[0].get("id", "") if album_artists else ""
         for t in album.get("tracks", []):
             if not t.get("videoId"):
                 continue
             track_artists = t.get("artists", [])
-            artists = ", ".join(a["name"] for a in track_artists) or album_artist_name
+            artists = _artist_names(track_artists) or album_artist_name
             artist_browse_id = track_artists[0].get("id", "") if track_artists else album_artist_browse_id
             thumbs = album.get("thumbnails", [])
             thumbnail = _pick_thumb(thumbs)
@@ -3375,7 +3593,7 @@ def search():
 
             if filter_type == "songs":
                 artist_list = t.get("artists", [])
-                artists = ", ".join(a["name"] for a in artist_list)
+                artists = _artist_names(artist_list)
                 artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                 album = t.get("album") or {}
                 items.append({
@@ -3401,7 +3619,7 @@ def search():
                 })
             elif filter_type == "albums":
                 artist_list = t.get("artists", [])
-                artists = ", ".join(a["name"] for a in artist_list)
+                artists = _artist_names(artist_list)
                 items.append({
                     "type": "album",
                     "browseId": t.get("browseId", ""),
@@ -3435,7 +3653,7 @@ def get_home():
                 # Song / video
                 if item.get("videoId") and not section_is_podcast:
                     artist_list = item.get("artists", [])
-                    artists = ", ".join(a["name"] for a in artist_list)
+                    artists = _artist_names(artist_list)
                     artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
                     album = item.get("album") or {}
                     thumbs = item.get("thumbnails", [])
@@ -3476,9 +3694,7 @@ def get_home():
                         "type": item_type,
                         "playlistId": playlist_id,
                         "title": item.get("title", ""),
-                        "subtitle": item.get("description", "") or ", ".join(
-                            a["name"] for a in item.get("artists", [])
-                        ),
+                        "subtitle": item.get("description", "") or _artist_names(item.get("artists")),
                         "thumbnail": thumb,
                     })
                 # Podcast channel (has explicit podcastId field)
@@ -3507,7 +3723,7 @@ def get_home():
                         playlist_id = ""
                     thumbs = item.get("thumbnails", [])
                     thumb = _pick_thumb(thumbs)
-                    artists = ", ".join(a["name"] for a in item.get("artists", []))
+                    artists = _artist_names(item.get("artists"))
                     entry = {
                         "type": item_type,
                         "browseId": browse_id,
