@@ -119,6 +119,11 @@ fn auth_data_dir(profile: &str) -> std::path::PathBuf {
     std::env::temp_dir().join("kodama-auth-webview").join(safe)
 }
 
+#[cfg(target_os = "macos")]
+const LOGIN_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15";
+#[cfg(not(target_os = "macos"))]
+const LOGIN_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 #[tauri::command]
 pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("login") {
@@ -149,11 +154,10 @@ pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> R
     )
     .title("Kodama – Anmelden")
     .inner_size(900.0, 680.0)
-    .center()
+        .center()
     .decorations(true)
-    // Force a Chrome UA: the default macOS WKWebView UA is Safari-like and YT Music/Google
-    // shows a "browser not optimized" wall. Matches the UA used for /auth/cookie-login.
-    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    // Platform-matched UA. Also replayed to /auth/cookie-login.
+    .user_agent(LOGIN_USER_AGENT)
     .data_directory(login_data_dir)
     .build()
     .map_err(|e| e.to_string())?;
@@ -230,7 +234,7 @@ pub async fn open_login_window(app: tauri::AppHandle, profile_name: String) -> R
                         .json(&serde_json::json!({
                             "cookie": cookie_str,
                             "profile_name": profile,
-                            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            "user_agent": LOGIN_USER_AGENT
                         }))
                         .send()
                         .await;
@@ -279,6 +283,7 @@ pub async fn ensure_session_keeper(app: tauri::AppHandle, profile_name: String) 
     .inner_size(900.0, 680.0)
     .visible(false)
     .skip_taskbar(true)
+    .user_agent(LOGIN_USER_AGENT)
     .data_directory(dir)
     .build()
     .map_err(|e| e.to_string())?;
