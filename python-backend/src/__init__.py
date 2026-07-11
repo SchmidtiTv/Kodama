@@ -22,6 +22,7 @@ from src.lib import (
     StreamService,
     YoutubeMusicSession,
     YTDLP,
+    load_feedback_webhook,
     setup_debug,
     setup_ipv4_first,
     setup_log_tee,
@@ -48,13 +49,11 @@ def create_app():
         app.config.from_object(Config)
         CORS(app, origins=CORS_ORIGINS)
         app.extensions["server_start_time"] = time.time()
+        app.extensions["feedback_webhook_url"] = load_feedback_webhook()
 
         profile_repository = Profile()
         app.extensions["profile_repository"] = profile_repository
         music_session = YoutubeMusicSession(profiles=profile_repository)
-        # Restore the most recently available profile before serving auth checks.
-        # Without this, saved accounts exist on disk but no active YTMusic client is
-        # created until the user manually switches profiles.
         music_session.autoload_first_profile()
         music_session.start_cookie_refresh_loop()
         app.extensions["youtube_music_session"] = music_session

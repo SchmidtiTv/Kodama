@@ -1,15 +1,16 @@
 import json
 
 import requests
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
-from src import config as c
+from src.config import config
 
 blueprint = Blueprint("feedback", __name__)
 
 @blueprint.route("/feedback", methods=["POST"])
 def submit_feedback():
-    if not c.config.FEEDBACK_WEBHOOK_URL:
+    webhook_url = current_app.extensions.get("feedback_webhook_url", "")
+    if not webhook_url:
         return jsonify({"error": "feedback_not_configured"}), 503
     data = request.json or {}
     title = (data.get("title") or "").strip()
@@ -56,16 +57,16 @@ def submit_feedback():
         except Exception:
             pass
     payload = {"username": "Kodama Feedback", "embeds": [embed]}
-    if include_logs and c.config.LOG_RING:
-        log_text = "\n".join(list(c.config.LOG_RING)[-80:])
+    if include_logs and config.LOG_RING:
+        log_text = "\n".join(list(config.LOG_RING)[-80:])
         files["file_log"] = ("backend-log.txt", log_text, "text/plain")
     try:
         if files:
-            resp = requests.post(c.config.FEEDBACK_WEBHOOK_URL,
+            resp = requests.post(webhook_url,
                                  data={"payload_json": json.dumps(payload)},
                                  files=files, timeout=15)
         else:
-            resp = requests.post(c.config.FEEDBACK_WEBHOOK_URL, json=payload, timeout=12)
+            resp = requests.post(webhook_url, json=payload, timeout=12)
         if resp.status_code >= 300:
             return jsonify({"error": f"webhook_{resp.status_code}"}), 502
         return jsonify({"ok": True})

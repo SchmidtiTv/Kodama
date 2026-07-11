@@ -7,6 +7,9 @@ from src import create_app
 def test_app_startup_restores_a_saved_profile():
     with ExitStack() as patches:
         patches.enter_context(patch("src.setup_ipv4_first"))
+        load_feedback_webhook = patches.enter_context(
+            patch("src.load_feedback_webhook", return_value="https://hooks.example.test")
+        )
         patches.enter_context(patch("src.Profile"))
         session_class = patches.enter_context(patch("src.YoutubeMusicSession"))
         patches.enter_context(patch("src.LastFM"))
@@ -39,6 +42,8 @@ def test_app_startup_restores_a_saved_profile():
         call.start_cookie_refresh_loop(),
     ]
     assert app.extensions["youtube_music_session"] is session
+    assert app.extensions["feedback_webhook_url"] == "https://hooks.example.test"
+    load_feedback_webhook.assert_called_once_with()
     assert ytdlp_class.return_value.method_calls == [
         call.ensure_node_in_path(),
         call.activate_ytdlp_update(),

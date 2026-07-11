@@ -18,9 +18,7 @@ class MiscRouteTests(RouteTestCase):
         self.assertEqual(self.client.get("/news").status_code, 200)
         self.assertEqual(self.client.post("/feedback", json={"title": "Bug"}).status_code, 503)
 
-        from src import config as config_module
-
-        setattr(config_module.config, "FEEDBACK_WEBHOOK_URL", "https://hooks.example.test")
+        self.app.extensions["feedback_webhook_url"] = "https://hooks.example.test"
         webhook = SimpleNamespace(status_code=204)
         with patch("src.routes.feedback.requests.post", return_value=webhook) as post:
             feedback = self.client.post("/feedback", json={"title": "Bug", "description": "Details", "includeLogs": False})

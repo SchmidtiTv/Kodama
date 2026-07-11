@@ -834,6 +834,7 @@ class RouteTestCase(unittest.TestCase):
                 "overlay_server": self.overlay_server,
                 "remote_control": self.remote_control,
                 "server_start_time": 1000.0,
+                "feedback_webhook_url": "",
             }
         )
         with patch("builtins.print"):
@@ -852,7 +853,4 @@ class RouteTestCase(unittest.TestCase):
             (path / "item.txt").write_text("cached", encoding="utf-8")
         (self.cache_dirs.SONG_CACHE_DIR / "song.json").write_text("{}", encoding="utf-8")
 
-        from src import config as config_module
-
-        setattr(config_module.config, "FEEDBACK_WEBHOOK_URL", "")
         self.addCleanup(self.temp.cleanup)
