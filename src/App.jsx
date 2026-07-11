@@ -222,7 +222,7 @@ const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/maste
 // Anonymous active-user heartbeat endpoint (Cloudflare Worker, see analytics/).
 // Leave "" until the Worker is deployed — the heartbeat no-ops while empty.
 // NOTE: when set, add this host to CSP connect-src in index.html + tauri.conf.json.
-const STATS_URL = "";
+const STATS_URL = "https://kodama-stats.kiyoshidesign.workers.dev";
 
 // Anonymous, opt-out active-user heartbeat. Fires at most once per UTC day per
 // install. The raw install id never leaves the device — only a daily/monthly
@@ -845,6 +845,21 @@ const QUEUE_MAX = 620;          // max when dragging
 
 function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenAccountTab, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onLogout, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled, onOpenNews, onOpenFeedback, newsUnread = 0, settingsOpen, hideUserHandle }) {
   const [query, setQuery] = useState("");
+  // Search autocomplete: debounced suggestion fetch + a dropdown under the field.
+  const [suggestions, setSuggestions] = useState([]);
+  const [sugOpen, setSugOpen] = useState(false);
+  const sugBlurRef = useRef(null);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setSuggestions([]); return; }
+    const id = setTimeout(() => {
+      fetch(`${API}/search/suggestions?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(d => setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []))
+        .catch(() => {});
+    }, 180);
+    return () => clearTimeout(id);
+  }, [query]);
   const [tooltip, setTooltip] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [tetoVisible, setTetoVisible] = useState(false);
@@ -911,6 +926,19 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   const handleSubmit = (value) => {
     const q = value.trim();
     if (!q) return;
+    setSugOpen(false);
+    // Paste a YouTube / YT Music playlist link (or a bare playlist id) -> open it
+    // directly. Works for unlisted "link only" playlists, which never show in search.
+    let plId = null;
+    const urlM = q.match(/[?&]list=([A-Za-z0-9_-]+)/);
+    if (urlM && /(?:music\.)?youtube\.com|youtu\.be/i.test(q)) plId = urlM[1];
+    else if (/^(VL)?(PL|OLAK5uy_|RDCLAK|RDAMPL)[A-Za-z0-9_-]{10,}$/.test(q)) plId = q;
+    if (plId) {
+      onCloseOverlay?.();
+      onOpenPlaylist?.({ playlistId: plId.replace(/^VL/, "") });
+      setQuery("");
+      return;
+    }
     onSearch(q);
     setView("search");
     onCloseOverlay?.();
@@ -922,6 +950,36 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       hideTeto();
     }
   };
+
+  const pickSuggestion = (s) => { setQuery(s); handleSubmit(s); };
+  // Dropdown of live suggestions, positioned under the (relatively-positioned) field wrapper.
+  const suggestionsBox = (sugOpen && query.trim().length >= 2 && suggestions.length > 0) ? (
+    <div
+      onMouseDown={e => e.preventDefault()} /* keep field focus so onClick fires before blur */
+      style={{
+        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: 4,
+        background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.35)", overflow: "hidden", padding: 4,
+      }}
+    >
+      {suggestions.map((s, i) => (
+        <div key={i} onClick={() => pickSuggestion(s)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 6,
+            cursor: "default", fontSize: "var(--t13)", color: "var(--text-secondary)",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
+          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+        >
+          <MagnifyingGlass size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s}</span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+  const sugFocus = () => { clearTimeout(sugBlurRef.current); setSugOpen(true); };
+  const sugBlur = () => { sugBlurRef.current = setTimeout(() => setSugOpen(false), 150); };
 
   const mainNavItems = [
     { id: "home",    label: t("home"),    iconEl: <House size={16} /> },
@@ -1169,7 +1227,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
 
         {!collapsed && (IS_MAC ? (
           <>
-            <div className="flex-1 min-w-0" style={{ contain: "layout style" }}>
+            <div className="flex-1 min-w-0" style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
+              onFocus={sugFocus} onBlur={sugBlur}>
               <SearchFieldRoot value={query} onChange={setQuery} onSubmit={handleSubmit} className="w-full">
                 <SearchFieldGroup>
                   <SearchFieldSearchIcon><MagnifyingGlass size={16} /></SearchFieldSearchIcon>
@@ -1177,6 +1236,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                   <SearchFieldClearButton />
                 </SearchFieldGroup>
               </SearchFieldRoot>
+              {suggestionsBox}
             </div>
             <Button variant="ghost" size="sm" isIconOnly onPress={onRefreshView} className="shrink-0 rounded-full" title={t("refresh")} style={{ contain: "layout style" }}>
               <ArrowClockwise size={14} />
@@ -1208,7 +1268,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           contain:layout style isolates React Aria's data-attribute updates from app-wide
           style recalcs without the paint-clipping of contain:content. */}
       {!collapsed && !IS_MAC && (
-        <div className="px-3 mb-3" style={{ contain: "layout style" }}>
+        <div className="px-3 mb-3" style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
+          onFocus={sugFocus} onBlur={sugBlur}>
           <SearchFieldRoot
             value={query}
             onChange={setQuery}
@@ -1223,6 +1284,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               <SearchFieldClearButton />
             </SearchFieldGroup>
           </SearchFieldRoot>
+          {suggestionsBox}
         </div>
       )}
 
@@ -7895,7 +7957,7 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
 
 
 function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOpenAlbum, onOpenPlaylist, onContextMenu, onTrackContextMenu, hideExplicit }) {
-  const [filter, setFilter] = useState("songs");
+  const [filter, setFilter] = useState("all");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -7917,14 +7979,83 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
   }, [query, filter]);
 
   const tabs = [
-    { id: "songs",   label: t("filterSongs") },
-    { id: "artists", label: t("filterArtists") },
-    { id: "albums",  label: t("filterAlbums") },
+    { id: "all",       label: t("filterAll") },
+    { id: "songs",     label: t("filterSongs") },
+    { id: "artists",   label: t("filterArtists") },
+    { id: "albums",    label: t("filterAlbums") },
+    { id: "playlists", label: t("filterPlaylists") },
   ];
 
   if (!query) return (
     <div style={{ padding: 28, color: "var(--text-secondary)" }}>
       {t("searchPrompt")}
+    </div>
+  );
+
+  // Backend tags every item with `type`. Filter explicit songs out up front.
+  const visible = results.filter(r => r.type !== "song" || !hideExplicit || !r.isExplicit);
+  const byType = (ty) => visible.filter(r => r.type === ty);
+  const gridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 16, padding: "0 16px" };
+
+  const renderSong = (song) => (
+    <TrackRow
+      key={song.videoId}
+      track={song}
+      isPlaying={isPlaying && currentTrack?.videoId === song.videoId}
+      onPlay={() => onPlay(song, byType("song"))}
+      onOpenArtist={onOpenArtist}
+      onContextMenu={onTrackContextMenu}
+    />
+  );
+  const renderArtist = (a, i) => (
+    <div key={a.browseId || i} onClick={() => a.browseId && onOpenArtist?.({ browseId: a.browseId, artist: a.title })}
+      style={{ cursor: "default", borderRadius: 8, padding: "12px 0", textAlign: "center" }}
+      onMouseEnter={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--accent)"}
+      onMouseLeave={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--text-primary)"}
+    >
+      <div style={{ width: 100, height: 100, borderRadius: "50%", overflow: "hidden", background: "var(--bg-elevated)", margin: "0 auto 10px" }}>
+        {a.thumbnail
+          ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
+      </div>
+      <div className="sr-title" style={{ fontSize: "var(--t13)", fontWeight: 500, transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
+      {a.subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3 }}>{a.subtitle}</div>}
+    </div>
+  );
+  const renderAlbum = (a, i) => (
+    <GridCard key={a.browseId || i}
+      thumbnail={a.thumbnail}
+      title={a.title}
+      subtitle={`${a.artists}${a.year ? ` · ${a.year}` : ""}`}
+      onClick={() => a.browseId && onOpenAlbum?.({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
+      onContextMenu={a.browseId ? (e) => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" }) : undefined}
+    />
+  );
+  const renderPlaylist = (p, i) => {
+    const pid = p.playlistId || p.browseId;
+    return (
+      <GridCard key={pid || i}
+        thumbnail={p.thumbnail}
+        title={p.title}
+        subtitle={p.subtitle}
+        onClick={() => pid && onOpenPlaylist?.({ playlistId: pid, title: p.title, thumbnail: p.thumbnail })}
+        onContextMenu={pid ? (e) => onContextMenu?.(e, { playlistId: pid, browseId: p.browseId, owned: false, title: p.title, thumbnail: p.thumbnail, type: "playlist" }) : undefined}
+      />
+    );
+  };
+
+  // A titled section for the mixed "all" view, with a "show all" jump to that tab.
+  const section = (label, tabId, node) => (
+    <div key={tabId} style={{ marginBottom: 26 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", marginBottom: 10 }}>
+        <div style={{ fontSize: "var(--t15)", fontWeight: 600 }}>{label}</div>
+        <button onClick={() => setFilter(tabId)}
+          style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "var(--t12)", fontFamily: "var(--font)", cursor: "default", transition: "color 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+          onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+        >{t("showAll")}</button>
+      </div>
+      {node}
     </div>
   );
 
@@ -7936,7 +8067,7 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
           {t("searchResultsFor")} „{query}"
         </div>
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {tabs.map(tab_ => (
             <button key={tab_.id} onClick={() => setFilter(tab_.id)} style={{
               background: filter === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
@@ -7951,65 +8082,27 @@ function SearchView({ query, onPlay, currentTrack, isPlaying, onOpenArtist, onOp
 
       {loading && <div style={{ padding: "0 16px", color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
       {error && <div style={{ padding: "0 16px", color: "#f44336" }}>{t("errorLoading")}: {error}</div>}
-      {!loading && !error && results.length === 0 && (
+      {!loading && !error && visible.length === 0 && (
         <div style={{ padding: "0 16px", color: "var(--text-muted)" }}>{t("noResults")}</div>
       )}
 
-      {/* Songs */}
-      {filter === "songs" && results.filter(s => !hideExplicit || !s.isExplicit).map(song => (
-        <TrackRow
-          key={song.videoId}
-          track={song}
-          isPlaying={isPlaying && currentTrack?.videoId === song.videoId}
-          onPlay={() => onPlay(song, results.filter(s => !hideExplicit || !s.isExplicit))}
-          onOpenArtist={onOpenArtist}
-          onContextMenu={onTrackContextMenu}
-        />
-      ))}
+      {/* Mixed "all" view — a few of each, grouped into sections. */}
+      {filter === "all" && !loading && (() => {
+        const songs = byType("song"), artists = byType("artist"), albums = byType("album"), playlists = byType("playlist");
+        return (
+          <>
+            {songs.length > 0 && section(t("filterSongs"), "songs", <div>{songs.slice(0, 4).map(renderSong)}</div>)}
+            {artists.length > 0 && section(t("filterArtists"), "artists", <div style={gridStyle}>{artists.slice(0, 5).map(renderArtist)}</div>)}
+            {albums.length > 0 && section(t("filterAlbums"), "albums", <div style={gridStyle}>{albums.slice(0, 5).map(renderAlbum)}</div>)}
+            {playlists.length > 0 && section(t("filterPlaylists"), "playlists", <div style={gridStyle}>{playlists.slice(0, 5).map(renderPlaylist)}</div>)}
+          </>
+        );
+      })()}
 
-      {/* Artists */}
-      {filter === "artists" && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-          gap: 16, padding: "0 16px",
-        }}>
-          {results.map((a, i) => (
-            <div key={i} onClick={() => a.browseId && onOpenArtist?.({ browseId: a.browseId, artist: a.title })}
-              style={{ cursor: "default", borderRadius: 8, padding: "12px 0", textAlign: "center" }}
-              onMouseEnter={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--accent)"}
-              onMouseLeave={e => e.currentTarget.querySelector(".sr-title").style.color = "var(--text-primary)"}
-            >
-              <div style={{ width: 100, height: 100, borderRadius: "50%", overflow: "hidden", background: "var(--bg-elevated)", margin: "0 auto 10px" }}>
-                {a.thumbnail
-                  ? <img src={thumb(a.thumbnail)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg,#2a1535,#1a0a25)" }} />}
-              </div>
-              <div className="sr-title" style={{ fontSize: "var(--t13)", fontWeight: 500, transition: "color 0.15s", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-              {a.subtitle && <div style={{ fontSize: "var(--t11)", color: "var(--text-muted)", marginTop: 3 }}>{a.subtitle}</div>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Albums */}
-      {filter === "albums" && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-          gap: 16, padding: "0 16px",
-        }}>
-          {results.map((a, i) => (
-            <GridCard key={i}
-              thumbnail={a.thumbnail}
-              title={a.title}
-              subtitle={`${a.artists}${a.year ? ` · ${a.year}` : ""}`}
-              onClick={() => a.browseId && onOpenAlbum?.({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })}
-              onContextMenu={a.browseId ? (e) => onContextMenu?.(e, { browseId: a.browseId, title: a.title, thumbnail: a.thumbnail, type: "album" }) : undefined}
-            />
-          ))}
-        </div>
-      )}
+      {filter === "songs" && byType("song").map(renderSong)}
+      {filter === "artists" && <div style={gridStyle}>{byType("artist").map(renderArtist)}</div>}
+      {filter === "albums" && <div style={gridStyle}>{byType("album").map(renderAlbum)}</div>}
+      {filter === "playlists" && <div style={gridStyle}>{byType("playlist").map(renderPlaylist)}</div>}
     </div>
   );
 }
@@ -12428,7 +12521,11 @@ export default function App() {
           const isPinned = pinnedIds.includes(itemId(pl));
           const showAlbumNav = pl?.browseId && pl?.type !== "artist";
           const showArtistNav = !!pl?.artistBrowseId;
-          const isUserPlaylist = pl?.playlistId && pl?.type !== "album";
+          const isUserPlaylist = pl?.playlistId && pl?.type !== "album" && pl?.owned !== false;
+          // Playlists are shareable (not albums/artists). The raw list id is the
+          // playlistId, or the search browseId with its "VL" prefix stripped.
+          const isPlaylistShare = pl && pl.type !== "album" && pl.type !== "artist" && (pl.playlistId || pl.browseId);
+          const plShareId = (pl?.playlistId || pl?.browseId || "").replace(/^VL/, "");
           return (
             <ContextMenu x={globalContextMenu.x} y={globalContextMenu.y} zoom={uiZoom}
               onClose={() => setGlobalContextMenu(null)} ariaLabel="Playlist" minWidth={190}>
@@ -12443,6 +12540,14 @@ export default function App() {
                     else openPlaylist(pl, view);
                   }} />
               </DropdownSection>
+              {isPlaylistShare && plShareId ? (
+                <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                  <CtxItem icon={<ShareNodes size={15} />} label={translate(language, "copyYtMusicLink")}
+                    onSelect={() => navigator.clipboard.writeText(`https://music.youtube.com/playlist?list=${plShareId}`).then(() => toast.success(translate(language, "linkCopied"))).catch(() => {})} />
+                  <CtxItem icon={<Copy size={15} />} label={translate(language, "copyYoutubeLink")}
+                    onSelect={() => navigator.clipboard.writeText(`https://youtube.com/playlist?list=${plShareId}`).then(() => toast.success(translate(language, "linkCopied"))).catch(() => {})} />
+                </DropdownSection>
+              ) : null}
               {(showAlbumNav || showArtistNav) ? (
                 <DropdownSection className="w-full border-t border-border mt-1 pt-1">
                   {showAlbumNav ? (

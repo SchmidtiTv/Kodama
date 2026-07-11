@@ -3576,62 +3576,122 @@ def get_artist_albums_route():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def _map_search_song(t):
+    artist_list = t.get("artists", []) or []
+    album = t.get("album") or {}
+    return {
+        "type": "song",
+        "videoId": t.get("videoId", ""),
+        "title": t.get("title", ""),
+        "artists": _artist_names(artist_list),
+        "artistBrowseId": (artist_list[0].get("id") or "") if artist_list else "",
+        "artistLinks": _artist_links(artist_list),
+        "album": album.get("name", ""),
+        "albumBrowseId": (album.get("id") or ""),
+        "duration": t.get("duration", ""),
+        "thumbnail": _pick_thumb(t.get("thumbnails", [])),
+        "isExplicit": bool(t.get("isExplicit", False)),
+    }
+
+def _map_search_artist(t):
+    return {
+        "type": "artist",
+        "browseId": t.get("browseId", ""),
+        "title": t.get("artist", "") or t.get("title", ""),
+        "subtitle": t.get("subscribers", ""),
+        "thumbnail": _pick_thumb(t.get("thumbnails", [])),
+    }
+
+def _map_search_album(t):
+    return {
+        "type": "album",
+        "browseId": t.get("browseId", ""),
+        "title": t.get("title", ""),
+        "artists": _artist_names(t.get("artists", []) or []),
+        "year": t.get("year", ""),
+        "thumbnail": _pick_thumb(t.get("thumbnails", [])),
+    }
+
+def _map_search_playlist(t):
+    # Playlist search returns a VL-prefixed browseId; get_playlist wants the raw
+    # id, so strip the "VL". owned=False marks it as a community playlist (not the
+    # user's) so the context menu doesn't offer rename/delete.
+    author = t.get("author")
+    if isinstance(author, list):
+        author = _artist_names(author)
+    browse = t.get("browseId", "") or t.get("playlistId", "")
+    return {
+        "type": "playlist",
+        "playlistId": browse[2:] if browse.startswith("VL") else browse,
+        "browseId": browse,
+        "owned": False,
+        "title": t.get("title", ""),
+        "subtitle": author or "",
+        "thumbnail": _pick_thumb(t.get("thumbnails", [])),
+    }
+
+# resultType -> mapper (for the mixed "all" view). videos are treated like songs.
+_SEARCH_MAPPERS = {
+    "song": _map_search_song,
+    "video": _map_search_song,
+    "artist": _map_search_artist,
+    "album": _map_search_album,
+    "playlist": _map_search_playlist,
+}
+# frontend filter -> ytmusicapi filter
+_SEARCH_FILTERS = {
+    "songs": "songs",
+    "artists": "artists",
+    "albums": "albums",
+    "playlists": "community_playlists",
+}
+
 @app.route("/search")
 def search():
     try:
         query = request.args.get("q", "")
-        filter_type = request.args.get("filter", "songs")
+        filter_type = request.args.get("filter", "all")
         if not query:
             return jsonify({"results": []})
 
-        results = get_ytmusic().search(query, filter=filter_type, limit=20)
         items = []
-
-        for t in results:
-            thumbs = t.get("thumbnails", [])
-            thumbnail = _pick_thumb(thumbs)
-
-            if filter_type == "songs":
-                artist_list = t.get("artists", [])
-                artists = _artist_names(artist_list)
-                artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
-                album = t.get("album") or {}
-                items.append({
-                    "type": "song",
-                    "videoId": t.get("videoId", ""),
-                    "title": t.get("title", ""),
-                    "artists": artists,
-                    "artistBrowseId": artist_browse_id,
-                    "artistLinks": _artist_links(artist_list),
-                    "album": album.get("name", ""),
-                    "albumBrowseId": (album.get("id") or ""),
-                    "duration": t.get("duration", ""),
-                    "thumbnail": thumbnail,
-                    "isExplicit": bool(t.get("isExplicit", False)),
-                })
-            elif filter_type == "artists":
-                items.append({
-                    "type": "artist",
-                    "browseId": t.get("browseId", ""),
-                    "title": t.get("artist", "") or t.get("title", ""),
-                    "subtitle": t.get("subscribers", ""),
-                    "thumbnail": thumbnail,
-                })
-            elif filter_type == "albums":
-                artist_list = t.get("artists", [])
-                artists = _artist_names(artist_list)
-                items.append({
-                    "type": "album",
-                    "browseId": t.get("browseId", ""),
-                    "title": t.get("title", ""),
-                    "artists": artists,
-                    "year": t.get("year", ""),
-                    "thumbnail": thumbnail,
-                })
+        if filter_type in ("all", ""):
+            # Mixed top results (YT Music style) — dispatch each item on its resultType.
+            for t in get_ytmusic().search(query, limit=24):
+                fn = _SEARCH_MAPPERS.get(t.get("resultType"))
+                if not fn:
+                    continue
+                it = fn(t)
+                if it.get("videoId") or it.get("browseId"):
+                    items.append(it)
+        else:
+            ytm_filter = _SEARCH_FILTERS.get(filter_type, filter_type)
+            fn = {"songs": _map_search_song, "artists": _map_search_artist,
+                  "albums": _map_search_album, "playlists": _map_search_playlist}.get(filter_type, _map_search_song)
+            for t in get_ytmusic().search(query, filter=ytm_filter, limit=20):
+                it = fn(t)
+                if it.get("videoId") or it.get("browseId"):
+                    items.append(it)
 
         return jsonify({"results": items})
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+@app.route("/search/suggestions")
+def search_suggestions():
+    """Autocomplete suggestions for the search box (as the user types)."""
+    try:
+        query = request.args.get("q", "").strip()
+        if not query:
+            return jsonify({"suggestions": []})
+        sugg = get_ytmusic().get_search_suggestions(query)
+        # Default mode returns a flat list of suggestion strings.
+        out = [s for s in sugg if isinstance(s, str)]
+        return jsonify({"suggestions": out[:10]})
+    except Exception:
+        return jsonify({"suggestions": []})
 
 def _is_podcast_section(title: str) -> bool:
     """Heuristic: section titles that typically contain podcasts or shows."""
