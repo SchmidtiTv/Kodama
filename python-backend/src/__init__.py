@@ -51,7 +51,12 @@ def create_app():
 
         profile_repository = Profile()
         app.extensions["profile_repository"] = profile_repository
-        app.extensions["youtube_music_session"] = YoutubeMusicSession(profiles=profile_repository)
+        music_session = YoutubeMusicSession(profiles=profile_repository)
+        # Restore the most recently available profile before serving auth checks.
+        # Without this, saved accounts exist on disk but no active YTMusic client is
+        # created until the user manually switches profiles.
+        music_session.autoload_first_profile()
+        app.extensions["youtube_music_session"] = music_session
         app.extensions["lastfm_client"] = LastFM()
         app.extensions["cache_settings"] = CacheSettings()
         app.extensions["composer_bridge"] = ComposerBridge(

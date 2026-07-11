@@ -1,114 +1,73 @@
-# Backend Migration Agenda
+# Kodama Backend Guide
 
-This file tracks the route split from `server.py` into `src/routes` and
-`src/lib`.
+Treat the modular application under `src/`
+as the source of truth; do not add route handlers or application state to
+`server.py`.
 
-## Completed
+## Entry Points and Composition
 
-The following route families are already registered by the app factory:
+- `server.py` is the executable entry point. It creates the Flask application
+  and passes it to `run_server()`.
+- `src/__init__.py:create_app()` is the composition root. It creates shared
+  services, restores a saved profile, registers blueprints, and configures
+  runtime helpers.
+- `src/routes/__init__.py` owns the blueprint registry. Add a new blueprint
+  there only after its route package is ready.
+- PyInstaller specs and `build_server.bat` build `server.py`; keep them aligned
+  if the entry point ever changes.
 
-- Auth: `src/routes/auth/`
-- Profiles: `src/routes/profiles/`
-- Last.fm: `src/routes/lastFm/`
-- Lyrics and Unison: `src/routes/lyrics/`
-- Composer Bridge and Composer SPA: `src/routes/composer/`
-- Cache controls: `src/routes/cache/`
-- Standalone/root routes: `src/routes/root/`
-- Streaming: `src/routes/streaming/`
-- Music library and detail pages: `src/routes/library/`
-- Download, export, and tool updates: `src/routes/downloads/`
-- Discovery: `src/routes/discovery/`
+## Project Layout
 
-The matching legacy handlers have been removed from `server.py` after each
-family was ported.
+| Location | Responsibility |
+| --- | --- |
+| `src/routes/<domain>/` | Flask blueprints, request validation, and HTTP responses. |
+| `src/lib/<domain>/` | Reusable domain logic and stateful services. |
+| `src/config.py` | Application configuration and filesystem locations. |
+| `tests/` | Route and runtime tests using isolated fakes. |
 
-The discovery family (`/podcast/*`, `/mood/*`) lives under
-`src/routes/discovery/` (`podcast`, `mood`); the mood page parser
-`_parse_two_row_item` is a module-level helper in `discovery/mood.py`. The two
-remaining `/song/*` detail routes (`/song/info`, `/song/stats`) were folded into
-`library/song.py` alongside `/song/meta` and `/song/credits` rather than into
-discovery, since they are song-detail lookups, not content discovery.
+Route families are organized by domain: `auth`, `profiles`, `library`,
+`streaming`, `discovery`, `downloads`, `lyrics`, `composer`, `cache`, `lastFm`,
+`operations`, and `root`.
 
-The download/export/tools family (`/song/download/*`, `/song/cached/*`,
-`/downloads/queue`, `/song/export/*`, `/ffmpeg/*`, `/ytdlp/*`) lives under
-`src/routes/downloads/` (`download`, `cached`, `export`, `ffmpeg`, `ytdlp`).
-It is backed by three services in `src/lib/`: `DownloadService`
-(`music/download.py`, owns the download status/queue and the song-cache path
-helpers), `ExportService` (`music/export.py`, owns the export status and
-`embed_metadata`), and `FFmpeg` (`integrations/ffmpeg.py`, discovery + version
-check + Windows auto-download SSE) — registered as `app.extensions`
-`download_service`, `export_service`, and `ffmpeg`. yt-dlp version check/update
-moved onto the existing `YTDLP` class (`check_update`/`update`/`active_version`
-/`compare_versions`). The shared yt-dlp error classifiers `is_hard_error` /
-`is_unavailable` now live in `integrations/ytdlp.py` (the last `server.py`
-consumer of `_is_hard_error` is gone, so it was removed there too). `FFmpeg`
-resolves its dev-mode binary path from `config.PROJECT_ROOT` rather than
-`__file__`, since the module no longer sits at the backend root.
+## Adding or Changing Backend Features
 
-The library family (`/library/*`, `/playlist/*`, `/radio/*`, `/album/*`,
-`/artist/*`, `/song/meta`, `/song/credits`) lives under `src/routes/library/`,
-grouped by subject (`library`, `playlist`, `radio`, `album`, `artist`, `song`)
-with shared `_services.py` accessors and a `_formatters.py` track normalizer.
-Local-profile SQLite goes through `Profile.local_database`/`is_local`; playlist
-and album disk caches are the `Playlist` and `Album` services in
-`src/lib/music/`, registered as `app.extensions["playlist_cache"]` and
-`["album_cache"]`. Cache feature flags read from `CacheSettings.enabled`, the
-active YTMusic client from `session.get_active_client()`, and thumbnail/artist
-normalization from `YoutubeResponseMapper`. The small `/song/credits` scrape
-cache stays a module-level dict in `library/song.py`.
+1. Place an endpoint in the closest existing `src/routes/<domain>/` package.
+   Create a new package and blueprint only when the feature is a distinct
+   domain.
+2. Keep routes thin: validate input, call a service, and format the response.
+3. Put shared logic, caches, and mutable state in `src/lib/`. Register shared
+   instances in `create_app()` and retrieve them from `app.extensions` through
+   the domain's `_services.py` helpers.
+4. Use the active client through `YoutubeMusicSession.get_active_client()` and
+   profile state through `session.state`; do not create ad-hoc `YTMusic`
+   clients inside routes.
+5. Add or update focused tests under `tests/`. Route tests should use
+   `RouteTestCase` and its fakes instead of real network or profile data.
 
-The streaming family (`/stream`, `/stream-prepare`, `/audio-stream` and its
-`/warm` variant) is served by `StreamService` in `src/lib/music/stream.py`,
-registered as `app.extensions["stream_service"]`. It owns the browser-cookie
-extraction cache and the resolved-URL cache, and resolves auth through the
-`YTDLP` instance (`app.extensions["ytdlp"]`, built with the active profile and
-music-session state). yt-dlp client options, the audio format, the browser
-cookie file, and `STREAM_ATTEMPTS` live in `ConfigYTDLP` (`src/config.py`).
+## Profiles and Startup
 
-## Startup and Runtime Helpers
+- `YoutubeMusicSession.autoload_first_profile()` restores an available saved
+  account during application creation. Do not move this work into a request
+  handler.
+- Local profiles are supported alongside Google-authenticated profiles. Check
+  `Profile.is_local(name)` before accessing remote YouTube Music data.
+- Authentication headers and user profile data are sensitive. Do not log,
+  commit, or expose their contents in API errors.
 
-Non-route infrastructure ported out of `server.py`'s module top-level:
+## Verification
 
-- IPv4-first outbound resolution is now `setup_ipv4_first()` in
-  `src/lib/runtime/network.py`, called at the start of `create_app()` and
-  toggled by `Config.PREFER_IPV4`. It mirrors the `setup_debug()` pattern so it
-  can be deactivated from config.
-
-## Remaining Server Families
-
-
-## Migration Recipe
-
-For each family:
-
-1. Read the route handlers, their helper functions, and their module-level state
-   in `server.py`.
-2. Move reusable behavior into the closest `src/lib/<subject>/` package. Create
-   a service object when it owns mutable state or several related operations.
-3. Add one file per endpoint under `src/routes/<family>/` and a blueprint in
-   that package's `__init__.py`.
-4. Register shared service instances in `create_app()` and expose them through
-   `app.extensions`.
-5. Register the blueprint in `src/routes/__init__.py`.
-6. Verify syntax with AST parsing and run `git diff --check`.
-7. Only after an explicit request, remove the matching legacy route, helpers,
-   and obsolete module globals from `server.py`.
-
-## Useful Checks
+From `python-backend/`, use the project virtual environment when available:
 
 ```sh
-python3 - <<'PY'
-import ast
-from pathlib import Path
-
-for path in Path("src").rglob("*.py"):
-    ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-print("AST OK")
-PY
-
+python -m unittest discover -s tests -p 'test_*.py'
 git diff --check
 ```
 
-The system Python available in this workspace does not include the backend's
-Flask and requests dependencies. Use the project virtual environment for route
-or integration tests when it is available.
+For a lightweight syntax check that does not import optional dependencies:
+
+```sh
+python3 -c "import ast, pathlib; [ast.parse(p.read_text(encoding='utf-8'), filename=str(p)) for p in pathlib.Path('src').rglob('*.py')]; print('AST OK')"
+```
+
+If the system Python lacks Flask or other backend dependencies, use the project
+virtual environment rather than installing packages globally.
