@@ -263,7 +263,8 @@ class FakeYoutubeClient:
                 "author": "Artist",
                 "lengthSeconds": "185",
                 "thumbnail": {"thumbnails": [{"url": "http://img/song-small.jpg"}, {"url": "http://img/song-large.jpg"}]},
-            }
+            },
+            "microformat": {"microformatDataRenderer": {"uploadDate": "2024-05-12"}},
         }
 
 
@@ -493,6 +494,100 @@ class FakeAlbumCache:
         self.disk[browse_id] = data
 
 
+class FakeDownloadService:
+    def __init__(self, root):
+        self.root = Path(root)
+        self.status = {}
+        self.queue = {}
+        self.started = []
+        self.deleted = []
+        self.cached = {}
+        self.cached_meta = [{"videoId": "cached", "title": "Cached Song"}]
+
+    def add_cached(self, video_id, suffix=".opus", content=b"cached audio"):
+        path = self.root / f"{video_id}{suffix}"
+        path.write_bytes(content)
+        self.cached[video_id] = path
+        return path
+
+    def song_audio_path(self, video_id):
+        return self.cached.get(video_id)
+
+    @staticmethod
+    def audio_mime_type(path):
+        suffix = Path(path).suffix.lower()
+        return {
+            ".opus": "audio/opus",
+            ".m4a": "audio/mp4",
+            ".webm": "audio/webm",
+            ".mp3": "audio/mpeg",
+        }.get(suffix, "application/octet-stream")
+
+    def start(self, video_id, meta):
+        self.started.append((video_id, meta))
+        self.status[video_id] = "downloading"
+        self.queue[video_id] = {
+            "videoId": video_id,
+            "title": meta.get("title", ""),
+            "artists": meta.get("artists", ""),
+            "thumbnail": meta.get("thumbnail", ""),
+            "status": "downloading",
+            "progress": 0.0,
+        }
+
+    def queue_snapshot(self):
+        return list(self.queue.values())
+
+    def list_cached(self):
+        return list(self.cached_meta)
+
+    def delete_cached(self, video_id):
+        self.deleted.append(video_id)
+        self.cached.pop(video_id, None)
+        self.status.pop(video_id, None)
+
+
+class FakeExportService:
+    def __init__(self):
+        self.status = {}
+        self.started = []
+
+    def start(self, video_id, output_path, fmt, meta):
+        self.started.append((video_id, output_path, fmt, meta))
+        self.status[video_id] = "exporting"
+
+
+class FakeFFmpeg:
+    def __init__(self):
+        self.is_available = True
+        self.download_forces = []
+        self.update_payload = {"installed": "7.0", "latest": "8.0", "updateAvailable": True}
+
+    def available(self):
+        return self.is_available
+
+    def check_update(self):
+        return dict(self.update_payload)
+
+    def download_stream(self, force=False):
+        self.download_forces.append(force)
+        yield 'data: {"status": "progress", "percent": 50}\n\n'
+        yield 'data: {"status": "done"}\n\n'
+
+
+class FakeYTDLP:
+    def __init__(self):
+        self.update_payload = {"ok": True, "version": "2026.07.11"}
+        self.update_status = 200
+        self.check_payload = {"installed": "2026.01.01", "latest": "2026.07.11", "updateAvailable": True}
+
+    def check_update(self):
+        return dict(self.check_payload)
+
+    def update(self):
+        return dict(self.update_payload), self.update_status
+
+
 class RouteTestCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -508,6 +603,10 @@ class RouteTestCase(unittest.TestCase):
         self.stream = FakeStreamService()
         self.playlist_cache = FakePlaylistCache()
         self.album_cache = FakeAlbumCache()
+        self.download_service = FakeDownloadService(self.root)
+        self.export_service = FakeExportService()
+        self.ffmpeg = FakeFFmpeg()
+        self.ytdlp = FakeYTDLP()
         self.app.extensions.update(
             {
                 "profile_repository": self.profile_repository,
@@ -519,6 +618,10 @@ class RouteTestCase(unittest.TestCase):
                 "stream_service": self.stream,
                 "playlist_cache": self.playlist_cache,
                 "album_cache": self.album_cache,
+                "download_service": self.download_service,
+                "export_service": self.export_service,
+                "ffmpeg": self.ffmpeg,
+                "ytdlp": self.ytdlp,
             }
         )
         with patch("builtins.print"):
