@@ -33,6 +33,20 @@ class Profile:
     def metadata_file_path(self, name):
         return self._meta.meta_path(name)
 
+    def update_metadata(self, name, **updates):
+        """Merge fields into a profile's metadata file and persist the result."""
+        metadata = self._read_metadata(name)
+        metadata.update(updates)
+        with open(self.metadata_file_path(name), "w", encoding="utf-8") as meta_file:
+            json.dump(metadata, meta_file)
+        return metadata
+
+    def delete_files(self, name):
+        """Delete browser-auth, metadata, and local-database files for a profile."""
+        for path in (self.profile_file_path(name), self.metadata_file_path(name), self.local_database_path(name)):
+            if os.path.exists(path):
+                os.remove(path)
+
     # Old server.py: is_local_profile
     def is_local(self, name):
         if not name:
