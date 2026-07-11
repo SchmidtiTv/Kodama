@@ -267,6 +267,83 @@ class FakeYoutubeClient:
             "microformat": {"microformatDataRenderer": {"uploadDate": "2024-05-12"}},
         }
 
+    def get_podcast(self, playlist_id, limit=50):
+        return {
+            "title": "Podcast",
+            "description": "Podcast description",
+            "author": {"name": "Host", "id": "UChost"},
+            "thumbnails": [{"url": "http://img/podcast.jpg"}],
+            "episodes": [
+                {
+                    "videoId": "episode",
+                    "browseId": "MPEPISODE",
+                    "title": "Episode",
+                    "description": "Episode description",
+                    "duration": "42:00",
+                    "date": "2026-07-11",
+                    "thumbnails": [{"url": "http://img/episode.jpg"}],
+                },
+                {"title": "Trailer without video"},
+            ],
+        }
+
+    def get_mood_categories(self):
+        return {
+            "For you": [
+                {"title": "Energize", "params": "energy"},
+                {"title": "Duplicate", "params": "energy"},
+            ],
+            "Genres": [{"title": "Jazz", "params": "jazz"}],
+        }
+
+    def _send_request(self, endpoint, payload):
+        renderer = {
+            "title": {"runs": [{"text": "Mood Playlist"}]},
+            "subtitle": {"runs": [{"text": "Kodama Mix"}]},
+            "thumbnailRenderer": {
+                "musicThumbnailRenderer": {
+                    "thumbnail": {"thumbnails": [{"url": "http://img/mood.jpg"}]}
+                }
+            },
+            "navigationEndpoint": {"watchPlaylistEndpoint": {"playlistId": "mood-pl"}},
+        }
+        duplicate_renderer = {
+            **renderer,
+            "title": {"runs": [{"text": "Duplicate Mood Playlist"}]},
+        }
+        song_renderer = {
+            "title": {"runs": [{"text": "Mood Song"}]},
+            "subtitle": {"runs": [{"text": "Mood Artist"}]},
+            "navigationEndpoint": {"watchEndpoint": {"videoId": "mood-song", "playlistId": "mood-radio"}},
+        }
+        return {
+            "contents": {
+                "singleColumnBrowseResultsRenderer": {
+                    "tabs": [
+                        {
+                            "tabRenderer": {
+                                "content": {
+                                    "sectionListRenderer": {
+                                        "contents": [
+                                            {"gridRenderer": {"items": [{"musicTwoRowItemRenderer": renderer}]}},
+                                            {
+                                                "musicCarouselShelfRenderer": {
+                                                    "contents": [
+                                                        {"musicTwoRowItemRenderer": duplicate_renderer},
+                                                        {"musicTwoRowItemRenderer": song_renderer},
+                                                    ]
+                                                }
+                                            },
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
 
 class FakeMusicSession:
     def __init__(self):

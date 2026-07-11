@@ -157,6 +157,37 @@ class LibraryDetailRouteTests(RouteTestCase):
         self.assertEqual(meta.status_code, 200)
         self.assertEqual(meta.json["duration"], "3:05")
 
+        info = self.client.get("/song/info/vid")
+        self.assertEqual(info.status_code, 200)
+        self.assertEqual(info.json, {"artistBrowseId": "UCartist", "albumBrowseId": "MPREb"})
+
+    def test_song_stats_route_formats_raw_counts(self):
+        class StatsResponse:
+            status_code = 200
+
+            def json(self):
+                return {"viewCount": 1_250_000, "likes": 42_500, "dislikes": 321}
+
+        with patch("src.routes.library.song.requests.get", return_value=StatsResponse()) as request:
+            stats = self.client.get("/song/stats/vid")
+
+        self.assertEqual(stats.status_code, 200)
+        self.assertEqual(stats.json["views"], "1.2M")
+        self.assertEqual(stats.json["likes"], "42.5K")
+        self.assertEqual(stats.json["dislikes"], "321")
+        self.assertEqual(stats.json["viewsRaw"], 1_250_000)
+        request.assert_called_once()
+
+    def test_song_stats_route_reports_unavailable_stats(self):
+        class FailedStatsResponse:
+            status_code = 404
+
+        with patch("src.routes.library.song.requests.get", return_value=FailedStatsResponse()):
+            response = self.client.get("/song/stats/vid")
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json, {"error": "stats unavailable"})
+
     def test_song_credits_routes_use_cache_after_first_fetch(self):
         from src.routes.library import song
 
