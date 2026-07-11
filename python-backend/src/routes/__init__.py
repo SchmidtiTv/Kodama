@@ -5,6 +5,7 @@ from .auth import blueprint as auth_blueprint
 from .news import blueprint as news_blueprint
 from .clientlog import blueprint as clientlog_blueprint
 from .lastFm import blueprint as lastfm_blueprint
+from .lyrics import blueprint as lyrics_blueprint
 from .profiles import blueprint as profiles_blueprint
 from .. import Config
 
@@ -14,6 +15,7 @@ blueprints: List[Tuple[Blueprint, bool]] = [
     (news_blueprint, False),
     (clientlog_blueprint, True),
     (lastfm_blueprint, False),
+    (lyrics_blueprint, False),
     (profiles_blueprint, False),
 ]
 
