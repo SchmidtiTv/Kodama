@@ -7,19 +7,26 @@
  *   - we can count unique active installs per day (DAU) and per month (MAU),
  *   - but we can neither reverse the token to an identity nor link a device
  *     across days (the daily token changes every midnight UTC).
- * Only aggregate integer counters are ever persisted; the tokens live in
- * short-TTL dedup keys that auto-expire.
+ * Only aggregate integer counters are ever persisted.
  *
- * Bindings (set in the Cloudflare dashboard / wrangler.toml):
- *   - KV namespace  STATS   (required)
+ * KV-write budget (Cloudflare free tier = 1,000 writes/day):
+ *   - DAU: the app self-limits to ONE ping/day/install (localStorage guard), so
+ *     we skip a server-side daily dedup write and just bump a per-day counter
+ *     -> ~1 write per active user per day.
+ *   - MAU: dedup on the stable monthly token, so repeat pings within the month
+ *     are free; only a brand-new monthly-unique costs writes -> ~2 writes per
+ *     user per MONTH (negligible per day).
+ *   => ~1 write/user/day, i.e. a free-tier ceiling of ~1,000 daily-active users.
+ *   Beyond that: Workers Paid ($5/mo) raises KV to 1M writes/day with NO code
+ *   change, or switch to Analytics Engine for effectively unlimited writes.
+ *
+ * Bindings (wrangler.toml): KV namespace STATS (required).
  *
  * Routes:
  *   POST /ping    body: { d, m, v? }   d = daily token, m = monthly token, v = app version
  *   GET  /count                        -> { day, dau, month, mau }
  *   GET  /badge                        -> shields.io endpoint JSON (active users)
  *   GET  /badge?metric=mau             -> shields.io endpoint JSON (monthly)
- *
- * Deploy: see analytics/README.md
  */
 
 const CORS = {
@@ -34,14 +41,10 @@ function json(body, extra = {}) {
   });
 }
 
-function todayUTC() {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-}
-function monthUTC() {
-  return new Date().toISOString().slice(0, 7); // YYYY-MM
-}
+const todayUTC = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+const monthUTC = () => new Date().toISOString().slice(0, 7);  // YYYY-MM
 
-// hex token sanity check — reject anything that isn't a 64-char sha-256 hex digest
+// reject anything that isn't a 64-char sha-256 hex digest
 const HEX64 = /^[0-9a-f]{64}$/;
 
 function human(n) {
@@ -55,15 +58,12 @@ async function readCount(env, key) {
   return v ? parseInt(v, 10) || 0 : 0;
 }
 
-async function bump(env, dedupKey, counterKey, ttl) {
-  // Atomicity note: KV is eventually consistent, not transactional. For an
-  // anonymous vanity counter a rare double/skip on concurrent same-token pings
-  // is acceptable. The daily per-install client guard makes collisions unlikely.
-  if (await env.STATS.get(dedupKey)) return false; // already counted this token
-  await env.STATS.put(dedupKey, "1", { expirationTtl: ttl });
-  const cur = await readCount(env, counterKey);
-  await env.STATS.put(counterKey, String(cur + 1));
-  return true;
+// Increment a counter (read-modify-write). KV is eventually consistent, not
+// transactional, so a rare concurrent collision may drop a count — acceptable
+// for a vanity counter. `ttl` keeps old daily/monthly keys from piling up.
+async function incr(env, key, ttl) {
+  const cur = await readCount(env, key);
+  await env.STATS.put(key, String(cur + 1), ttl ? { expirationTtl: ttl } : undefined);
 }
 
 export default {
@@ -86,9 +86,17 @@ export default {
       }
       const day = todayUTC();
       const month = monthUTC();
-      // daily dedup key expires after 48h; monthly after ~40 days
-      await bump(env, `seen:d:${day}:${d}`, `dau:${day}`, 60 * 60 * 48);
-      await bump(env, `seen:m:${month}:${m}`, `mau:${month}`, 60 * 60 * 24 * 40);
+
+      // DAU — no server dedup (client already pings once/day/install). 1 write.
+      // TTL 48h: only today's key is ever read.
+      await incr(env, `dau:${day}`, 60 * 60 * 48);
+
+      // MAU — dedup on the stable monthly token so repeat pings are free.
+      const seenKey = `seen:m:${month}:${m}`;
+      if (!(await env.STATS.get(seenKey))) {
+        await env.STATS.put(seenKey, "1", { expirationTtl: 60 * 60 * 24 * 40 });
+        await incr(env, `mau:${month}`, 60 * 60 * 24 * 40);
+      }
       return json({ ok: true });
     }
 

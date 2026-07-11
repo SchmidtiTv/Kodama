@@ -7,4 +7,4 @@ compatibility_date = "2025-01-01"
 #   npx wrangler kv namespace create STATS
 [[kv_namespaces]]
 binding = "STATS"
-id = "PASTE_KV_NAMESPACE_ID_HERE"
+id = "adba41b3fa9841d4a6182c84d6355628"

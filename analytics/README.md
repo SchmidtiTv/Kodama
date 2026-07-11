@@ -19,7 +19,20 @@ The Worker only ever sees `d` and `m`. Consequences:
 - We can count **unique active installs per day (DAU)** and **per month (MAU)**.
 - The token **cannot be reversed** to an id (install id is 122-bit random).
 - A device **cannot be linked across days** — the daily token changes every midnight UTC.
-- Only **aggregate integer counters** are persisted; the tokens live in short-TTL dedup keys that auto-expire (48 h daily, ~40 d monthly).
+- Only **aggregate integer counters** are persisted; the monthly dedup markers auto-expire (~40 d).
+
+## Scaling
+
+The Cloudflare **free tier allows 1,000 KV writes/day**. The Worker is tuned to spend
+**~1 write per active user per day**: DAU has no server-side dedup (the app already
+self-limits to one ping/day/install via a `localStorage` guard), and MAU dedups on the
+stable monthly token so repeat pings within a month are free. That puts the free-tier
+ceiling at roughly **1,000 daily-active users**.
+
+If Kodama outgrows that:
+- **Workers Paid ($5/mo)** raises KV to **1,000,000 writes/day** — no code change.
+- Or switch the counters to **Analytics Engine** (effectively unlimited writes; distinct
+  counts via its SQL API) for a free but slightly more involved setup.
 
 It is **opt-out** in Settings → Privacy, and the install id / heartbeat never run when disabled.
 
