@@ -22,6 +22,8 @@ from .runtime.debug import setup_debug
 from .runtime.logging import setup_log_tee, setup_logger
 from .runtime.network import setup_ipv4_first
 from .runtime.maintenance import DelayedCleanup, DirectoryInspector
+from .runtime.overlay import OverlayServer
+from .runtime.remote import RemoteControl
 
 __all__ = [
     "Album",
@@ -37,9 +39,11 @@ __all__ = [
     "LastFM",
     "LyricsService",
     "MusixMatch",
+    "OverlayServer",
     "Playlist",
     "Profile",
     "ProfileAuthHeaders",
+    "RemoteControl",
     "StreamService",
     "YoutubeResponseMapper",
     "YoutubeMusicSession",

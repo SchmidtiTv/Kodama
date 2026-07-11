@@ -12,6 +12,7 @@ from .feedback import blueprint as feedback_blueprint
 from .lastFm import blueprint as lastfm_blueprint
 from .library import blueprint as library_blueprint
 from .lyrics import blueprint as lyrics_blueprint
+from .operations import blueprint as operations_blueprint
 from .profiles import blueprint as profiles_blueprint
 from .root import blueprint as root_blueprint
 from .streaming import blueprint as streaming_blueprint
@@ -30,6 +31,7 @@ blueprints: List[Tuple[Blueprint, bool]] = [
     (lastfm_blueprint, False),
     (library_blueprint, False),
     (lyrics_blueprint, False),
+    (operations_blueprint, False),
     (profiles_blueprint, False),
     (root_blueprint, False),
     (streaming_blueprint, False),

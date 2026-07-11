@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from flask import Flask
+from flask import Flask, Response
 
 from src.routes import register_blueprints
 
@@ -665,6 +665,136 @@ class FakeYTDLP:
         return dict(self.update_payload), self.update_status
 
 
+class FakeOverlayServer:
+    def __init__(self):
+        self.state = {}
+        self.config = {"version": 2, "canvas": {"width": 400}, "layers": []}
+        self.started_ports = []
+        self.stopped = 0
+        self.running = False
+
+    def page_response(self):
+        response = Response("<main>Overlay</main>", content_type="text/html; charset=utf-8")
+        response.headers["X-Frame-Options"] = "ALLOWALL"
+        return response
+
+    def stream_response(self):
+        return Response('data: {"title": "Song"}\n\n', content_type="text/event-stream")
+
+    def update_state(self, data):
+        self.state.update(data or {})
+
+    def set_config(self, config):
+        self.config = dict(config or {})
+
+    def get_config(self):
+        return dict(self.config)
+
+    def start(self, port):
+        self.started_ports.append(port)
+        self.running = True
+        return True
+
+    def stop(self):
+        self.stopped += 1
+        self.running = False
+
+    def status(self):
+        return {"running": self.running, "clients": 0}
+
+
+class FakeRemoteControl:
+    def __init__(self):
+        self.enabled = False
+        self.token = None
+        self.state = {"title": "", "isPlaying": False}
+        self.devices = {}
+        self.commands = []
+        self.pushed_states = []
+
+    def enable(self, data):
+        self.enabled = bool(data.get("enabled"))
+        self.token = (data.get("token") or "tok") if self.enabled else None
+        if self.enabled:
+            for trusted in data.get("trusted") or []:
+                device_id = trusted.get("id")
+                if device_id:
+                    self.devices[device_id] = {
+                        "name": trusted.get("name", "Device"),
+                        "status": "approved",
+                    }
+        else:
+            self.devices.clear()
+            self.commands.clear()
+        return {"enabled": self.enabled, "token": self.token, "port": 9847, "ips": ["127.0.0.1"]}
+
+    def status_payload(self):
+        devices = [
+            {"id": device_id, "name": device["name"], "status": device["status"], "online": True}
+            for device_id, device in self.devices.items()
+        ]
+        return {"enabled": self.enabled, "token": self.token, "port": 9847, "ips": ["127.0.0.1"], "devices": devices}
+
+    def device_action(self, data):
+        device_id = data.get("id")
+        device = self.devices.get(device_id)
+        if not device:
+            return {"error": "unknown"}, 404
+        if data.get("action") == "approve":
+            device["status"] = "approved"
+        elif data.get("action") in ("deny", "remove"):
+            self.devices.pop(device_id, None)
+        return {"ok": True}, 200
+
+    def push_state(self, data):
+        self.pushed_states.append(dict(data or {}))
+        self.state.update(data or {})
+
+    def poll(self):
+        commands, self.commands = self.commands, []
+        return commands
+
+    def sync(self, data):
+        state = (data or {}).get("state")
+        if isinstance(state, dict):
+            self.state.update(state)
+        return self.poll()
+
+    def hello(self, data):
+        if data.get("token") != self.token:
+            return {"error": "invalid_token"}, 403
+        device_id = data.get("deviceId")
+        if not device_id:
+            return {"error": "no_device"}, 400
+        self.devices.setdefault(device_id, {"name": data.get("name", "Device"), "status": "pending"})
+        return {"status": self.devices[device_id]["status"]}, 200
+
+    def get_state(self, token, device_id):
+        if token != self.token:
+            return {"error": "invalid_token"}, 403
+        device = self.devices.get(device_id or "")
+        if not device:
+            return {"status": "unknown"}, 200
+        if device["status"] != "approved":
+            return {"status": device["status"]}, 200
+        return {"status": "approved", "state": self.state}, 200
+
+    def command(self, data):
+        if data.get("token") != self.token:
+            return {"error": "invalid_token"}, 403
+        device = self.devices.get(data.get("deviceId"))
+        if not device or device["status"] != "approved":
+            return {"error": "not_allowed"}, 403
+        action = data.get("action")
+        if action not in ("playpause", "next", "prev", "shuffle", "repeat"):
+            return {"error": "bad_action"}, 400
+        self.commands.append(action)
+        return {"ok": True}, 200
+
+    def page_html(self):
+        return "<main>Remote</main>"
+
+
 class RouteTestCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -684,6 +814,8 @@ class RouteTestCase(unittest.TestCase):
         self.export_service = FakeExportService()
         self.ffmpeg = FakeFFmpeg()
         self.ytdlp = FakeYTDLP()
+        self.overlay_server = FakeOverlayServer()
+        self.remote_control = FakeRemoteControl()
         self.app.extensions.update(
             {
                 "profile_repository": self.profile_repository,
@@ -699,6 +831,9 @@ class RouteTestCase(unittest.TestCase):
                 "export_service": self.export_service,
                 "ffmpeg": self.ffmpeg,
                 "ytdlp": self.ytdlp,
+                "overlay_server": self.overlay_server,
+                "remote_control": self.remote_control,
+                "server_start_time": 1000.0,
             }
         )
         with patch("builtins.print"):

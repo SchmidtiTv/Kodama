@@ -1,4 +1,7 @@
+import time
+
 from flask import Flask
+from flask_cors import CORS
 
 from src.config import Config
 from src.lib import (
@@ -12,8 +15,10 @@ from src.lib import (
     FFmpeg,
     LyricsService,
     MusixMatch,
+    OverlayServer,
     Playlist,
     Profile,
+    RemoteControl,
     StreamService,
     YoutubeMusicSession,
     YTDLP,
@@ -25,12 +30,24 @@ from src.lib import (
 from src.routes import register_blueprints
 
 
+CORS_ORIGINS = [
+    "http://localhost:1421",     # Tauri dev server
+    "tauri://localhost",         # Tauri production (Windows/Linux)
+    "https://tauri.localhost",   # Tauri production (Tauri 2.x, WebView2)
+    "http://tauri.localhost",    # fallback
+    "http://localhost",
+    "http://127.0.0.1",
+]
+
+
 def create_app():
     try:
         setup_ipv4_first()
 
         app = Flask(__name__)
         app.config.from_object(Config)
+        CORS(app, origins=CORS_ORIGINS)
+        app.extensions["server_start_time"] = time.time()
 
         profile_repository = Profile()
         app.extensions["profile_repository"] = profile_repository
@@ -60,6 +77,9 @@ def create_app():
         app.extensions["ffmpeg"] = ffmpeg
         app.extensions["download_service"] = DownloadService(ytdlp=ytdlp)
         app.extensions["export_service"] = ExportService(ytdlp=ytdlp, ffmpeg=ffmpeg)
+
+        app.extensions["overlay_server"] = OverlayServer()
+        app.extensions["remote_control"] = RemoteControl()
 
         register_blueprints(app)
 
