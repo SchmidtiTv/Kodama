@@ -5,7 +5,7 @@ from flask import jsonify, request
 from src.config import config_dirs
 
 from . import blueprint
-from ._services import music_session
+from ._services import playlist_cache
 
 
 @blueprint.route("/cache/clear", methods=["POST"])
@@ -30,5 +30,5 @@ def cache_clear():
             except OSError:
                 pass
         if current_category == "playlists":
-            music_session().state.playlist_cache.clear()
+            playlist_cache().clear_memory()
     return jsonify({"ok": True})

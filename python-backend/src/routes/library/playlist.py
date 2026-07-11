@@ -209,18 +209,18 @@ def stream_playlist(playlist_id):
 
             if not force_refresh and cache_flags["playlists"]:
                 # 1. In-memory cache (fastest) — skip if missing isExplicit field
-                if playlist_id in cache.playlist_cache:
-                    mem = cache.playlist_cache[playlist_id]
+                mem = cache.get_memory(playlist_id, profile_name)
+                if mem is not None:
                     mem_tracks = mem.get("tracks", [])
                     if mem_tracks and "isExplicit" not in mem_tracks[0]:
-                        del cache.playlist_cache[playlist_id]
+                        cache.discard_memory(playlist_id, profile_name)
                     else:
                         yield from serve_cached(mem)
                         return
                 # 2. Disk cache
                 disk = cache.load_playlist_disk(playlist_id, profile_name)
                 if disk:
-                    cache.put(playlist_id, disk)  # warm in-memory cache too
+                    cache.put(playlist_id, profile_name, disk)  # warm in-memory cache too
                     yield from serve_cached(disk)
                     return
 
@@ -236,7 +236,7 @@ def stream_playlist(playlist_id):
                     yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
                 data = {"title": "Liked Songs", "thumbnail": "", "tracks": all_tracks}
                 if cache_flags["playlists"]:
-                    cache.put(playlist_id, data)
+                    cache.put(playlist_id, profile_name, data)
                     cache.save_playlist_disk(playlist_id, profile_name, data)
                 yield send({"type": "done"})
                 return
@@ -255,7 +255,7 @@ def stream_playlist(playlist_id):
                 yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
             data = {"title": playlist.get("title", ""), "thumbnail": thumbnail, "tracks": all_tracks}
             if cache_flags["playlists"]:
-                cache.put(playlist_id, data)
+                cache.put(playlist_id, profile_name, data)
                 cache.save_playlist_disk(playlist_id, profile_name, data)
             yield send({"type": "done"})
 

@@ -15,7 +15,15 @@ from src.config import Config, config_dirs, config_ytmusic
 class Playlist:
     # Old server.py: _playlist_cache
     def __init__(self):
+        # Keyed by (profile, playlist_id): account-relative ids such as "LM"
+        # (Liked Songs) are shared across Google accounts but hold different
+        # content, so the in-memory layer must be profile-scoped just like the
+        # on-disk layer. LRU eviction is over the whole map.
         self.playlist_cache = collections.OrderedDict()
+
+    @staticmethod
+    def _memory_key(playlist_id, profile):
+        return (profile or "default", playlist_id)
 
     # Old server.py: _playlist_disk_path
     def playlist_disk_path(self, playlist_id, profile):
@@ -52,15 +60,28 @@ class Playlist:
 
     # Old server.py: _purge_playlist_cache
     def purge_playlist_cache(self, playlist_id, profile):
-        self.playlist_cache.pop(playlist_id, None)
+        self.discard_memory(playlist_id, profile)
         path = self.playlist_disk_path(playlist_id, profile)
         if os.path.exists(path):
             os.remove(path)
 
+    def get_memory(self, playlist_id, profile):
+        """Return the in-memory cached entry for this profile, or None."""
+        return self.playlist_cache.get(self._memory_key(playlist_id, profile))
+
+    def discard_memory(self, playlist_id, profile):
+        """Drop a single in-memory entry (e.g. when it is stale)."""
+        self.playlist_cache.pop(self._memory_key(playlist_id, profile), None)
+
+    def clear_memory(self):
+        """Drop every in-memory entry (used by the 'clear caches' action)."""
+        self.playlist_cache.clear()
+
     # Old server.py: _playlist_cache_put
-    def put(self, playlist_id, data):
+    def put(self, playlist_id, profile, data):
         """Insert/update a playlist and evict the least-recently-used entry."""
-        self.playlist_cache[playlist_id] = data
-        self.playlist_cache.move_to_end(playlist_id)
+        key = self._memory_key(playlist_id, profile)
+        self.playlist_cache[key] = data
+        self.playlist_cache.move_to_end(key)
         while len(self.playlist_cache) > config_ytmusic.PLAYLIST_CACHE_MAX:
             self.playlist_cache.popitem(last=False)

@@ -20,8 +20,6 @@ class YoutubeMusicSessionState:
         self.ytm = None
         # Old server.py: _current_profile
         self.current_profile = None
-        # Old server.py: _playlist_cache
-        self.playlist_cache = {}
         # Old server.py: _psidts_last_refresh
         self.psidts_last_refresh = 0.0
         # Old server.py: _adding_account
@@ -97,7 +95,6 @@ class YoutubeMusicSession:
         if self.profiles.is_local(name):
             self.state.ytm = self._client_factory()
             self.state.current_profile = name
-            self.state.playlist_cache.clear()
             return True
 
         path = self.profiles.profile_file_path(name)
@@ -110,7 +107,6 @@ class YoutubeMusicSession:
             return False
 
         self.state.current_profile = name
-        self.state.playlist_cache = {}
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return True
 
@@ -120,7 +116,6 @@ class YoutubeMusicSession:
         client.get_liked_songs(limit=1)
         self.state.ytm = client
         self.state.current_profile = name
-        self.state.playlist_cache.clear()
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return client
 
@@ -128,7 +123,6 @@ class YoutubeMusicSession:
         """Clear the active client and profile without deleting profile files."""
         self.state.current_profile = None
         self.state.ytm = None
-        self.state.playlist_cache = {}
 
     def apply_webview_cookies(self, cookie_string):
         """Apply browser-refreshed cookies to the active session and profile file."""
