@@ -24,6 +24,8 @@ class YoutubeMusicSessionState:
         self.playlist_cache = {}
         # Old server.py: _psidts_last_refresh
         self.psidts_last_refresh = 0.0
+        # Old server.py: _adding_account
+        self.adding_account = False
 
 
 class YoutubeMusicSession:
@@ -111,6 +113,52 @@ class YoutubeMusicSession:
         self.state.playlist_cache = {}
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return True
+
+    def activate_verified_profile(self, name):
+        """Validate browser auth with a lightweight request, then activate the profile."""
+        client = self.create_client(name)
+        client.get_liked_songs(limit=1)
+        self.state.ytm = client
+        self.state.current_profile = name
+        self.state.playlist_cache.clear()
+        threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
+        return client
+
+    def clear_active_profile(self):
+        """Clear the active client and profile without deleting profile files."""
+        self.state.current_profile = None
+        self.state.ytm = None
+        self.state.playlist_cache = {}
+
+    def apply_webview_cookies(self, cookie_string):
+        """Apply browser-refreshed cookies to the active session and profile file."""
+        if (
+            self.state.ytm is None
+            or not self.state.current_profile
+            or self.profiles.is_local(self.state.current_profile)
+        ):
+            return False, "no_profile", False
+        if "SAPISID" not in cookie_string:
+            return False, "invalid", False
+        base_headers = getattr(self.state.ytm, "base_headers", None)
+        if base_headers is None:
+            return False, "no_headers", False
+
+        base_headers["cookie"] = cookie_string
+        try:
+            path = self.profiles.profile_file_path(self.state.current_profile)
+            with open(path, encoding="utf-8") as profile_file:
+                raw = json.load(profile_file)
+            raw["cookie"] = cookie_string
+            with open(path, "w", encoding="utf-8") as profile_file:
+                json.dump(raw, profile_file, indent=2)
+        except Exception:
+            pass
+
+        self.state.psidts_last_refresh = time.time()
+        has_psidts = "__Secure-1PSIDTS" in cookie_string or "__Secure-3PSIDTS" in cookie_string
+        print(f"[cookies] WebView refresh applied (PSIDTS present: {has_psidts})", flush=True)
+        return True, None, has_psidts
 
     # Old server.py: get_ytmusic
     def get_active_client(self):

@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 from flask import Flask, Blueprint
+from .auth import blueprint as auth_blueprint
 from .news import blueprint as news_blueprint
 from .clientlog import blueprint as clientlog_blueprint
 from .lastFm import blueprint as lastfm_blueprint
@@ -9,6 +10,7 @@ from .. import Config
 
 # List of a Tuple with the blueprint and if debug
 blueprints: List[Tuple[Blueprint, bool]] = [
+    (auth_blueprint, False),
     (news_blueprint, False),
     (clientlog_blueprint, True),
     (lastfm_blueprint, False),

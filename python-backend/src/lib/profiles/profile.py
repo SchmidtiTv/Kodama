@@ -49,6 +49,17 @@ class Profile:
         with open(self.metadata_file_path(name), "w", encoding="utf-8") as meta_file:
             json.dump(metadata, meta_file)
 
+    def write_auth_headers(self, name, headers):
+        """Persist browser-auth headers for a Google profile."""
+        with open(self.profile_file_path(name), "w", encoding="utf-8") as profile_file:
+            json.dump(headers, profile_file, indent=2)
+
+    def remove_auth_headers(self, name):
+        """Remove a profile's browser-auth headers while retaining its metadata."""
+        path = self.profile_file_path(name)
+        if os.path.exists(path):
+            os.remove(path)
+
     def delete_files(self, name):
         """Delete browser-auth, metadata, and local-database files for a profile."""
         for path in (self.profile_file_path(name), self.metadata_file_path(name), self.local_database_path(name)):
