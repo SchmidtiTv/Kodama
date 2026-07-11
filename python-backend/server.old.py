@@ -34,6 +34,341 @@ CORS(app, origins=[
     "http://127.0.0.1",
 ])
 
+# ─── DEBUG: request tracer + client-log sink (remove when done) ──────────────
+import time as _dbg_time
+
+@app.before_request
+def _dbg_before():
+    request._dbg_t0 = _dbg_time.time()
+    if request.path == "/clientlog":
+        return
+    print(f"[req] --> {request.method} {request.full_path.rstrip('?')} from {request.remote_addr}", flush=True)
+
+@app.after_request
+def _dbg_after(resp):
+    try:
+        if request.path != "/clientlog":
+            dt = (_dbg_time.time() - getattr(request, "_dbg_t0", _dbg_time.time())) * 1000
+            print(f"[req] <-- {request.method} {request.path} {resp.status_code} in {dt:.0f}ms", flush=True)
+    except Exception:
+        pass
+    return resp
+
+@app.route("/clientlog", methods=["POST", "OPTIONS"])
+def _dbg_clientlog():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    try:
+        msg = request.get_data(as_text=True)
+    except Exception:
+        msg = "<unreadable>"
+    print(f"[client] {msg}", flush=True)
+    return ("", 204)
+# ─── END DEBUG ──────────────────────────────────────────────────────────────
+
+# ── In-memory log ring so bug reports can attach the most recent backend output ──
+_LOG_RING = collections.deque(maxlen=300)
+
+class _LogTee:
+    """Wraps a stream, mirroring everything written into _LOG_RING line by line."""
+    def __init__(self, stream):
+        self._stream = stream
+        self._buf = ""
+    def write(self, data):
+        try:
+            if self._stream is not None:
+                self._stream.write(data)
+        except Exception:
+            pass
+        self._buf += data
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            if line.strip():
+                _LOG_RING.append(line)
+        return len(data)
+    def flush(self):
+        try:
+            if self._stream is not None:
+                self._stream.flush()
+        except Exception:
+            pass
+
+try:
+    sys.stdout = _LogTee(sys.stdout)
+    sys.stderr = _LogTee(sys.stderr)
+except Exception:
+    pass
+
+# ── Feedback / bug reports → Discord webhook ─────────────────────────────────
+# Discord webhook for bug reports. Kept OUT of source: set env KODAMA_FEEDBACK_WEBHOOK, or put
+# {"webhook": "https://discord.com/api/webhooks/..."} in python-backend/feedback_config.json
+# (gitignored). Closed-beta CI builds should inject it via a secret → env or generated config.
+def _load_feedback_webhook():
+    """Webhook from env, else feedback_config.json. Never in source. In a PyInstaller build the
+    config is bundled (see the .spec) and extracted to sys._MEIPASS; in dev it sits next to this
+    file. CI writes it from a GitHub secret before building."""
+    v = os.environ.get("KODAMA_FEEDBACK_WEBHOOK", "").strip()
+    if v:
+        return v
+    candidates = []
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        candidates.append(os.path.join(sys._MEIPASS, "feedback_config.json"))
+    candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "feedback_config.json"))
+    for p in candidates:
+        try:
+            if os.path.exists(p):
+                with open(p, encoding="utf-8") as f:
+                    return (json.load(f).get("webhook") or "").strip()
+        except Exception:
+            pass
+    return ""
+FEEDBACK_WEBHOOK_URL = _load_feedback_webhook()
+
+@app.route("/news")
+def get_news():
+    """Fallback news feed for dev/offline: serves the repo's updates/news.json. Published builds
+    fetch the remote feed directly; this is only used when that's unavailable."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "updates", "news.json")
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                return jsonify(json.load(f))
+    except Exception:
+        pass
+    return jsonify([])
+
+@app.route("/feedback", methods=["POST"])
+def submit_feedback():
+    if not FEEDBACK_WEBHOOK_URL:
+        return jsonify({"error": "feedback_not_configured"}), 503
+    data = request.json or {}
+    title = (data.get("title") or "").strip()
+    category = (data.get("category") or "Bug").strip()
+    severity = (data.get("severity") or "").strip()
+    description = (data.get("description") or "").strip()
+    version = (data.get("version") or "?").strip()
+    os_info = (data.get("os") or "?").strip()
+    reporter = (data.get("reporter") or "").strip()
+    include_logs = bool(data.get("includeLogs", True))
+    if not title and not description:
+        return jsonify({"error": "empty"}), 400
+
+    color = {"Bug": 0xE24B4A, "Absturz": 0xA32D2D, "UI / Design": 0x378ADD,
+             "Vorschlag": 0x1D9E75}.get(category, 0x888780)
+    fields = [
+        {"name": "Category", "value": category or "—", "inline": True},
+        {"name": "Version", "value": version, "inline": True},
+        {"name": "System", "value": os_info, "inline": True},
+    ]
+    if severity:
+        fields.append({"name": "Severity", "value": severity, "inline": True})
+    embed = {
+        "title": (title or "(no title)")[:240],
+        "description": (description or "—")[:3900],
+        "color": color,
+        "fields": fields,
+    }
+    if reporter:
+        embed["footer"] = {"text": f"from {reporter[:80]}"}
+
+    files = {}
+    # Optional screenshot (base64, with or without a data: URL prefix) → inline embed image.
+    shot = data.get("screenshot")
+    if shot:
+        try:
+            import base64
+            if "," in shot and shot.strip().startswith("data:"):
+                shot = shot.split(",", 1)[1]
+            png = base64.b64decode(shot)
+            if 0 < len(png) <= 8 * 1024 * 1024:
+                files["file_shot"] = ("screenshot.png", png, "image/png")
+                embed["image"] = {"url": "attachment://screenshot.png"}
+        except Exception:
+            pass
+    payload = {"username": "Kodama Feedback", "embeds": [embed]}
+    if include_logs and _LOG_RING:
+        log_text = "\n".join(list(_LOG_RING)[-80:])
+        files["file_log"] = ("backend-log.txt", log_text, "text/plain")
+    try:
+        if files:
+            resp = requests.post(FEEDBACK_WEBHOOK_URL,
+                                 data={"payload_json": json.dumps(payload)},
+                                 files=files, timeout=15)
+        else:
+            resp = requests.post(FEEDBACK_WEBHOOK_URL, json=payload, timeout=12)
+        if resp.status_code >= 300:
+            return jsonify({"error": f"webhook_{resp.status_code}"}), 502
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+# When frozen as a PyInstaller --onefile bundle store all user data in a
+# platform-appropriate location so uninstallers can clean it up cleanly.
+# In dev mode, keep data next to server.py for convenience.
+if getattr(sys, 'frozen', False):
+    if sys.platform == 'win32':
+        # Windows: %LOCALAPPDATA%\dev.kodama.music
+        _data_root = os.environ.get('LOCALAPPDATA', os.path.dirname(sys.executable))
+    else:
+        # Linux / macOS: follow XDG Base Directory spec
+        _data_root = os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share'))
+    _base_dir = os.path.join(_data_root, 'dev.kodama.music')
+
+    # One-time migration from the old identifier (Kiyoshi Music → Kodama). If the new
+    # data folder doesn't exist yet but the old one does, move it over so existing
+    # profiles, caches and settings carry over seamlessly.
+    _old_dir = os.path.join(_data_root, 'dev.kiyoshi.music')
+    try:
+        if not os.path.exists(_base_dir) and os.path.isdir(_old_dir):
+            import shutil
+            shutil.move(_old_dir, _base_dir)
+            print(f"[migrate] moved data dir {_old_dir} -> {_base_dir}", flush=True)
+    except Exception as _e:
+        print(f"[migrate] data dir migration failed: {_e}", flush=True)
+        # Fall back to the old directory so the user never loses access to their data.
+        if os.path.isdir(_old_dir) and not os.path.exists(_base_dir):
+            _base_dir = _old_dir
+else:
+    _base_dir = os.path.dirname(os.path.abspath(__file__))
+
+PROFILES_DIR = os.path.join(_base_dir, "profiles")
+os.makedirs(PROFILES_DIR, exist_ok=True)
+
+IMG_CACHE_DIR = os.path.join(_base_dir, "imgcache")
+os.makedirs(IMG_CACHE_DIR, exist_ok=True)
+IMG_CACHE_TTL = 30 * 24 * 3600  # 30 days
+
+# ─── Last.fm integration ─────────────────────────────────────────────────────
+# API key + shared secret: env vars first, then a local (git-ignored)
+# lastfm_config.json in the data dir. Features are disabled if unset.
+LASTFM_API_KEY = os.environ.get("LASTFM_API_KEY", "")
+LASTFM_API_SECRET = os.environ.get("LASTFM_API_SECRET", "")
+if not (LASTFM_API_KEY and LASTFM_API_SECRET):
+    # Same resolution as the feedback webhook: in a PyInstaller build the config is bundled (see
+    # the .spec) and extracted to sys._MEIPASS; in dev it sits next to this file. NOT _base_dir —
+    # that points at the user data dir when frozen, where the config isn't. CI writes it from a secret.
+    _lf_candidates = []
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        _lf_candidates.append(os.path.join(sys._MEIPASS, "lastfm_config.json"))
+    _lf_candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lastfm_config.json"))
+    for _lf_path in _lf_candidates:
+        try:
+            if os.path.exists(_lf_path):
+                with open(_lf_path, encoding="utf-8") as _lf:
+                    _lfc = json.load(_lf)
+                    LASTFM_API_KEY = LASTFM_API_KEY or _lfc.get("api_key", "")
+                    LASTFM_API_SECRET = LASTFM_API_SECRET or _lfc.get("api_secret", "")
+                break
+        except Exception:
+            pass
+
+LASTFM_API_ROOT = "https://ws.audioscrobbler.com/2.0/"
+
+def _lastfm_enabled():
+    return bool(LASTFM_API_KEY and LASTFM_API_SECRET)
+
+def _lastfm_sign(params):
+    """api_sig = md5 of sorted 'key+value' pairs (excl. format/callback) + secret."""
+    import hashlib
+    raw = "".join(f"{k}{params[k]}" for k in sorted(params) if k not in ("format", "callback"))
+    return hashlib.md5((raw + LASTFM_API_SECRET).encode("utf-8")).hexdigest()
+
+def _lastfm_call(method, params=None, http="GET", signed=False):
+    """Call a Last.fm API method. Returns (ok: bool, data_or_error: dict)."""
+    if not _lastfm_enabled():
+        return False, {"error": "lastfm_not_configured"}
+    p = dict(params or {})
+    p["method"] = method
+    p["api_key"] = LASTFM_API_KEY
+    if signed:
+        p["api_sig"] = _lastfm_sign(p)
+    p["format"] = "json"
+    try:
+        if http == "POST":
+            r = requests.post(LASTFM_API_ROOT, data=p, timeout=15)
+        else:
+            r = requests.get(LASTFM_API_ROOT, params=p, timeout=15)
+        data = r.json() if r.content else {}
+        if isinstance(data, dict) and data.get("error"):
+            return False, data
+        return True, data
+    except Exception as e:
+        return False, {"error": str(e)}
+
+def _active_meta_path():
+    return os.path.join(PROFILES_DIR, f"{_current_profile or 'default'}.meta.json")
+
+def _read_active_meta():
+    try:
+        with open(_active_meta_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _write_active_meta(meta):
+    with open(_active_meta_path(), "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+
+PLAYLIST_CACHE_DIR = os.path.join(_base_dir, "playlist_cache")
+os.makedirs(PLAYLIST_CACHE_DIR, exist_ok=True)
+PLAYLIST_CACHE_TTL = 24 * 3600  # 24 hours
+
+ALBUM_CACHE_DIR = os.path.join(_base_dir, "album_cache")
+os.makedirs(ALBUM_CACHE_DIR, exist_ok=True)
+ALBUM_CACHE_TTL = 7 * 24 * 3600  # 7 days
+
+SONG_CACHE_DIR = os.path.join(_base_dir, "song_cache")
+os.makedirs(SONG_CACHE_DIR, exist_ok=True)
+
+LYRICS_CACHE_DIR = os.path.join(_base_dir, "lyrics_cache")
+os.makedirs(LYRICS_CACHE_DIR, exist_ok=True)
+
+CUSTOM_LYRICS_DIR = os.path.join(_base_dir, "custom_lyrics")
+os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
+
+# yt-dlp self-update: YouTube changes constantly and the bundled yt-dlp goes stale between
+# app releases. A newer yt-dlp wheel dropped in here is prepended to sys.path so `import
+# yt_dlp` uses it instead of the bundled copy — the user can update yt-dlp on demand (like
+# the FFmpeg updater) without rebuilding the whole app.
+YTDLP_UPDATE_DIR = os.path.join(_base_dir, "ytdlp")
+os.makedirs(YTDLP_UPDATE_DIR, exist_ok=True)
+
+def _activate_ytdlp_update():
+    """Put the newest downloaded yt-dlp wheel first on sys.path (shadows the bundled copy).
+    Safe before yt_dlp is imported — it's imported lazily inside the extraction functions."""
+    try:
+        import glob as _glob
+        wheels = sorted(_glob.glob(os.path.join(YTDLP_UPDATE_DIR, "yt_dlp-*.whl")))
+        if wheels and wheels[-1] not in sys.path:
+            sys.path.insert(0, wheels[-1])
+    except Exception:
+        pass
+
+_activate_ytdlp_update()
+
+# Active YTMusic instance and current profile
+_ytm = None
+_current_profile = None
+_PLAYLIST_CACHE_MAX = 20
+_playlist_cache  = collections.OrderedDict()  # in-memory LRU, max 20 entries
+_credits_cache   = {}  # video_id -> list of {role, persons}  (permanent, small)
+
+def _playlist_cache_put(playlist_id, data):
+    """Insert/update entry and evict the oldest if over the size limit."""
+    _playlist_cache[playlist_id] = data
+    _playlist_cache.move_to_end(playlist_id)
+    while len(_playlist_cache) > _PLAYLIST_CACHE_MAX:
+        _playlist_cache.popitem(last=False)
+_adding_account = False
+
+def _is_oauth_profile(raw):
+    """Detect a leftover OAuth profile (vs. browser cookies) so we can refuse to load
+    it — OAuth is incompatible with YouTube Music's internal API (ytmusicapi #813)."""
+    return isinstance(raw, dict) and ("refresh_token" in raw or raw.get("token_type") == "Bearer")
+
+_download_status = {}  # video_id -> "downloading" | "done" | "error"
+_download_queue  = {}  # video_id -> {title, artists, thumbnail, status, progress (0-1)}
+
 def _schedule_cleanup(d, key, delay=300):
     """Remove *key* from dict *d* after *delay* seconds (default 5 min)."""
     def _do():
