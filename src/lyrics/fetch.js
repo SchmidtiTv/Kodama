@@ -3,7 +3,14 @@ import { API } from "../context.jsx";
 import { DEFAULT_LYRICS_PROVIDERS } from "./providers.js";
 import { parseLrc, parseRichSync, parseTtml } from "./parse.js";
 
-async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_LYRICS_PROVIDERS, videoId = "") {
+async function fetchLyrics(
+  title,
+  artist,
+  album,
+  duration,
+  providers = DEFAULT_LYRICS_PROVIDERS,
+  videoId = ""
+) {
   const tryBetter = async () => {
     const params = new URLSearchParams({ title, artist, source: "better" });
     if (album) params.set("album", album);
@@ -11,7 +18,10 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     const r = await fetch(`${API}/lyrics?${params}`);
     if (r.ok) {
       const d = await r.json();
-      if (d?.ttml) { const lrc = parseTtml(d.ttml); if (lrc.length) return { source: "Better Lyrics", lrc }; }
+      if (d?.ttml) {
+        const lrc = parseTtml(d.ttml);
+        if (lrc.length) return { source: "Better Lyrics", lrc };
+      }
     }
     return null;
   };
@@ -24,9 +34,17 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     if (r.ok) {
       const d = await r.json();
       const sub = d?.submitterName || null;
-      if (d?.ttml) { const lrc = parseTtml(d.ttml); if (lrc.length) return { source: "Unison", lrc, submitterName: sub }; }
+      if (d?.ttml) {
+        const lrc = parseTtml(d.ttml);
+        if (lrc.length) return { source: "Unison", lrc, submitterName: sub };
+      }
       if (d?.synced) return { source: "Unison", lrc: parseLrc(d.synced), submitterName: sub };
-      if (d?.plain)  return { source: "Unison", lrc: d.plain.split("\n").map(t => ({ time: -1, text: t })), submitterName: sub };
+      if (d?.plain)
+        return {
+          source: "Unison",
+          lrc: d.plain.split("\n").map((t) => ({ time: -1, text: t })),
+          submitterName: sub,
+        };
     }
     return null;
   };
@@ -36,7 +54,8 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     if (r.ok) {
       const d = await r.json();
       if (d.synced) return { source: "LRCLIB", lrc: parseLrc(d.synced) };
-      if (d.plain) return { source: "LRCLIB", lrc: d.plain.split("\n").map(t => ({ time: -1, text: t })) };
+      if (d.plain)
+        return { source: "LRCLIB", lrc: d.plain.split("\n").map((t) => ({ time: -1, text: t })) };
     }
     return null;
   };
@@ -57,7 +76,11 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     if (r.ok) {
       const d = await r.json();
       if (d.synced) return { source: "SimpMusic", lrc: parseLrc(d.synced) };
-      if (d.plain) return { source: "SimpMusic", lrc: d.plain.split("\n").map(t => ({ time: -1, text: t })) };
+      if (d.plain)
+        return {
+          source: "SimpMusic",
+          lrc: d.plain.split("\n").map((t) => ({ time: -1, text: t })),
+        };
     }
     return null;
   };
@@ -67,18 +90,33 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     const r = await fetch(`${API}/lyrics?${params}`);
     if (!r.ok) return null;
     const d = await r.json();
-    if (d.richsync) { const lrc = parseRichSync(d.richsync); if (lrc.length) return { source: "Musixmatch", lrc }; }
-    if (d.synced)   return { source: "Musixmatch", lrc: parseLrc(d.synced) };
-    if (d.plain)    return { source: "Musixmatch", lrc: d.plain.split("\n").map(t => ({ time: -1, text: t })) };
+    if (d.richsync) {
+      const lrc = parseRichSync(d.richsync);
+      if (lrc.length) return { source: "Musixmatch", lrc };
+    }
+    if (d.synced) return { source: "Musixmatch", lrc: parseLrc(d.synced) };
+    if (d.plain)
+      return { source: "Musixmatch", lrc: d.plain.split("\n").map((t) => ({ time: -1, text: t })) };
     return null;
   };
 
-  const tryFns = { better: tryBetter, unison: tryUnison, lrclib: tryLrclib, kugou: tryKugou, simp: trySimp, musixmatch: tryMusixmatch };
-  const enabledProviders = providers.filter(p => p.enabled && tryFns[p.id]);
+  const tryFns = {
+    better: tryBetter,
+    unison: tryUnison,
+    lrclib: tryLrclib,
+    kugou: tryKugou,
+    simp: trySimp,
+    musixmatch: tryMusixmatch,
+  };
+  const enabledProviders = providers.filter((p) => p.enabled && tryFns[p.id]);
 
   // Fetch all providers in parallel — so we know which ones have no lyrics
   const settled = await Promise.all(
-    enabledProviders.map(p => tryFns[p.id]().catch(() => null).then(r => ({ id: p.id, result: r })))
+    enabledProviders.map((p) =>
+      tryFns[p.id]()
+        .catch(() => null)
+        .then((r) => ({ id: p.id, result: r }))
+    )
   );
 
   // Pick best result in priority order, collect failures + every available version
@@ -86,7 +124,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   let bestResult = null;
   const allResults = [];
   for (const p of enabledProviders) {
-    const { result } = settled.find(s => s.id === p.id);
+    const { result } = settled.find((s) => s.id === p.id);
     if (result) {
       const tagged = { ...result, providerId: p.id };
       allResults.push(tagged);

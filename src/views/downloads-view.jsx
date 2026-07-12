@@ -5,7 +5,21 @@ import { PlaylistLayout } from "./track-table.jsx";
 import { GridCard } from "../ui/rows.jsx";
 import { Microphone, MusicNote, VinylRecord } from "../icons.jsx";
 
-export function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, downloadingIds, premiumSongIds, onDownloadSong, onTrackContextMenu, hideExplicit, onOpenAlbum, onOpenArtist, onToggleLike, likedIds }) {
+export function DownloadsView({
+  onPlay,
+  currentTrack,
+  isPlaying,
+  cachedSongIds,
+  downloadingIds,
+  premiumSongIds,
+  onDownloadSong,
+  onTrackContextMenu,
+  hideExplicit,
+  onOpenAlbum,
+  onOpenArtist,
+  onToggleLike,
+  likedIds,
+}) {
   const t = useLang();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,23 +31,38 @@ export function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, 
     let cancelled = false;
     const load = (attempt = 0) => {
       fetch(`${API}/song/cached/list`)
-        .then(r => r.json())
-        .then(d => { if (!cancelled) { setSongs(d.songs || []); setLoading(false); } })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) {
+            setSongs(d.songs || []);
+            setLoading(false);
+          }
+        })
         .catch(() => {
           if (!cancelled && attempt < 20) setTimeout(() => load(attempt + 1), 1500);
           else if (!cancelled) setLoading(false);
         });
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [cachedSongIds.size]);
 
   const albums = useMemo(() => {
     const map = new Map();
-    songs.forEach(song => {
+    songs.forEach((song) => {
       if (!song.album) return;
       const key = song.albumBrowseId || song.album;
-      if (!map.has(key)) map.set(key, { key, title: song.album, browseId: song.albumBrowseId, thumbnail: song.thumbnail, artists: song.artists, songs: [] });
+      if (!map.has(key))
+        map.set(key, {
+          key,
+          title: song.album,
+          browseId: song.albumBrowseId,
+          thumbnail: song.thumbnail,
+          artists: song.artists,
+          songs: [],
+        });
       map.get(key).songs.push(song);
     });
     return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
@@ -41,18 +70,25 @@ export function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, 
 
   const artists = useMemo(() => {
     const map = new Map();
-    songs.forEach(song => {
+    songs.forEach((song) => {
       if (!song.artists) return;
       const key = song.artistBrowseId || song.artists;
-      if (!map.has(key)) map.set(key, { key, artist: song.artists, browseId: song.artistBrowseId, thumbnail: song.thumbnail, songs: [] });
+      if (!map.has(key))
+        map.set(key, {
+          key,
+          artist: song.artists,
+          browseId: song.artistBrowseId,
+          thumbnail: song.thumbnail,
+          songs: [],
+        });
       map.get(key).songs.push(song);
     });
     return Array.from(map.values()).sort((a, b) => a.artist.localeCompare(b.artist));
   }, [songs]);
 
   const tabDefs = [
-    { id: "songs",   label: t("filterSongs"),   icon: <MusicNote size={14} /> },
-    { id: "albums",  label: t("filterAlbums"),  icon: <VinylRecord size={14} /> },
+    { id: "songs", label: t("filterSongs"), icon: <MusicNote size={14} /> },
+    { id: "albums", label: t("filterAlbums"), icon: <VinylRecord size={14} /> },
     { id: "artists", label: t("filterArtists"), icon: <Microphone size={14} /> },
   ];
 
@@ -90,21 +126,45 @@ export function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, 
   const tabBar = (
     <div style={{ position: "relative", zIndex: 5, flexShrink: 0, padding: "24px 24px 0" }}>
       <div style={{ position: "relative", display: "flex", alignItems: "center", height: 36 }}>
-      <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("downloads")}</div>
-      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4 }}>
-        {tabDefs.map(tb => (
-          <button key={tb.id} onClick={() => setTab(tb.id)}
-            className={`view-tab-btn${tab === tb.id ? " active" : ""}`}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: tab === tb.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
-              color: tab === tb.id ? "var(--accent)" : "var(--text-secondary)",
-              border: "none", borderRadius: 8, padding: "7px 14px",
-              fontSize: "var(--t13)", cursor: "default", fontFamily: "var(--font)",
-              transition: "all 0.15s", fontWeight: tab === tb.id ? 600 : 400,
-            }}>{tb.icon}{tb.label}</button>
-        ))}
-      </div>
+        <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("downloads")}</div>
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            gap: 4,
+          }}
+        >
+          {tabDefs.map((tb) => (
+            <button
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
+              className={`view-tab-btn${tab === tb.id ? " active" : ""}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background:
+                  tab === tb.id
+                    ? "color-mix(in srgb, var(--accent) 20%, transparent)"
+                    : "transparent",
+                color: tab === tb.id ? "var(--accent)" : "var(--text-secondary)",
+                border: "none",
+                borderRadius: 8,
+                padding: "7px 14px",
+                fontSize: "var(--t13)",
+                cursor: "default",
+                fontFamily: "var(--font)",
+                transition: "all 0.15s",
+                fontWeight: tab === tb.id ? 600 : 400,
+              }}
+            >
+              {tb.icon}
+              {tb.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -154,23 +214,45 @@ export function DownloadsView({ onPlay, currentTrack, isPlaying, cachedSongIds, 
         ) : items.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("noResults")}</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 16 }}>
-            {tab === "albums" && albums.map((album, i) => (
-              <GridCard key={i}
-                thumbnail={album.thumbnail}
-                title={album.title}
-                subtitle={`${album.artists || ""} · ${album.songs.length} ${t("songs")}`}
-                onClick={() => setSelectedGroup({ title: album.title, thumbnail: album.thumbnail, songs: album.songs })}
-              />
-            ))}
-            {tab === "artists" && artists.map((artist, i) => (
-              <GridCard key={i}
-                thumbnail={artist.thumbnail}
-                title={artist.artist}
-                subtitle={`${artist.songs.length} ${t("songs")}`}
-                onClick={() => setSelectedGroup({ title: artist.artist, thumbnail: artist.thumbnail, songs: artist.songs })}
-              />
-            ))}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {tab === "albums" &&
+              albums.map((album, i) => (
+                <GridCard
+                  key={i}
+                  thumbnail={album.thumbnail}
+                  title={album.title}
+                  subtitle={`${album.artists || ""} · ${album.songs.length} ${t("songs")}`}
+                  onClick={() =>
+                    setSelectedGroup({
+                      title: album.title,
+                      thumbnail: album.thumbnail,
+                      songs: album.songs,
+                    })
+                  }
+                />
+              ))}
+            {tab === "artists" &&
+              artists.map((artist, i) => (
+                <GridCard
+                  key={i}
+                  thumbnail={artist.thumbnail}
+                  title={artist.artist}
+                  subtitle={`${artist.songs.length} ${t("songs")}`}
+                  onClick={() =>
+                    setSelectedGroup({
+                      title: artist.artist,
+                      thumbnail: artist.thumbnail,
+                      songs: artist.songs,
+                    })
+                  }
+                />
+              ))}
           </div>
         )}
       </div>

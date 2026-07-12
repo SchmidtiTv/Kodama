@@ -19,8 +19,8 @@ function parseRichSync(richsync) {
   // ts/te = line start/end in seconds, l[i].c = word/char, l[i].o = offset from ts
   if (!Array.isArray(richsync)) return [];
   return richsync
-    .filter(line => line && typeof line.ts === "number")
-    .map(line => {
+    .filter((line) => line && typeof line.ts === "number")
+    .map((line) => {
       const words = (line.l || []).map((w, j) => {
         const wordStart = line.ts + (w.o || 0);
         const wordEnd = line.l[j + 1] ? line.ts + line.l[j + 1].o : line.te;
@@ -36,7 +36,8 @@ function parseTtml(ttml) {
 
   // Detect timing mode: "Line" = one timestamp per line, "Word" = per-word timestamps
   const ttEl = doc.querySelector("tt");
-  const timingMode = ttEl?.getAttribute("itunes:timing") || ttEl?.getAttribute("composer:timing") || "Word";
+  const timingMode =
+    ttEl?.getAttribute("itunes:timing") || ttEl?.getAttribute("composer:timing") || "Word";
   const isLineSync = timingMode === "Line";
 
   // Parse agents from <head><metadata><ttm:agent>
@@ -65,7 +66,7 @@ function parseTtml(ttml) {
 
     // Resolve agent and role
     const agentId = p.getAttribute("ttm:agent");
-    const agent = agentId ? (agents[agentId] || null) : null;
+    const agent = agentId ? agents[agentId] || null : null;
     let agentRole = null;
     if (agent) {
       if (agent.type === "group") agentRole = "group";
@@ -83,15 +84,16 @@ function parseTtml(ttml) {
       const extractBgWords = (node, iBegin, iEnd) => {
         if (node.nodeType === Node.TEXT_NODE) {
           const t = node.textContent;
-          if (t) bgWords.push({
-            text: t,
-            time: ttmlTimeToSeconds(iBegin || begin),
-            end: ttmlTimeToSeconds(iEnd || end || begin),
-            isSpace: t.trim() === "",
-          });
+          if (t)
+            bgWords.push({
+              text: t,
+              time: ttmlTimeToSeconds(iBegin || begin),
+              end: ttmlTimeToSeconds(iEnd || end || begin),
+              isSpace: t.trim() === "",
+            });
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const b = node.getAttribute("begin") || iBegin || begin;
-          const e = node.getAttribute("end")   || iEnd   || end || begin;
+          const e = node.getAttribute("end") || iEnd || end || begin;
           for (const c of node.childNodes) extractBgWords(c, b, e);
         }
       };
@@ -102,28 +104,34 @@ function parseTtml(ttml) {
         } else if (child.nodeType === Node.ELEMENT_NODE) {
           if (child.getAttribute("ttm:role") === "x-bg")
             for (const c of child.childNodes) extractBgWords(c, begin, end);
-          else
-            mainText += child.textContent;
+          else mainText += child.textContent;
         }
       }
       mainText = mainText.trim();
 
       // Stretch line time-range to fully cover bg vocals (before or after main line)
       let effectiveTime = time;
-      let effectiveEnd  = endTime;
+      let effectiveEnd = endTime;
       if (bgWords.length) {
-        const bgNS = bgWords.filter(w => !w.isSpace);
+        const bgNS = bgWords.filter((w) => !w.isSpace);
         if (bgNS.length) {
-          const bgFirst = Math.min(...bgNS.map(w => w.time));
-          const bgLast  = Math.max(...bgNS.map(w => w.end));
+          const bgFirst = Math.min(...bgNS.map((w) => w.time));
+          const bgLast = Math.max(...bgNS.map((w) => w.end));
           if (isFinite(bgFirst) && bgFirst < effectiveTime) effectiveTime = bgFirst;
-          if (isFinite(bgLast)  && bgLast  > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
+          if (isFinite(bgLast) && bgLast > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
         }
       }
 
       if (mainText || bgWords.length) {
-        const lineObj = { time: effectiveTime, endTime: effectiveEnd,
-          text: mainText || "\u00A0", wordSync: false, lineSync: true, agent, agentRole };
+        const lineObj = {
+          time: effectiveTime,
+          endTime: effectiveEnd,
+          text: mainText || "\u00A0",
+          wordSync: false,
+          lineSync: true,
+          agent,
+          agentRole,
+        };
         if (bgWords.length) lineObj.bgWords = bgWords;
         lines.push(lineObj);
       }
@@ -143,7 +151,8 @@ function parseTtml(ttml) {
             end: ttmlTimeToSeconds(inheritEnd || end || begin),
             isSpace: text.trim() === "",
           };
-          if (isBg) bgWords.push(w); else words.push(w);
+          if (isBg) bgWords.push(w);
+          else words.push(w);
         }
       } else if (node.nodeType === Node.ELEMENT_NODE) {
         const nextIsBg = isBg || node.getAttribute("ttm:role") === "x-bg";
@@ -161,15 +170,22 @@ function parseTtml(ttml) {
       let effectiveTime = time;
       let effectiveEnd = endTime;
       if (bgWords.length) {
-        const bgNonSpace = bgWords.filter(w => !w.isSpace);
+        const bgNonSpace = bgWords.filter((w) => !w.isSpace);
         if (bgNonSpace.length) {
-          const bgFirst = Math.min(...bgNonSpace.map(w => w.time));
-          const bgLast  = Math.max(...bgNonSpace.map(w => w.end));
+          const bgFirst = Math.min(...bgNonSpace.map((w) => w.time));
+          const bgLast = Math.max(...bgNonSpace.map((w) => w.end));
           if (isFinite(bgFirst) && bgFirst < effectiveTime) effectiveTime = bgFirst;
-          if (isFinite(bgLast)  && bgLast  > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
+          if (isFinite(bgLast) && bgLast > (effectiveEnd ?? 0)) effectiveEnd = bgLast;
         }
       }
-      const lineObj = { time: effectiveTime, endTime: effectiveEnd, words, wordSync: true, agent, agentRole };
+      const lineObj = {
+        time: effectiveTime,
+        endTime: effectiveEnd,
+        words,
+        wordSync: true,
+        agent,
+        agentRole,
+      };
       if (bgWords.length) lineObj.bgWords = bgWords;
       lines.push(lineObj);
     }

@@ -7,19 +7,39 @@ import { useNowPlaying, getAudio } from "./playerBridge.js";
 
 // LyricsOverlay expects a ref whose .current is the playback clock. That's the IpcAudio shim the
 // Player registered on the bridge (currentTime/paused + timeupdate events), not a DOM element.
-const audioRef = { get current() { return getAudio(); } };
+const audioRef = {
+  get current() {
+    return getAudio();
+  },
+};
 
 export function Lyrics() {
   const np = useNowPlaying();
   if (!np.track) {
     return (
-      <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(120% 90% at 50% 0%, #241033, #08080c 55%)" }}>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 22 }}>Kein Titel aktiv · B / Esc zurück</div>
+      <div
+        style={{
+          minHeight: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "radial-gradient(120% 90% at 50% 0%, #241033, #08080c 55%)",
+        }}
+      >
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 22 }}>
+          Kein Titel aktiv · B / Esc zurück
+        </div>
       </div>
     );
   }
   return (
-    <div style={{ position: "relative", minHeight: "100%", background: "radial-gradient(120% 90% at 50% 0%, #241033, #08080c 55%)" }}>
+    <div
+      style={{
+        position: "relative",
+        minHeight: "100%",
+        background: "radial-gradient(120% 90% at 50% 0%, #241033, #08080c 55%)",
+      }}
+    >
       <LyricsOverlay track={np.track} audioRef={audioRef} fontSize={48} onClose={() => {}} />
     </div>
   );

@@ -1,13 +1,29 @@
 import { useState } from "react";
 
-const GENRES = ["Alle", "Podcasts", "Workout", "Relax", "Energize", "Party", "Feel good", "Traurig", "Romantisch", "Focus", "Schlafen"];
+const GENRES = [
+  "Alle",
+  "Podcasts",
+  "Workout",
+  "Relax",
+  "Energize",
+  "Party",
+  "Feel good",
+  "Traurig",
+  "Romantisch",
+  "Focus",
+  "Schlafen",
+];
 
 export default function GenreBar() {
   const [active, setActive] = useState("Alle");
   return (
     <div className="genre-bar">
-      {GENRES.map(g => (
-        <button key={g} className={`genre-pill ${active === g ? "genre-active" : ""}`} onClick={() => setActive(g)}>
+      {GENRES.map((g) => (
+        <button
+          key={g}
+          className={`genre-pill ${active === g ? "genre-active" : ""}`}
+          onClick={() => setActive(g)}
+        >
           {g}
         </button>
       ))}

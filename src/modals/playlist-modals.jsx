@@ -2,7 +2,24 @@
 // self-contained HeroUI modal that receives the translator `t` as a prop and talks to the
 // backend directly. Kept together because they share the same small dependency footprint.
 import { useState } from "react";
-import { cn, Button, Spinner, ModalRoot, ModalBackdrop, ModalContainer, ModalDialog, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, TextFieldRoot, InputRoot, TextArea } from "@heroui/react";
+import {
+  cn,
+  Button,
+  Spinner,
+  ModalRoot,
+  ModalBackdrop,
+  ModalContainer,
+  ModalDialog,
+  ModalHeader,
+  ModalIcon,
+  ModalHeading,
+  ModalBody,
+  ModalFooter,
+  ModalCloseTrigger,
+  TextFieldRoot,
+  InputRoot,
+  TextArea,
+} from "@heroui/react";
 import { Lock, EyeSlash, Globe, Playlist, PencilSimple, Trash } from "../icons.jsx";
 import { API } from "../context.jsx";
 
@@ -33,18 +50,25 @@ export function CreatePlaylistModal({ onClose, onCreated, t }) {
 
   const fieldLabel = "text-t10 font-bold uppercase tracking-[0.08em] text-muted";
   const privacyOpts = [
-    ["PRIVATE",  t("privacyPrivate"),  <Lock size={14} />],
+    ["PRIVATE", t("privacyPrivate"), <Lock size={14} />],
     ["UNLISTED", t("privacyUnlisted"), <EyeSlash size={14} />],
-    ["PUBLIC",   t("privacyPublic"),   <Globe size={14} />],
+    ["PUBLIC", t("privacyPublic"), <Globe size={14} />],
   ];
 
   return (
-    <ModalRoot isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
+    <ModalRoot
+      isOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <ModalBackdrop className="z-[300]!">
         <ModalContainer placement="center" size="lg" className="w-[640px] max-w-[92vw]">
           <ModalDialog>
             <ModalHeader>
-              <ModalIcon><Playlist size={18} /></ModalIcon>
+              <ModalIcon>
+                <Playlist size={18} />
+              </ModalIcon>
               <ModalCloseTrigger />
               <ModalHeading>{t("createPlaylist")}</ModalHeading>
             </ModalHeader>
@@ -54,13 +78,28 @@ export function CreatePlaylistModal({ onClose, onCreated, t }) {
                 <div className="flex-1 flex flex-col gap-4 min-w-0">
                   <div className="flex flex-col gap-2">
                     <label className={fieldLabel}>{t("playlistTitle")}</label>
-                    <TextFieldRoot aria-label={t("playlistTitle")} value={title} onChange={setTitle} className="w-full">
-                      <InputRoot autoFocus onKeyDown={e => { if (e.key === "Enter") handleCreate(); }} />
+                    <TextFieldRoot
+                      aria-label={t("playlistTitle")}
+                      value={title}
+                      onChange={setTitle}
+                      className="w-full"
+                    >
+                      <InputRoot
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleCreate();
+                        }}
+                      />
                     </TextFieldRoot>
                   </div>
                   <div className="flex flex-col gap-2 flex-1">
                     <label className={fieldLabel}>{t("playlistDescription")}</label>
-                    <TextFieldRoot aria-label={t("playlistDescription")} value={description} onChange={setDescription} className="w-full flex-1">
+                    <TextFieldRoot
+                      aria-label={t("playlistDescription")}
+                      value={description}
+                      onChange={setDescription}
+                      className="w-full flex-1"
+                    >
                       <TextArea className="min-h-[110px] resize-none" />
                     </TextFieldRoot>
                   </div>
@@ -73,10 +112,24 @@ export function CreatePlaylistModal({ onClose, onCreated, t }) {
                     {privacyOpts.map(([val, label, icon]) => {
                       const active = privacy === val;
                       return (
-                        <button key={val} onClick={() => setPrivacy(val)}
-                          className={cn("flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-t13 border-none w-full transition-colors duration-150",
-                            active ? "bg-accent-dim text-accent font-semibold" : "bg-transparent text-secondary hover:bg-hover")}>
-                          <span className={cn("flex w-4 justify-center shrink-0", !active && "opacity-55")}>{icon}</span>
+                        <button
+                          key={val}
+                          onClick={() => setPrivacy(val)}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-t13 border-none w-full transition-colors duration-150",
+                            active
+                              ? "bg-accent-dim text-accent font-semibold"
+                              : "bg-transparent text-secondary hover:bg-hover"
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "flex w-4 justify-center shrink-0",
+                              !active && "opacity-55"
+                            )}
+                          >
+                            {icon}
+                          </span>
                           {label}
                         </button>
                       );
@@ -86,8 +139,15 @@ export function CreatePlaylistModal({ onClose, onCreated, t }) {
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button variant="ghost" onPress={onClose}>{t("cancel")}</Button>
-              <Button color="accent" variant="solid" isDisabled={!title.trim() || creating} onPress={handleCreate}>
+              <Button variant="ghost" onPress={onClose}>
+                {t("cancel")}
+              </Button>
+              <Button
+                color="accent"
+                variant="solid"
+                isDisabled={!title.trim() || creating}
+                onPress={handleCreate}
+              >
                 {creating ? <Spinner size="sm" /> : t("create")}
               </Button>
             </ModalFooter>
@@ -106,7 +166,8 @@ export function RenamePlaylistModal({ dialog, onClose, t }) {
     if (!newTitle) return;
     try {
       await fetch(`${API}/playlist/${dialog.playlistId}/edit`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle }),
       });
       window.dispatchEvent(new Event("kiyoshi-library-updated"));
@@ -114,23 +175,44 @@ export function RenamePlaylistModal({ dialog, onClose, t }) {
     onClose();
   };
   return (
-    <ModalRoot isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
+    <ModalRoot
+      isOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <ModalBackdrop className="z-[300]!">
         <ModalContainer placement="center" size="sm" className="w-[380px] max-w-[92vw]">
           <ModalDialog>
             <ModalHeader>
-              <ModalIcon><PencilSimple size={18} /></ModalIcon>
+              <ModalIcon>
+                <PencilSimple size={18} />
+              </ModalIcon>
               <ModalCloseTrigger />
               <ModalHeading>{t("renamePlaylist")}</ModalHeading>
             </ModalHeader>
             <ModalBody>
-              <TextFieldRoot aria-label={t("renamePlaylist")} value={name} onChange={setName} className="w-full">
-                <InputRoot autoFocus onKeyDown={e => { if (e.key === "Enter") submit(); }} />
+              <TextFieldRoot
+                aria-label={t("renamePlaylist")}
+                value={name}
+                onChange={setName}
+                className="w-full"
+              >
+                <InputRoot
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submit();
+                  }}
+                />
               </TextFieldRoot>
             </ModalBody>
             <ModalFooter>
-              <Button variant="ghost" onPress={onClose}>{t("cancel")}</Button>
-              <Button color="accent" variant="solid" isDisabled={!name.trim()} onPress={submit}>{t("save")}</Button>
+              <Button variant="ghost" onPress={onClose}>
+                {t("cancel")}
+              </Button>
+              <Button color="accent" variant="solid" isDisabled={!name.trim()} onPress={submit}>
+                {t("save")}
+              </Button>
             </ModalFooter>
           </ModalDialog>
         </ModalContainer>
@@ -142,23 +224,36 @@ export function RenamePlaylistModal({ dialog, onClose, t }) {
 // Confirm deleting a playlist.
 export function DeletePlaylistModal({ dialog, onConfirm, onClose, t }) {
   return (
-    <ModalRoot isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
+    <ModalRoot
+      isOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <ModalBackdrop className="z-[300]!">
         <ModalContainer placement="center" size="sm" className="w-[400px] max-w-[92vw]">
           <ModalDialog>
             <ModalHeader>
-              <ModalIcon><Trash size={18} /></ModalIcon>
+              <ModalIcon>
+                <Trash size={18} />
+              </ModalIcon>
               <ModalCloseTrigger />
               <ModalHeading>{t("deletePlaylist")}</ModalHeading>
             </ModalHeader>
             <ModalBody>
               <div className="text-t13 text-secondary leading-relaxed">
-                {t("deletePlaylistConfirm")}<br /><strong className="text-primary">{dialog.title}</strong>
+                {t("deletePlaylistConfirm")}
+                <br />
+                <strong className="text-primary">{dialog.title}</strong>
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button variant="ghost" onPress={onClose}>{t("cancel")}</Button>
-              <Button variant="danger" onPress={onConfirm}>{t("removeAccountConfirm")}</Button>
+              <Button variant="ghost" onPress={onClose}>
+                {t("cancel")}
+              </Button>
+              <Button variant="danger" onPress={onConfirm}>
+                {t("removeAccountConfirm")}
+              </Button>
             </ModalFooter>
           </ModalDialog>
         </ModalContainer>

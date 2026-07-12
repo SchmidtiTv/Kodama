@@ -8,7 +8,7 @@ import { translate } from "./i18n.js";
 export const API = "http://localhost:9847";
 
 // Proxy YouTube thumbnails through the local server to avoid CORS issues.
-export const thumb = (url) => url ? `${API}/imgproxy?url=${encodeURIComponent(url)}` : "";
+export const thumb = (url) => (url ? `${API}/imgproxy?url=${encodeURIComponent(url)}` : "");
 
 // Upgrade a Google usercontent thumbnail (YT Music art) to a larger square by rewriting its size
 // suffix (=w120-…, =s226-…), or appending one if absent. The default `thumb()` keeps the small

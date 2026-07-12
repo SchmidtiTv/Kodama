@@ -1,9 +1,82 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext, useSyncExternalStore } from "react";
+import React, {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  createContext,
+  useContext,
+  useSyncExternalStore,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
-import { cn, Button, ListBox, ListBoxItem, Disclosure, DisclosureHeading, DisclosureTrigger, DisclosureContent, DisclosureBody, DisclosureIndicator, Dropdown, DropdownTrigger, DropdownPopover, DropdownMenu, DropdownItem, DropdownSection, DropdownSubmenuTrigger, DropdownSubmenuIndicator, ModalRoot, ModalBackdrop, ModalContainer, ModalDialog, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, SliderRoot, SliderTrack, SliderFill, SliderThumb, toast, ToastProvider, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill, SearchFieldRoot, SearchFieldGroup, SearchFieldSearchIcon, SearchFieldInput, SearchFieldClearButton, TextFieldRoot, InputRoot, TextArea, SwitchRoot, SwitchControl, SwitchThumb, CardRoot,
- ColorAreaRoot, ColorAreaThumb, ColorSliderRoot, ColorSliderTrack, ColorSliderThumb, ColorSwatchRoot, KbdRoot, KbdContent,
- Skeleton, ToggleButton, ToggleButtonGroupRoot, ScrollShadowRoot, ChipRoot, ChipLabel } from "@heroui/react";
+import {
+  cn,
+  Button,
+  ListBox,
+  ListBoxItem,
+  Disclosure,
+  DisclosureHeading,
+  DisclosureTrigger,
+  DisclosureContent,
+  DisclosureBody,
+  DisclosureIndicator,
+  Dropdown,
+  DropdownTrigger,
+  DropdownPopover,
+  DropdownMenu,
+  DropdownItem,
+  DropdownSection,
+  DropdownSubmenuTrigger,
+  DropdownSubmenuIndicator,
+  ModalRoot,
+  ModalBackdrop,
+  ModalContainer,
+  ModalDialog,
+  ModalHeader,
+  ModalIcon,
+  ModalHeading,
+  ModalBody,
+  ModalFooter,
+  ModalCloseTrigger,
+  SliderRoot,
+  SliderTrack,
+  SliderFill,
+  SliderThumb,
+  toast,
+  ToastProvider,
+  Spinner,
+  ProgressBar,
+  ProgressBarTrack,
+  ProgressBarFill,
+  SearchFieldRoot,
+  SearchFieldGroup,
+  SearchFieldSearchIcon,
+  SearchFieldInput,
+  SearchFieldClearButton,
+  TextFieldRoot,
+  InputRoot,
+  TextArea,
+  SwitchRoot,
+  SwitchControl,
+  SwitchThumb,
+  CardRoot,
+  ColorAreaRoot,
+  ColorAreaThumb,
+  ColorSliderRoot,
+  ColorSliderTrack,
+  ColorSliderThumb,
+  ColorSwatchRoot,
+  KbdRoot,
+  KbdContent,
+  Skeleton,
+  ToggleButton,
+  ToggleButtonGroupRoot,
+  ScrollShadowRoot,
+  ChipRoot,
+  ChipLabel,
+} from "@heroui/react";
 import { parseColor } from "react-aria-components";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
@@ -12,22 +85,51 @@ import { LANGUAGES, translate, translationProgress } from "./i18n.js";
 import { normalizeOverlayDoc } from "./overlay/schema.js";
 import OverlayEditor from "./overlay/OverlayEditor.jsx";
 import { audioLevels, startAudioLevels } from "./audioLevels.js";
-import { generateIdentity, importIdentityFile, exportIdentityFile, buildSignedRequest } from "./unison/identity.js";
+import {
+  generateIdentity,
+  importIdentityFile,
+  exportIdentityFile,
+  buildSignedRequest,
+} from "./unison/identity.js";
 import {
   IconContext,
-  Minus, X, Play, Pause,
-  House, Books, Heart,
-  CaretLineLeft, CaretLineRight,
-  CaretLeft, CaretRight,
-  MagnifyingGlass, Gear, Palette, PlayCircle, Microphone,
-  VinylRecord, MusicNote, Playlist, ImageSquare,
+  Minus,
+  X,
+  Play,
+  Pause,
+  House,
+  Books,
+  Heart,
+  CaretLineLeft,
+  CaretLineRight,
+  CaretLeft,
+  CaretRight,
+  MagnifyingGlass,
+  Gear,
+  Palette,
+  PlayCircle,
+  Microphone,
+  VinylRecord,
+  MusicNote,
+  Playlist,
+  ImageSquare,
   DotsSixVertical,
   GripLines,
-  Shuffle, SkipBack, SkipForward, Repeat, RepeatOnce,
-  SpeakerX, SpeakerLow, SpeakerHigh,
-  Queue, ChatText,
-  CaretUp, CaretDown, Flag,
-  ArrowsIn, ArrowsOut,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Repeat,
+  RepeatOnce,
+  SpeakerX,
+  SpeakerLow,
+  SpeakerHigh,
+  Queue,
+  ChatText,
+  CaretUp,
+  CaretDown,
+  Flag,
+  ArrowsIn,
+  ArrowsOut,
   ArrowLeft,
   ArrowClockwise,
   Check,
@@ -102,8 +204,24 @@ import {
   PaperPlaneTilt,
 } from "./icons.jsx";
 
-import { API, thumb, LangContext, useLang, AnimationContext, useAnimations, ZoomContext, useZoom, FontScaleContext, useFontScale, TrackNumberContext } from "./context.jsx";
-import { CreatePlaylistModal, RenamePlaylistModal, DeletePlaylistModal } from "./modals/playlist-modals.jsx";
+import {
+  API,
+  thumb,
+  LangContext,
+  useLang,
+  AnimationContext,
+  useAnimations,
+  ZoomContext,
+  useZoom,
+  FontScaleContext,
+  useFontScale,
+  TrackNumberContext,
+} from "./context.jsx";
+import {
+  CreatePlaylistModal,
+  RenamePlaylistModal,
+  DeletePlaylistModal,
+} from "./modals/playlist-modals.jsx";
 import { NewsModal, renderNewsBody } from "./modals/news-modal.jsx";
 import { BugReportModal } from "./modals/bug-report-modal.jsx";
 import { ProfileSwitcherModal } from "./modals/profile-switcher-modal.jsx";
@@ -124,8 +242,18 @@ import { HistoryView } from "./views/history-view.jsx";
 import { LikedView } from "./views/liked-view.jsx";
 import { AddToPlaylistModal } from "./modals/add-to-playlist-modal.jsx";
 import { particleBurst, dissolve } from "./effects/particle-burst.js";
-import { setNowPlaying as bpSetNowPlaying, registerPlayerCommands as bpRegisterCommands, registerAudio as bpRegisterAudio } from "./bigpicture/playerBridge.js";
-import { Slider, Toggle, SettingRow, SettingsSectionLabel, SettingsSectionDesc } from "./ui/settings-controls.jsx";
+import {
+  setNowPlaying as bpSetNowPlaying,
+  registerPlayerCommands as bpRegisterCommands,
+  registerAudio as bpRegisterAudio,
+} from "./bigpicture/playerBridge.js";
+import {
+  Slider,
+  Toggle,
+  SettingRow,
+  SettingsSectionLabel,
+  SettingsSectionDesc,
+} from "./ui/settings-controls.jsx";
 
 const IPV4_FIRST_ENDPOINTS = ["/operation/network/ipv4-first", "/network/ipv4-first"];
 
@@ -146,10 +274,12 @@ async function fetchIpv4FirstSetting(options = {}) {
   throw lastError || new Error("IPv4-first setting request failed");
 }
 
-
 async function openOverlayEditor() {
   const existing = await WebviewWindow.getByLabel("overlay-editor");
-  if (existing) { await existing.setFocus(); return; }
+  if (existing) {
+    await existing.setFocus();
+    return;
+  }
   new WebviewWindow("overlay-editor", {
     url: "/?overlayEditor=1",
     title: "Overlay Editor — Kodama",
@@ -170,14 +300,18 @@ async function openComposer(videoId) {
   const { invoke } = await import("@tauri-apps/api/core");
   // Pause Kodama's own playback so the main player and the Composer's editor audio
   // don't play simultaneously (the App player component listens for this).
-  try { window.dispatchEvent(new Event("kodama-pause-playback")); } catch {}
+  try {
+    window.dispatchEvent(new Event("kodama-pause-playback"));
+  } catch {}
   // Theme the composer with Kodama's current colours (applied as CSS-variable overrides).
   const overrides = {};
   try {
     const cs = getComputedStyle(document.documentElement);
     const read = (n) => cs.getPropertyValue(n).trim();
     const valid = (x) => x && /^[#0-9a-zA-Z(),.%\s-]{1,60}$/.test(x);
-    const put = (composerVar, val) => { if (valid(val)) overrides[composerVar] = val; };
+    const put = (composerVar, val) => {
+      if (valid(val)) overrides[composerVar] = val;
+    };
     const accent = read("--accent");
     put("--color-composer-accent", accent);
     put("--color-composer-accent-dark", accent);
@@ -206,7 +340,9 @@ async function openComposer(videoId) {
 // SHA-256 hash of a PIN string (hex). Used for PIN protection storage — never stores plain text.
 async function hashPin(pin) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 // ─── Debug Console Interceptor ───────────────────────────────────────────────
@@ -216,15 +352,28 @@ const _frontendLogs = [];
 const _MAX_FRONTEND_LOGS = 500;
 (function _setupDebugInterceptor() {
   const _orig = { log: console.log, warn: console.warn, error: console.error, info: console.info };
-  ["log", "warn", "error", "info"].forEach(level => {
+  ["log", "warn", "error", "info"].forEach((level) => {
     console[level] = (...args) => {
       _orig[level](...args);
-      const msg = args.map(a => {
-        if (a instanceof Error) return a.stack || a.message;
-        if (typeof a === "object" && a !== null) { try { return JSON.stringify(a); } catch { return String(a); } }
-        return String(a);
-      }).join(" ");
-      _frontendLogs.push({ ts: Date.now() / 1000, level: level.toUpperCase(), msg, source: "frontend" });
+      const msg = args
+        .map((a) => {
+          if (a instanceof Error) return a.stack || a.message;
+          if (typeof a === "object" && a !== null) {
+            try {
+              return JSON.stringify(a);
+            } catch {
+              return String(a);
+            }
+          }
+          return String(a);
+        })
+        .join(" ");
+      _frontendLogs.push({
+        ts: Date.now() / 1000,
+        level: level.toUpperCase(),
+        msg,
+        source: "frontend",
+      });
       if (_frontendLogs.length > _MAX_FRONTEND_LOGS) _frontendLogs.shift();
     };
   });
@@ -236,7 +385,8 @@ const _MAX_FRONTEND_LOGS = 500;
 const APP_VERSION = __APP_VERSION__;
 
 // Published news feed (edit + commit updates/news.json in the public Kodama repo).
-const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
+const NEWS_URL =
+  "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
 
 // Anonymous active-user heartbeat endpoint (Cloudflare Worker, see analytics/).
 // Leave "" until the Worker is deployed — the heartbeat no-ops while empty.
@@ -249,17 +399,22 @@ const STATS_URL = "https://kodama-stats.kiyoshidesign.workers.dev";
 // being able to reverse the token or link a device across days. See analytics/.
 async function _sha256Hex(str) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 async function sendHeartbeat() {
   try {
-    if (!STATS_URL) return;                                        // not configured yet
+    if (!STATS_URL) return; // not configured yet
     if (localStorage.getItem("kodama-anon-stats") === "false") return; // opted out
     const day = new Date().toISOString().slice(0, 10);
     const month = day.slice(0, 7);
-    if (localStorage.getItem("kodama-hb-day") === day) return;     // already pinged today
+    if (localStorage.getItem("kodama-hb-day") === day) return; // already pinged today
     let id = localStorage.getItem("kodama-install-id");
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem("kodama-install-id", id); }
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("kodama-install-id", id);
+    }
     const [d, m] = await Promise.all([_sha256Hex(`${id}:${day}`), _sha256Hex(`${id}:${month}`)]);
     await fetch(`${STATS_URL}/ping`, {
       method: "POST",
@@ -267,13 +422,19 @@ async function sendHeartbeat() {
       body: JSON.stringify({ d, m, v: APP_VERSION }),
     });
     localStorage.setItem("kodama-hb-day", day); // only mark sent on success
-  } catch { /* analytics is best-effort — never disturb the app */ }
+  } catch {
+    /* analytics is best-effort — never disturb the app */
+  }
 }
 
 // Compare dotted version strings (e.g. "1.0.0" vs "0.9.40-beta"). Returns -1 / 0 / 1.
 function cmpVersion(a, b) {
-  const pa = String(a).split(/[.\-]/).map(x => parseInt(x, 10) || 0);
-  const pb = String(b).split(/[.\-]/).map(x => parseInt(x, 10) || 0);
+  const pa = String(a)
+    .split(/[.\-]/)
+    .map((x) => parseInt(x, 10) || 0);
+  const pb = String(b)
+    .split(/[.\-]/)
+    .map((x) => parseInt(x, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] || 0) - (pb[i] || 0);
     if (d) return d < 0 ? -1 : 1;
@@ -287,11 +448,17 @@ const IS_MAC = /Mac OS X|Macintosh/.test(navigator.userAgent || "");
 
 // ─── Update Checker (GitHub Releases) ───────────────────────────────────────
 const APP_TAG = "v1.0.0";
-const GITHUB_RELEASES_API = "https://api.github.com/repos/KiyoshiTheDevil/Kodama/releases?per_page=1";
+const GITHUB_RELEASES_API =
+  "https://api.github.com/repos/KiyoshiTheDevil/Kodama/releases?per_page=1";
 
 function isNewerVersion(latest, current) {
-  const parse = v => v.replace(/^v/, "").split(".").map(n => parseInt(n) || 0);
-  const l = parse(latest), c = parse(current);
+  const parse = (v) =>
+    v
+      .replace(/^v/, "")
+      .split(".")
+      .map((n) => parseInt(n) || 0);
+  const l = parse(latest),
+    c = parse(current);
   for (let i = 0; i < Math.max(l.length, c.length); i++) {
     if ((l[i] || 0) > (c[i] || 0)) return true;
     if ((l[i] || 0) < (c[i] || 0)) return false;
@@ -303,7 +470,9 @@ function isNewerVersion(latest, current) {
 // Falls back to "en" for anything that isn't explicitly supported.
 function detectSystemLang() {
   const supported = ["de", "en"]; // extend when more locales are added
-  const candidates = navigator.languages?.length ? navigator.languages : [navigator.language || "en"];
+  const candidates = navigator.languages?.length
+    ? navigator.languages
+    : [navigator.language || "en"];
   for (const loc of candidates) {
     const base = loc.split("-")[0].toLowerCase();
     if (supported.includes(base)) return base;
@@ -322,9 +491,9 @@ function getInitialLang() {
 /** Serialize a keydown event to a storable shortcut string, e.g. "Ctrl+Equal" or "Space" */
 function serializeShortcut(e) {
   const mods = [];
-  if (e.ctrlKey)  mods.push("Ctrl");
+  if (e.ctrlKey) mods.push("Ctrl");
   if (e.shiftKey) mods.push("Shift");
-  if (e.altKey)   mods.push("Alt");
+  if (e.altKey) mods.push("Alt");
   return mods.length > 0 ? [...mods, e.code].join("+") : e.code;
 }
 
@@ -335,53 +504,118 @@ function matchShortcut(stored, e) {
   if (!stored) return false;
   if (!stored.includes("+")) return e.code === stored;
   const parts = stored.split("+");
-  const code  = parts[parts.length - 1];
-  const mods  = new Set(parts.slice(0, -1));
+  const code = parts[parts.length - 1];
+  const mods = new Set(parts.slice(0, -1));
   // Only check the modifiers that are explicitly listed; shiftKey not checked strictly
   // so that Ctrl+= (no shift) and Ctrl++ (shift) both match "Ctrl+Equal" on any layout.
   return e.code === code && e.ctrlKey === mods.has("Ctrl") && e.altKey === mods.has("Alt");
 }
 
 // Stepped values for the zoom and font-size sliders
-const ZOOM_STEPS      = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
-const ZOOM_LABELS     = ["80%", "90%", "100%", "110%", "120%", "130%", "140%", "150%"];
-const FONT_STEPS      = [0.85, 0.93, 1.0, 1.10, 1.20, 1.35, 1.50];
-const FONT_LABELS     = FONT_STEPS.map(s => `${Math.round(13 * s)}px`);
+const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
+const ZOOM_LABELS = ["80%", "90%", "100%", "110%", "120%", "130%", "140%", "150%"];
+const FONT_STEPS = [0.85, 0.93, 1.0, 1.1, 1.2, 1.35, 1.5];
+const FONT_LABELS = FONT_STEPS.map((s) => `${Math.round(13 * s)}px`);
 
 const DEFAULT_SHORTCUTS = {
-  playPause:   "Space",
-  nextTrack:   "ArrowRight",
-  prevTrack:   "ArrowLeft",
-  volUp:       "ArrowUp",
-  volDown:     "ArrowDown",
-  fullscreen:  "KeyF",
-  mute:        "KeyM",
-  lyrics:      "KeyL",
-  seekBack:    "Comma",
+  playPause: "Space",
+  nextTrack: "ArrowRight",
+  prevTrack: "ArrowLeft",
+  volUp: "ArrowUp",
+  volDown: "ArrowDown",
+  fullscreen: "KeyF",
+  mute: "KeyM",
+  lyrics: "KeyL",
+  seekBack: "Comma",
   seekForward: "Period",
-  zoomIn:      "Ctrl+Equal",
-  zoomOut:     "Ctrl+Minus",
+  zoomIn: "Ctrl+Equal",
+  zoomOut: "Ctrl+Minus",
 };
 
 const CODE_DISPLAY_FALLBACK = {
-  Space:"Space", ArrowRight:"→", ArrowLeft:"←", ArrowUp:"↑", ArrowDown:"↓",
-  Escape:"Esc",
-  KeyA:"A",KeyB:"B",KeyC:"C",KeyD:"D",KeyE:"E",KeyF:"F",KeyG:"G",KeyH:"H",
-  KeyI:"I",KeyJ:"J",KeyK:"K",KeyL:"L",KeyM:"M",KeyN:"N",KeyO:"O",KeyP:"P",
-  KeyQ:"Q",KeyR:"R",KeyS:"S",KeyT:"T",KeyU:"U",KeyV:"V",KeyW:"W",KeyX:"X",
-  KeyY:"Y",KeyZ:"Z",
-  Digit0:"0",Digit1:"1",Digit2:"2",Digit3:"3",Digit4:"4",
-  Digit5:"5",Digit6:"6",Digit7:"7",Digit8:"8",Digit9:"9",
-  Equal:"=",Minus:"-",BracketLeft:"[",BracketRight:"]",
-  Semicolon:";",Quote:"'",Backquote:"`",Backslash:"\\",
-  Comma:",",Period:".",Slash:"/",
-  NumpadAdd:"Num+",NumpadSubtract:"Num-",NumpadMultiply:"Num*",
-  NumpadDivide:"Num/",NumpadDecimal:"Num.",
-  Numpad0:"Num0",Numpad1:"Num1",Numpad2:"Num2",Numpad3:"Num3",Numpad4:"Num4",
-  Numpad5:"Num5",Numpad6:"Num6",Numpad7:"Num7",Numpad8:"Num8",Numpad9:"Num9",
-  F1:"F1",F2:"F2",F3:"F3",F4:"F4",F5:"F5",F6:"F6",
-  F7:"F7",F8:"F8",F9:"F9",F10:"F10",F11:"F11",F12:"F12",
-  Backspace:"⌫",Tab:"Tab",Enter:"↵",
+  Space: "Space",
+  ArrowRight: "→",
+  ArrowLeft: "←",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  Escape: "Esc",
+  KeyA: "A",
+  KeyB: "B",
+  KeyC: "C",
+  KeyD: "D",
+  KeyE: "E",
+  KeyF: "F",
+  KeyG: "G",
+  KeyH: "H",
+  KeyI: "I",
+  KeyJ: "J",
+  KeyK: "K",
+  KeyL: "L",
+  KeyM: "M",
+  KeyN: "N",
+  KeyO: "O",
+  KeyP: "P",
+  KeyQ: "Q",
+  KeyR: "R",
+  KeyS: "S",
+  KeyT: "T",
+  KeyU: "U",
+  KeyV: "V",
+  KeyW: "W",
+  KeyX: "X",
+  KeyY: "Y",
+  KeyZ: "Z",
+  Digit0: "0",
+  Digit1: "1",
+  Digit2: "2",
+  Digit3: "3",
+  Digit4: "4",
+  Digit5: "5",
+  Digit6: "6",
+  Digit7: "7",
+  Digit8: "8",
+  Digit9: "9",
+  Equal: "=",
+  Minus: "-",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Semicolon: ";",
+  Quote: "'",
+  Backquote: "`",
+  Backslash: "\\",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  NumpadAdd: "Num+",
+  NumpadSubtract: "Num-",
+  NumpadMultiply: "Num*",
+  NumpadDivide: "Num/",
+  NumpadDecimal: "Num.",
+  Numpad0: "Num0",
+  Numpad1: "Num1",
+  Numpad2: "Num2",
+  Numpad3: "Num3",
+  Numpad4: "Num4",
+  Numpad5: "Num5",
+  Numpad6: "Num6",
+  Numpad7: "Num7",
+  Numpad8: "Num8",
+  Numpad9: "Num9",
+  F1: "F1",
+  F2: "F2",
+  F3: "F3",
+  F4: "F4",
+  F5: "F5",
+  F6: "F6",
+  F7: "F7",
+  F8: "F8",
+  F9: "F9",
+  F10: "F10",
+  F11: "F11",
+  F12: "F12",
+  Backspace: "⌫",
+  Tab: "Tab",
+  Enter: "↵",
 };
 
 // Spring physics: returns a CSS transition string
@@ -534,19 +768,19 @@ if (typeof document !== "undefined" && !document.getElementById("kiyoshi-tooltip
 class IpcAudio {
   constructor() {
     this._src = "";
-    this._srcDirty = false;   // true when src was set but play() not called yet
-    this._pendingSeekTo = 0;  // seek target to use on the next play() call
+    this._srcDirty = false; // true when src was set but play() not called yet
+    this._pendingSeekTo = 0; // seek target to use on the next play() call
     this._currentTime = 0;
     this._duration = 0;
     this._paused = true;
-    this._volume = 0.16;      // same default as Rust thread (0.4² quadratic)
+    this._volume = 0.16; // same default as Rust thread (0.4² quadratic)
     this._listeners = {};
-    this._invoke = null;      // resolved lazily on first use
+    this._invoke = null; // resolved lazily on first use
 
     // Fallback: if Rust commands don't exist (binary not recompiled),
     // _fallback is set to a plain HTMLAudioElement and all calls route there.
-    this._fallback = null;       // null = not decided, false = Rust works, Audio = fallback
-    this._probePromise = null;   // dedup the one-time probe
+    this._fallback = null; // null = not decided, false = Rust works, Audio = fallback
+    this._probePromise = null; // dedup the one-time probe
 
     // Resolve Tauri invoke/listen modules asynchronously on construction.
     import("@tauri-apps/api/core").then(({ invoke }) => {
@@ -607,7 +841,14 @@ class IpcAudio {
   _createFallbackAudio() {
     const a = new Audio();
     // Wire native events → our listener system
-    for (const evt of ["timeupdate", "ended", "loadedmetadata", "canplay", "error", "volumechange"]) {
+    for (const evt of [
+      "timeupdate",
+      "ended",
+      "loadedmetadata",
+      "canplay",
+      "error",
+      "volumechange",
+    ]) {
       a.addEventListener(evt, () => this._fire(evt));
     }
     return a;
@@ -617,37 +858,62 @@ class IpcAudio {
   _cmd(name, args) {
     if (this._fallback) return Promise.resolve(); // Rust path disabled
     console.log("[IpcAudio] →", name, args?.url ? args.url.substring(0, 80) + "…" : "");
-    const go = (invoke) => invoke(name, args || {}).catch(e => console.error("[IpcAudio] ERROR", name, e));
-    if (this._invoke) { go(this._invoke); }
-    else { import("@tauri-apps/api/core").then(({ invoke }) => { this._invoke = invoke; go(invoke); }); }
+    const go = (invoke) =>
+      invoke(name, args || {}).catch((e) => console.error("[IpcAudio] ERROR", name, e));
+    if (this._invoke) {
+      go(this._invoke);
+    } else {
+      import("@tauri-apps/api/core").then(({ invoke }) => {
+        this._invoke = invoke;
+        go(invoke);
+      });
+    }
     return Promise.resolve();
   }
 
   _fire(type) {
-    (this._listeners[type] || []).forEach(h => { try { h({ type }); } catch (e) { console.error(e); } });
+    (this._listeners[type] || []).forEach((h) => {
+      try {
+        h({ type });
+      } catch (e) {
+        console.error(e);
+      }
+    });
   }
 
   // ── HTMLAudioElement-compatible API ────────────────────────────────────────
   // _fb() returns the fallback Audio if active, or false/null.
   // null = probe still running (undecided), false = Rust is active, Audio = fallback
-  get _fb() { return this._fallback; }
+  get _fb() {
+    return this._fallback;
+  }
 
-  get src() { return this._fb ? this._fb.src : this._src; }
+  get src() {
+    return this._fb ? this._fb.src : this._src;
+  }
   set src(url) {
     // Always store locally so we can replay onto fallback if probe hasn't finished
     this._src = url;
     this._srcDirty = true;
     this._pendingSeekTo = 0;
-    if (this._fb) { this._fb.src = url; }
-    else if (this._fb === null && this._probePromise) {
+    if (this._fb) {
+      this._fb.src = url;
+    } else if (this._fb === null && this._probePromise) {
       // Probe still running — queue replay
-      this._probePromise.then(() => { if (this._fb) this._fb.src = url; });
+      this._probePromise.then(() => {
+        if (this._fb) this._fb.src = url;
+      });
     }
   }
 
-  get currentTime() { return this._fb ? this._fb.currentTime : this._currentTime; }
+  get currentTime() {
+    return this._fb ? this._fb.currentTime : this._currentTime;
+  }
   set currentTime(t) {
-    if (this._fb) { this._fb.currentTime = t; return; }
+    if (this._fb) {
+      this._fb.currentTime = t;
+      return;
+    }
     this._currentTime = t;
     if (this._srcDirty) {
       this._pendingSeekTo = t;
@@ -656,13 +922,23 @@ class IpcAudio {
     }
   }
 
-  get duration() { return this._fb ? this._fb.duration : this._duration; }
-  get paused()   { return this._fb ? this._fb.paused   : this._paused; }
+  get duration() {
+    return this._fb ? this._fb.duration : this._duration;
+  }
+  get paused() {
+    return this._fb ? this._fb.paused : this._paused;
+  }
 
-  get volume() { return this._fb ? this._fb.volume : this._volume; }
+  get volume() {
+    return this._fb ? this._fb.volume : this._volume;
+  }
   set volume(v) {
     this._volume = v; // always store for probe replay
-    if (this._fb) { this._fb.volume = v; this._fire("volumechange"); return; }
+    if (this._fb) {
+      this._fb.volume = v;
+      this._fire("volumechange");
+      return;
+    }
     this._cmd("audio_set_volume", { volume: v });
     this._fire("volumechange");
   }
@@ -689,7 +965,10 @@ class IpcAudio {
   }
 
   pause() {
-    if (this._fb) { this._fb.pause(); return; }
+    if (this._fb) {
+      this._fb.pause();
+      return;
+    }
     this._paused = true;
     this._cmd("audio_pause");
   }
@@ -701,7 +980,7 @@ class IpcAudio {
 
   removeEventListener(type, handler) {
     if (!this._listeners[type]) return;
-    this._listeners[type] = this._listeners[type].filter(h => h !== handler);
+    this._listeners[type] = this._listeners[type].filter((h) => h !== handler);
   }
 }
 
@@ -711,17 +990,30 @@ function TitleBar() {
 
   useEffect(() => {
     let cancel = false;
-    const check = () => appWindow.isMaximized().then(v => { if (!cancel) setMaximized(v); });
+    const check = () =>
+      appWindow.isMaximized().then((v) => {
+        if (!cancel) setMaximized(v);
+      });
     check();
     const unlisten = appWindow.onResized(() => check());
-    return () => { cancel = true; unlisten.then(fn => fn()); };
+    return () => {
+      cancel = true;
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   const btnBase = {
-    background: "none", border: "none", cursor: "default",
-    width: 36, height: 28, borderRadius: 5,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0, transition: "background 0.12s",
+    background: "none",
+    border: "none",
+    cursor: "default",
+    width: 36,
+    height: 28,
+    borderRadius: 5,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    transition: "background 0.12s",
     color: "rgba(255,255,255,0.75)",
   };
 
@@ -730,9 +1022,7 @@ function TitleBar() {
       id: "min",
       action: () => appWindow.minimize(),
       hover: "rgba(255,255,255,0.10)",
-      icon: (
-        <Minus size={10} />
-      ),
+      icon: <Minus size={10} />,
     },
     {
       id: "max",
@@ -740,14 +1030,28 @@ function TitleBar() {
       hover: "rgba(255,255,255,0.10)",
       icon: maximized ? (
         // Restore icon — two overlapping squares
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-          <rect x="2" y="0" width="8" height="8" rx="0.5"/>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+        >
+          <rect x="2" y="0" width="8" height="8" rx="0.5" />
           <path d="M0 2v7a1 1 0 0 0 1 1h7" />
         </svg>
       ) : (
         // Maximize icon — single square
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-          <rect x="0.5" y="0.5" width="9" height="9" rx="0.5"/>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+        >
+          <rect x="0.5" y="0.5" width="9" height="9" rx="0.5" />
         </svg>
       ),
     },
@@ -755,36 +1059,56 @@ function TitleBar() {
       id: "close",
       action: () => appWindow.close(),
       hover: "#c42b1c",
-      icon: (
-        <X size={10} />
-      ),
+      icon: <X size={10} />,
     },
   ];
 
   return (
-    <div style={{
-      height: 32, display: "flex", alignItems: "center",
-      justifyContent: "flex-end", padding: "0 8px",
-      position: "fixed", top: 4, left: 0, right: 0, zIndex: 9998,
-      pointerEvents: "none",
-    }}>
-      <div data-tauri-drag-region style={{
-        position: "absolute", top: 0, left: 80, right: 80, bottom: 0,
-        pointerEvents: "all",
-      }} />
+    <div
+      style={{
+        height: 32,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        padding: "0 8px",
+        position: "fixed",
+        top: 4,
+        left: 0,
+        right: 0,
+        zIndex: 9998,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        data-tauri-drag-region
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 80,
+          right: 80,
+          bottom: 0,
+          pointerEvents: "all",
+        }}
+      />
       <div style={{ display: "flex", gap: 2, position: "relative", pointerEvents: "all" }}>
-        {buttons.map(btn => (
+        {buttons.map((btn) => (
           <button
             key={btn.id}
-            onClick={e => { e.stopPropagation(); btn.action(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              btn.action();
+            }}
             onMouseEnter={() => setHoveredBtn(btn.id)}
             onMouseLeave={() => setHoveredBtn(null)}
             style={{
               ...btnBase,
               background: hoveredBtn === btn.id ? btn.hover : "none",
-              color: hoveredBtn === btn.id && btn.id === "close" ? "#fff" : "rgba(255,255,255,0.75)",
+              color:
+                hoveredBtn === btn.id && btn.id === "close" ? "#fff" : "rgba(255,255,255,0.75)",
             }}
-          >{btn.icon}</button>
+          >
+            {btn.icon}
+          </button>
         ))}
       </div>
     </div>
@@ -797,7 +1121,7 @@ function clampMenu(x, y, w = 220, h = 320) {
   const vh = window.innerHeight;
   return {
     left: x + w > vw ? Math.max(4, x - w) : x,
-    top:  y + h > vh ? Math.max(4, y - h) : y,
+    top: y + h > vh ? Math.max(4, y - h) : y,
   };
 }
 
@@ -815,7 +1139,12 @@ const CTX_POPOVER_ANIM =
 function ContextMenu({ x, y, zoom = 1, onClose, ariaLabel, minWidth = 200, children }) {
   const anchorRef = useRef(null);
   return (
-    <Dropdown isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dropdown
+      isOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DropdownTrigger
         ref={anchorRef}
         aria-hidden="true"
@@ -844,7 +1173,11 @@ function CtxItem({ icon: Icon, label, onSelect, danger, id, textValue }) {
       id={id}
       textValue={textValue || (typeof label === "string" ? label : undefined)}
       onAction={onSelect}
-      className={danger ? "text-[#e05252]! data-[focused]:text-[#e05252]! data-[hovered]:text-[#e05252]!" : undefined}
+      className={
+        danger
+          ? "text-[#e05252]! data-[focused]:text-[#e05252]! data-[hovered]:text-[#e05252]!"
+          : undefined
+      }
     >
       {Icon ? <span className="w-4 flex justify-center shrink-0">{Icon}</span> : null}
       {label}
@@ -852,17 +1185,53 @@ function CtxItem({ icon: Icon, label, onSelect, danger, id, textValue }) {
   );
 }
 
-const SIDEBAR_EXPANDED = 288;   // default expanded width
+const SIDEBAR_EXPANDED = 288; // default expanded width
 const SIDEBAR_COLLAPSED = 56;
-const SIDEBAR_MIN = 230;        // min when dragging
-const SIDEBAR_MAX = 440;        // max when dragging
-const SPLIT_MIN = 0.22;         // min/max cover-pane fraction in the fullscreen split view
+const SIDEBAR_MIN = 230; // min when dragging
+const SIDEBAR_MAX = 440; // max when dragging
+const SPLIT_MIN = 0.22; // min/max cover-pane fraction in the fullscreen split view
 const SPLIT_MAX = 0.78;
-const QUEUE_DEFAULT = 360;      // default queue panel width
-const QUEUE_MIN = 320;          // min when dragging
-const QUEUE_MAX = 620;          // max when dragging
+const QUEUE_DEFAULT = 360; // default queue panel width
+const QUEUE_MIN = 320; // min when dragging
+const QUEUE_MAX = 620; // max when dragging
 
-function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenSettings, onOpenAccountTab, onOpenUpdateTab, onOpenOverlaySettings, onCloseOverlay, onOpenPlaylist, onOpenAlbum, onOpenArtist, onAddRecent, onContextMenu, currentProfileData, onOpenProfileSwitcher, profiles, onSwitchProfile, onAddProfile, onDeleteProfile, onReauthProfile, onLogout, onCreatePlaylist, updateInfo, offlineMode, isActuallyOffline, onToggleOffline, onRefreshView, obsEnabled, onOpenNews, onOpenFeedback, newsUnread = 0, settingsOpen, hideUserHandle }) {
+function Sidebar({
+  view,
+  setView,
+  onSearch,
+  collapsed,
+  onToggleCollapse,
+  onOpenSettings,
+  onOpenAccountTab,
+  onOpenUpdateTab,
+  onOpenOverlaySettings,
+  onCloseOverlay,
+  onOpenPlaylist,
+  onOpenAlbum,
+  onOpenArtist,
+  onAddRecent,
+  onContextMenu,
+  currentProfileData,
+  onOpenProfileSwitcher,
+  profiles,
+  onSwitchProfile,
+  onAddProfile,
+  onDeleteProfile,
+  onReauthProfile,
+  onLogout,
+  onCreatePlaylist,
+  updateInfo,
+  offlineMode,
+  isActuallyOffline,
+  onToggleOffline,
+  onRefreshView,
+  obsEnabled,
+  onOpenNews,
+  onOpenFeedback,
+  newsUnread = 0,
+  settingsOpen,
+  hideUserHandle,
+}) {
   const [query, setQuery] = useState("");
   // Search autocomplete: debounced suggestion fetch + a dropdown under the field.
   const [suggestions, setSuggestions] = useState([]);
@@ -870,11 +1239,14 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   const sugBlurRef = useRef(null);
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) { setSuggestions([]); return; }
+    if (q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
     const id = setTimeout(() => {
       fetch(`${API}/search/suggestions?q=${encodeURIComponent(q)}`)
-        .then(r => r.json())
-        .then(d => setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []))
+        .then((r) => r.json())
+        .then((d) => setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []))
         .catch(() => {});
     }, 180);
     return () => clearTimeout(id);
@@ -898,7 +1270,10 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   };
   const cancelQuitHold = () => {
     setQuitHolding(false);
-    if (quitHoldTimer.current) { clearTimeout(quitHoldTimer.current); quitHoldTimer.current = null; }
+    if (quitHoldTimer.current) {
+      clearTimeout(quitHoldTimer.current);
+      quitHoldTimer.current = null;
+    }
   };
   const [pinnedPlaylists, setPinnedPlaylists] = useState([]);
   const [recentPlaylists, setRecentPlaylists] = useState([]);
@@ -906,8 +1281,16 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
 
   const reloadFromStorage = useCallback((prof) => {
     const p = prof || window.__activeProfile || "default";
-    try { setPinnedPlaylists(JSON.parse(localStorage.getItem(`kiyoshi-pinned-${p}`) || "[]")); } catch { setPinnedPlaylists([]); }
-    try { setRecentPlaylists(JSON.parse(localStorage.getItem(`kiyoshi-recent-${p}`) || "[]")); } catch { setRecentPlaylists([]); }
+    try {
+      setPinnedPlaylists(JSON.parse(localStorage.getItem(`kiyoshi-pinned-${p}`) || "[]"));
+    } catch {
+      setPinnedPlaylists([]);
+    }
+    try {
+      setRecentPlaylists(JSON.parse(localStorage.getItem(`kiyoshi-recent-${p}`) || "[]"));
+    } catch {
+      setRecentPlaylists([]);
+    }
   }, []);
 
   // Load once profile is known
@@ -929,8 +1312,12 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   }, [reloadFromStorage]);
 
   const sidebarItemId = (pl) => pl.playlistId || pl.browseId;
-  const isPinned = (pl) => pinnedPlaylists.some(p => sidebarItemId(p) === sidebarItemId(pl));
-  const openItem = (pl) => { if (pl.type === "album") onOpenAlbum?.(pl); else if (pl.type === "artist") onOpenArtist?.(pl); else onOpenPlaylist(pl); };
+  const isPinned = (pl) => pinnedPlaylists.some((p) => sidebarItemId(p) === sidebarItemId(pl));
+  const openItem = (pl) => {
+    if (pl.type === "album") onOpenAlbum?.(pl);
+    else if (pl.type === "artist") onOpenArtist?.(pl);
+    else onOpenPlaylist(pl);
+  };
 
   useEffect(() => {
     if (tetoVisible && !query.toLowerCase().includes("teto")) hideTeto();
@@ -939,7 +1326,10 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   const hideTeto = () => {
     setTetoLeaving(true);
     clearTimeout(tetoTimerRef.current);
-    tetoTimerRef.current = setTimeout(() => { setTetoVisible(false); setTetoLeaving(false); }, 450);
+    tetoTimerRef.current = setTimeout(() => {
+      setTetoVisible(false);
+      setTetoLeaving(false);
+    }, 450);
   };
 
   const handleSubmit = (value) => {
@@ -970,45 +1360,73 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
     }
   };
 
-  const pickSuggestion = (s) => { setQuery(s); handleSubmit(s); };
+  const pickSuggestion = (s) => {
+    setQuery(s);
+    handleSubmit(s);
+  };
   // Dropdown of live suggestions, positioned under the (relatively-positioned) field wrapper.
-  const suggestionsBox = (sugOpen && query.trim().length >= 2 && suggestions.length > 0) ? (
-    <div
-      onMouseDown={e => e.preventDefault()} /* keep field focus so onClick fires before blur */
-      style={{
-        position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: 4,
-        background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10,
-        boxShadow: "0 8px 24px rgba(0,0,0,0.35)", overflow: "hidden", padding: 4,
-      }}
-    >
-      {suggestions.map((s, i) => (
-        <div key={i} onClick={() => pickSuggestion(s)}
-          style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 6,
-            cursor: "default", fontSize: "var(--t13)", color: "var(--text-secondary)",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
-          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-        >
-          <MagnifyingGlass size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s}</span>
-        </div>
-      ))}
-    </div>
-  ) : null;
-  const sugFocus = () => { clearTimeout(sugBlurRef.current); setSugOpen(true); };
-  const sugBlur = () => { sugBlurRef.current = setTimeout(() => setSugOpen(false), 150); };
+  const suggestionsBox =
+    sugOpen && query.trim().length >= 2 && suggestions.length > 0 ? (
+      <div
+        onMouseDown={(e) => e.preventDefault()} /* keep field focus so onClick fires before blur */
+        style={{
+          position: "absolute",
+          top: "100%",
+          left: 0,
+          right: 0,
+          zIndex: 60,
+          marginTop: 4,
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+          overflow: "hidden",
+          padding: 4,
+        }}
+      >
+        {suggestions.map((s, i) => (
+          <div
+            key={i}
+            onClick={() => pickSuggestion(s)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "7px 10px",
+              borderRadius: 6,
+              cursor: "default",
+              fontSize: "var(--t13)",
+              color: "var(--text-secondary)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <MagnifyingGlass size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s}</span>
+          </div>
+        ))}
+      </div>
+    ) : null;
+  const sugFocus = () => {
+    clearTimeout(sugBlurRef.current);
+    setSugOpen(true);
+  };
+  const sugBlur = () => {
+    sugBlurRef.current = setTimeout(() => setSugOpen(false), 150);
+  };
 
   const mainNavItems = [
-    { id: "home",    label: t("home"),    iconEl: <House size={16} /> },
+    { id: "home", label: t("home"), iconEl: <House size={16} /> },
     { id: "library", label: t("library"), iconEl: <Books size={16} /> },
   ];
 
   const secondaryNavItems = [
-    { id: "liked",     label: t("likedSongs"), iconEl: <Heart size={16} /> },
-    { id: "history",   label: t("history"),    iconEl: <ClockCounterClockwise size={16} /> },
-    { id: "downloads", label: t("downloads"),  iconEl: <DownloadSimple size={16} /> },
+    { id: "liked", label: t("likedSongs"), iconEl: <Heart size={16} /> },
+    { id: "history", label: t("history"), iconEl: <ClockCounterClockwise size={16} /> },
+    { id: "downloads", label: t("downloads"), iconEl: <DownloadSimple size={16} /> },
   ];
 
   // HeroUI ListBox-based navigation. Selected state is unstyled by HeroUI, so we
@@ -1018,10 +1436,13 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
     <ListBox
       aria-label="Navigation"
       selectionMode="none"
-      onAction={(key) => { setView(key); onCloseOverlay?.(); }}
+      onAction={(key) => {
+        setView(key);
+        onCloseOverlay?.();
+      }}
       className="w-full"
     >
-      {items.map(item => (
+      {items.map((item) => (
         <ListBoxItem
           key={item.id}
           id={item.id}
@@ -1031,7 +1452,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             view === item.id && "bg-accent-dim text-accent",
             collapsed && "justify-center"
           )}
-          onMouseEnter={e => {
+          onMouseEnter={(e) => {
             if (collapsed) {
               const r = e.currentTarget.getBoundingClientRect();
               setTooltip({ text: item.label, x: r.right + 10, y: r.top + r.height / 2 });
@@ -1053,19 +1474,25 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       aria-label="Playlists"
       selectionMode="none"
       onAction={(key) => {
-        const pl = items.find(p => sidebarItemId(p) === key);
-        if (pl) { openItem(pl); onCloseOverlay?.(); }
+        const pl = items.find((p) => sidebarItemId(p) === key);
+        if (pl) {
+          openItem(pl);
+          onCloseOverlay?.();
+        }
       }}
       className="w-full"
     >
-      {items.map(pl => (
+      {items.map((pl) => (
         <ListBoxItem
           key={sidebarItemId(pl)}
           id={sidebarItemId(pl)}
           textValue={pl.title}
-          className={cn("text-t12 rounded-xl", collapsed ? "justify-center px-0 min-h-12" : "min-h-14")}
-          onContextMenu={e => onContextMenu?.(e, pl)}
-          onMouseEnter={e => {
+          className={cn(
+            "text-t12 rounded-xl",
+            collapsed ? "justify-center px-0 min-h-12" : "min-h-14"
+          )}
+          onContextMenu={(e) => onContextMenu?.(e, pl)}
+          onMouseEnter={(e) => {
             if (collapsed) {
               const r = e.currentTarget.getBoundingClientRect();
               setTooltip({ text: pl.title, x: r.right + 10, y: r.top + r.height / 2 });
@@ -1073,19 +1500,22 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           }}
           onMouseLeave={() => collapsed && setTooltip(null)}
         >
-          <div className={cn(
-            "shrink-0 overflow-hidden bg-elevated flex items-center justify-center",
-            collapsed ? "w-9 h-9" : "w-10 h-10",
-            pl.type === "artist" ? "rounded-full" : "rounded-md"
-          )}>
-            {pl.thumbnail
-              ? <img src={thumb(pl.thumbnail)} alt="" className="w-full h-full object-cover" />
-              : pl.type === "album"
-              ? <VinylRecord size={18} className="text-muted" />
-              : pl.type === "artist"
-              ? <Microphone size={18} className="text-muted" />
-              : <Playlist size={18} className="text-muted" />
-            }
+          <div
+            className={cn(
+              "shrink-0 overflow-hidden bg-elevated flex items-center justify-center",
+              collapsed ? "w-9 h-9" : "w-10 h-10",
+              pl.type === "artist" ? "rounded-full" : "rounded-md"
+            )}
+          >
+            {pl.thumbnail ? (
+              <img src={thumb(pl.thumbnail)} alt="" className="w-full h-full object-cover" />
+            ) : pl.type === "album" ? (
+              <VinylRecord size={18} className="text-muted" />
+            ) : pl.type === "artist" ? (
+              <Microphone size={18} className="text-muted" />
+            ) : (
+              <Playlist size={18} className="text-muted" />
+            )}
           </div>
           {!collapsed && <span className="truncate">{pl.title}</span>}
         </ListBoxItem>
@@ -1104,11 +1534,15 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             "flex items-center text-t10 font-semibold text-muted uppercase tracking-wider hover:text-secondary transition-colors duration-150",
             collapsed ? "w-full justify-center py-2" : "w-full gap-1.5 px-3 pt-1.5 pb-1"
           )}
-          onMouseEnter={collapsed ? (e => {
-            const r = e.currentTarget.getBoundingClientRect();
-            setTooltip({ text: t(titleKey), x: r.right + 10, y: r.top + r.height / 2 });
-          }) : undefined}
-          onMouseLeave={collapsed ? (() => setTooltip(null)) : undefined}
+          onMouseEnter={
+            collapsed
+              ? (e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setTooltip({ text: t(titleKey), x: r.right + 10, y: r.top + r.height / 2 });
+                }
+              : undefined
+          }
+          onMouseLeave={collapsed ? () => setTooltip(null) : undefined}
         >
           <span className={cn("shrink-0 flex items-center justify-center", !collapsed && "w-3.5")}>
             <Icon size={collapsed ? 15 : 11} weight={iconWeight} />
@@ -1118,9 +1552,7 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         </DisclosureTrigger>
       </DisclosureHeading>
       <DisclosureContent>
-        <DisclosureBody className="!p-0">
-          {playlistList(items)}
-        </DisclosureBody>
+        <DisclosureBody className="!p-0">{playlistList(items)}</DisclosureBody>
       </DisclosureContent>
     </Disclosure>
   );
@@ -1139,57 +1571,94 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   // Shared account-menu popover — used by both the expanded profile button and the
   // collapsed avatar trigger. min-w-56 keeps it readable when the trigger is tiny.
   const accountMenu = (
-    <DropdownPopover placement="top start"
+    <DropdownPopover
+      placement="top start"
       className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:slide-in-from-bottom-3 data-[entering]:duration-300 data-[entering]:ease-out data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:slide-out-to-bottom-3 data-[exiting]:duration-200 data-[exiting]:ease-in"
     >
-      <DropdownMenu onAction={handleAccountAction} aria-label={t("account")} className="w-[var(--trigger-width)] min-w-56">
+      <DropdownMenu
+        onAction={handleAccountAction}
+        aria-label={t("account")}
+        className="w-[var(--trigger-width)] min-w-56"
+      >
         <DropdownSection>
           <DropdownItem id="profile" textValue={t("account")}>
-            <span className="w-4 flex justify-center shrink-0"><UserCircle size={16} /></span>
+            <span className="w-4 flex justify-center shrink-0">
+              <UserCircle size={16} />
+            </span>
             {t("account")}
           </DropdownItem>
-          {(profiles?.length > 1) ? (
+          {profiles?.length > 1 ? (
             <DropdownItem id="switch" textValue={t("switchAccount")}>
-              <span className="w-4 flex justify-center shrink-0"><Users size={16} /></span>
+              <span className="w-4 flex justify-center shrink-0">
+                <Users size={16} />
+              </span>
               {t("switchAccount")}
             </DropdownItem>
           ) : null}
           <DropdownItem id="logout" textValue={t("logOut")}>
-            <span className="w-4 flex justify-center shrink-0"><SignOut size={16} /></span>
+            <span className="w-4 flex justify-center shrink-0">
+              <SignOut size={16} />
+            </span>
             {t("logOut")}
           </DropdownItem>
         </DropdownSection>
         <DropdownSection className="w-full border-t border-border mt-1 pt-1">
           {obsEnabled ? (
             <DropdownItem id="overlay" textValue={t("overlay")}>
-              <span className="w-4 flex justify-center shrink-0"><ScreencastSimple size={16} /></span>
+              <span className="w-4 flex justify-center shrink-0">
+                <ScreencastSimple size={16} />
+              </span>
               {t("overlay")}
             </DropdownItem>
           ) : null}
           <DropdownItem id="news" textValue={t("news") || "Neuigkeiten"}>
-            <span className="w-4 flex justify-center shrink-0"><Megaphone size={16} /></span>
-            <span className="flex items-center gap-2">{t("news") || "Neuigkeiten"}
-              {newsUnread > 0 && <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full" style={{ background: "var(--accent)", color: "#fff" }}>{newsUnread}</span>}
+            <span className="w-4 flex justify-center shrink-0">
+              <Megaphone size={16} />
+            </span>
+            <span className="flex items-center gap-2">
+              {t("news") || "Neuigkeiten"}
+              {newsUnread > 0 && (
+                <span
+                  className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full"
+                  style={{ background: "var(--accent)", color: "#fff" }}
+                >
+                  {newsUnread}
+                </span>
+              )}
             </span>
           </DropdownItem>
           <DropdownItem id="feedback" textValue={t("reportBug") || "Fehler melden"}>
-            <span className="w-4 flex justify-center shrink-0"><Bug size={16} /></span>
+            <span className="w-4 flex justify-center shrink-0">
+              <Bug size={16} />
+            </span>
             {t("reportBug") || "Fehler melden"}
           </DropdownItem>
           <DropdownItem id="settings" textValue={t("settings")}>
-            <span className="w-4 flex justify-center shrink-0"><Gear size={16} /></span>
+            <span className="w-4 flex justify-center shrink-0">
+              <Gear size={16} />
+            </span>
             {t("settings")}
           </DropdownItem>
-          <DropdownItem id="quit" textValue={t("quitApp")}
+          <DropdownItem
+            id="quit"
+            textValue={t("quitApp")}
             className="relative overflow-hidden"
             onPointerDown={startQuitHold}
             onPointerUp={cancelQuitHold}
             onPointerLeave={cancelQuitHold}
             onPointerCancel={cancelQuitHold}
           >
-            <span className="absolute inset-0 origin-left pointer-events-none"
-              style={{ background: "rgba(244,67,54,0.28)", transform: quitHolding ? "scaleX(1)" : "scaleX(0)", transition: quitHolding ? "transform 1s linear" : "transform 0.15s ease" }} />
-            <span className="w-4 flex justify-center shrink-0 relative z-[1]"><Power size={16} /></span>
+            <span
+              className="absolute inset-0 origin-left pointer-events-none"
+              style={{
+                background: "rgba(244,67,54,0.28)",
+                transform: quitHolding ? "scaleX(1)" : "scaleX(0)",
+                transition: quitHolding ? "transform 1s linear" : "transform 0.15s ease",
+              }}
+            />
+            <span className="w-4 flex justify-center shrink-0 relative z-[1]">
+              <Power size={16} />
+            </span>
             <span className="relative z-[1]">{t("quitApp")}</span>
           </DropdownItem>
         </DropdownSection>
@@ -1198,13 +1667,16 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
   );
 
   return (
-    <div className="w-full h-full bg-transparent flex flex-col pt-4 shrink-0 rounded-xl overflow-hidden"
-      style={{ visibility: settingsOpen ? "hidden" : "visible" }}>
-
+    <div
+      className="w-full h-full bg-transparent flex flex-col pt-4 shrink-0 rounded-xl overflow-hidden"
+      style={{ visibility: settingsOpen ? "hidden" : "visible" }}
+    >
       {/* Tooltip portal */}
       {tooltip && (
-        <div className="fixed -translate-y-1/2 bg-elevated text-primary px-2.5 py-1 rounded text-t12 whitespace-nowrap border border-border pointer-events-none z-[9999] shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
-          style={{ left: tooltip.x, top: tooltip.y }}>
+        <div
+          className="fixed -translate-y-1/2 bg-elevated text-primary px-2.5 py-1 rounded text-t12 whitespace-nowrap border border-border pointer-events-none z-[9999] shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
           {tooltip.text}
         </div>
       )}
@@ -1218,21 +1690,23 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
         className={cn(
           "flex items-center gap-2",
-          (IS_MAC && !collapsed) ? "pb-3" : "pb-4",
+          IS_MAC && !collapsed ? "pb-3" : "pb-4",
           collapsed ? "justify-center px-3" : "justify-start",
           !collapsed && (IS_MAC ? "pl-[72px] pr-2.5" : "px-3"),
-          collapsed && IS_MAC && "pt-8",
+          collapsed && IS_MAC && "pt-8"
         )}
       >
         {/* Collapse toggle: leading on Windows/Linux and when collapsed; on macOS-expanded
             it moves to the trailing side (after the search). */}
         {(!IS_MAC || collapsed) && (
           <Button
-            variant="ghost" size="sm" isIconOnly
+            variant="ghost"
+            size="sm"
+            isIconOnly
             onPress={onToggleCollapse}
             className="shrink-0 relative z-[201] rounded-full"
             style={{ visibility: settingsOpen ? "hidden" : "visible", contain: "layout style" }}
-            onMouseEnter={e => {
+            onMouseEnter={(e) => {
               if (collapsed) {
                 const r = e.currentTarget.getBoundingClientRect();
                 setTooltip({ text: t("expand"), x: r.right + 10, y: r.top + r.height / 2 });
@@ -1244,33 +1718,39 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
           </Button>
         )}
 
-        {!collapsed && (IS_MAC ? (
-          <>
-            <div className="flex-1 min-w-0" style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
-              onFocus={sugFocus} onBlur={sugBlur}>
-              <SearchFieldRoot value={query} onChange={setQuery} onSubmit={handleSubmit} className="w-full">
-                <SearchFieldGroup>
-                  <SearchFieldSearchIcon><MagnifyingGlass size={16} /></SearchFieldSearchIcon>
-                  <SearchFieldInput placeholder={t("search")} />
-                  <SearchFieldClearButton />
-                </SearchFieldGroup>
-              </SearchFieldRoot>
-              {suggestionsBox}
-            </div>
-            <Button variant="ghost" size="sm" isIconOnly onPress={onRefreshView} className="shrink-0 rounded-full" title={t("refresh")} style={{ contain: "layout style" }}>
-              <ArrowClockwise size={14} />
-            </Button>
-            <Button variant="ghost" size="sm" isIconOnly onPress={onToggleCollapse} className="shrink-0 rounded-full" title={t("collapse") || "Collapse"} style={{ contain: "layout style" }}>
-              <CaretLineLeft size={16} />
-            </Button>
-          </>
-        ) : (
-          <>
-            <img src="/Kodama%20Logo.png" alt="Kodama" width="20" height="20" className="shrink-0" />
-            <span className="text-t15 font-medium whitespace-nowrap">Kodama</span>
-            <div className="ml-auto flex items-center gap-0.5 shrink-0">
+        {!collapsed &&
+          (IS_MAC ? (
+            <>
+              <div
+                className="flex-1 min-w-0"
+                style={{
+                  contain: "layout style",
+                  position: "relative",
+                  zIndex: sugOpen ? 70 : "auto",
+                }}
+                onFocus={sugFocus}
+                onBlur={sugBlur}
+              >
+                <SearchFieldRoot
+                  value={query}
+                  onChange={setQuery}
+                  onSubmit={handleSubmit}
+                  className="w-full"
+                >
+                  <SearchFieldGroup>
+                    <SearchFieldSearchIcon>
+                      <MagnifyingGlass size={16} />
+                    </SearchFieldSearchIcon>
+                    <SearchFieldInput placeholder={t("search")} />
+                    <SearchFieldClearButton />
+                  </SearchFieldGroup>
+                </SearchFieldRoot>
+                {suggestionsBox}
+              </div>
               <Button
-                variant="ghost" size="sm" isIconOnly
+                variant="ghost"
+                size="sm"
+                isIconOnly
                 onPress={onRefreshView}
                 className="shrink-0 rounded-full"
                 title={t("refresh")}
@@ -1278,17 +1758,55 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               >
                 <ArrowClockwise size={14} />
               </Button>
-            </div>
-          </>
-        ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                isIconOnly
+                onPress={onToggleCollapse}
+                className="shrink-0 rounded-full"
+                title={t("collapse") || "Collapse"}
+                style={{ contain: "layout style" }}
+              >
+                <CaretLineLeft size={16} />
+              </Button>
+            </>
+          ) : (
+            <>
+              <img
+                src="/Kodama%20Logo.png"
+                alt="Kodama"
+                width="20"
+                height="20"
+                className="shrink-0"
+              />
+              <span className="text-t15 font-medium whitespace-nowrap">Kodama</span>
+              <div className="ml-auto flex items-center gap-0.5 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  isIconOnly
+                  onPress={onRefreshView}
+                  className="shrink-0 rounded-full"
+                  title={t("refresh")}
+                  style={{ contain: "layout style" }}
+                >
+                  <ArrowClockwise size={14} />
+                </Button>
+              </div>
+            </>
+          ))}
       </div>
 
       {/* Search row — Windows/Linux only (macOS shows the search inside the header above).
           contain:layout style isolates React Aria's data-attribute updates from app-wide
           style recalcs without the paint-clipping of contain:content. */}
       {!collapsed && !IS_MAC && (
-        <div className="px-3 mb-3" style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
-          onFocus={sugFocus} onBlur={sugBlur}>
+        <div
+          className="px-3 mb-3"
+          style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
+          onFocus={sugFocus}
+          onBlur={sugBlur}
+        >
           <SearchFieldRoot
             value={query}
             onChange={setQuery}
@@ -1317,8 +1835,14 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       {/* Pinned + recent playlists */}
       {(pinnedPlaylists.length > 0 || recentPlaylists.length > 0) && (
         <div className={cn("overflow-y-auto flex-1 min-h-0 my-1", collapsed ? "px-0" : "px-2")}>
-          {pinnedPlaylists.length > 0 && playlistSection("pinned", pinnedPlaylists, PushPin, "fill")}
-          {recentPlaylists.filter(pl => !isPinned(pl)).length > 0 && playlistSection("recentlyOpened", recentPlaylists.filter(pl => !isPinned(pl)), ClockCounterClockwise)}
+          {pinnedPlaylists.length > 0 &&
+            playlistSection("pinned", pinnedPlaylists, PushPin, "fill")}
+          {recentPlaylists.filter((pl) => !isPinned(pl)).length > 0 &&
+            playlistSection(
+              "recentlyOpened",
+              recentPlaylists.filter((pl) => !isPinned(pl)),
+              ClockCounterClockwise
+            )}
         </div>
       )}
 
@@ -1326,7 +1850,8 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       {!collapsed && (
         <div className="px-2 mb-1.5">
           <Button
-            variant="ghost" fullWidth
+            variant="ghost"
+            fullWidth
             onPress={onCreatePlaylist}
             className="justify-start gap-2.5 px-3 rounded-xl text-t13 text-secondary"
           >
@@ -1341,11 +1866,12 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
         <div className="mt-auto px-2 pb-2.5">
           <hr className="mb-2 mx-2 border-t border-border" />
           {updateInfo && (
-            <div onClick={onOpenUpdateTab}
+            <div
+              onClick={onOpenUpdateTab}
               className="flex items-center gap-2 py-1.5 px-3 mb-1 rounded-xl text-t12 font-medium text-accent transition-all duration-150"
               style={{ background: "rgba(224,64,251,0.08)" }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(224,64,251,0.15)"}
-              onMouseLeave={e => e.currentTarget.style.background = "rgba(224,64,251,0.08)"}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(224,64,251,0.15)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(224,64,251,0.08)")}
             >
               <ArrowCircleUp size={15} />
               {t("updateAvailable")}
@@ -1359,14 +1885,24 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                   style={{ contain: "layout style" }}
                 >
                   <div className="w-7 h-7 shrink-0 rounded-full bg-accent flex items-center justify-center text-t11 font-medium overflow-hidden">
-                    {currentProfileData?.avatar
-                      ? <img src={thumb(currentProfileData.avatar)} alt="" className="w-full h-full object-cover" />
-                      : (currentProfileData?.displayName || "?")[0].toUpperCase()}
+                    {currentProfileData?.avatar ? (
+                      <img
+                        src={thumb(currentProfileData.avatar)}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (currentProfileData?.displayName || "?")[0].toUpperCase()
+                    )}
                   </div>
                   <div className="overflow-hidden flex-1 min-w-0 text-left">
-                    <div className="text-t12 font-medium truncate">{currentProfileData?.displayName || t("noProfile")}</div>
+                    <div className="text-t12 font-medium truncate">
+                      {currentProfileData?.displayName || t("noProfile")}
+                    </div>
                     {!(hideUserHandle && currentProfileData?.handle) && (
-                      <div className="text-t11 text-muted truncate">{currentProfileData?.handle || t("switchProfile")}</div>
+                      <div className="text-t11 text-muted truncate">
+                        {currentProfileData?.handle || t("switchProfile")}
+                      </div>
                     )}
                   </div>
                 </DropdownTrigger>
@@ -1376,7 +1912,9 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
             {/* What's-new bell, beside the profile button */}
             <div className="relative shrink-0">
               <Button
-                variant="ghost" size="sm" isIconOnly
+                variant="ghost"
+                size="sm"
+                isIconOnly
                 onPress={onOpenNews}
                 className="shrink-0 rounded-full"
                 title={t("news") || "Neuigkeiten"}
@@ -1385,8 +1923,16 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                 <Bell size={16} />
               </Button>
               {newsUnread > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-1 flex items-center justify-center rounded-full text-[9px] font-bold leading-none pointer-events-none"
-                  style={{ background: "var(--accent)", color: "#fff", boxShadow: "0 0 0 2px var(--bg-surface)" }}>{newsUnread > 9 ? "9+" : newsUnread}</span>
+                <span
+                  className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-1 flex items-center justify-center rounded-full text-[9px] font-bold leading-none pointer-events-none"
+                  style={{
+                    background: "var(--accent)",
+                    color: "#fff",
+                    boxShadow: "0 0 0 2px var(--bg-surface)",
+                  }}
+                >
+                  {newsUnread > 9 ? "9+" : newsUnread}
+                </span>
               )}
             </div>
           </div>
@@ -1402,12 +1948,25 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
               <DropdownTrigger
                 className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-t11 font-medium overflow-hidden shrink-0"
                 style={{ contain: "layout style" }}
-                onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: currentProfileData?.displayName || "Kiyoshi", x: r.right + 10, y: r.top + r.height / 2 }); }}
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setTooltip({
+                    text: currentProfileData?.displayName || "Kiyoshi",
+                    x: r.right + 10,
+                    y: r.top + r.height / 2,
+                  });
+                }}
                 onMouseLeave={() => setTooltip(null)}
               >
-                {currentProfileData?.avatar
-                  ? <img src={thumb(currentProfileData.avatar)} alt="" className="w-full h-full object-cover" />
-                  : (currentProfileData?.displayName || "?")[0].toUpperCase()}
+                {currentProfileData?.avatar ? (
+                  <img
+                    src={thumb(currentProfileData.avatar)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (currentProfileData?.displayName || "?")[0].toUpperCase()
+                )}
               </DropdownTrigger>
               {accountMenu}
             </Dropdown>
@@ -1416,7 +1975,14 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                 className="w-9 h-9 rounded flex items-center justify-center text-accent"
                 style={{ background: "rgba(224,64,251,0.08)" }}
                 onClick={onOpenUpdateTab}
-                onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTooltip({ text: t("updateAvailable"), x: r.right + 10, y: r.top + r.height / 2 }); }}
+                onMouseEnter={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setTooltip({
+                    text: t("updateAvailable"),
+                    x: r.right + 10,
+                    y: r.top + r.height / 2,
+                  });
+                }}
                 onMouseLeave={() => setTooltip(null)}
               >
                 <ArrowCircleUp size={16} />
@@ -1429,9 +1995,13 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
                   color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
                   opacity: isActuallyOffline ? 1 : 0.45,
                 }}
-                onMouseEnter={e => {
+                onMouseEnter={(e) => {
                   const r = e.currentTarget.getBoundingClientRect();
-                  setTooltip({ text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"), x: r.right + 10, y: r.top + r.height / 2 });
+                  setTooltip({
+                    text: isActuallyOffline ? t("offlineBanner") : t("offlineComingSoon"),
+                    x: r.right + 10,
+                    y: r.top + r.height / 2,
+                  });
                 }}
                 onMouseLeave={() => setTooltip(null)}
               >
@@ -1443,19 +2013,20 @@ function Sidebar({ view, setView, onSearch, collapsed, onToggleCollapse, onOpenS
       )}
 
       {/* 🎵 Easter Egg: Kasane Teto */}
-      {tetoVisible && createPortal(
-        <img
-          src="/Teto_Drinking_Boba.png"
-          alt="Kasane Teto"
-          className="fixed bottom-[72px] right-0 w-auto h-64 pointer-events-none z-[9500]"
-          style={{
-            animation: tetoLeaving
-              ? "tetoSlideOut 0.45s cubic-bezier(0.4,0,0.2,1) forwards"
-              : "tetoSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
-          }}
-        />,
-        document.body
-      )}
+      {tetoVisible &&
+        createPortal(
+          <img
+            src="/Teto_Drinking_Boba.png"
+            alt="Kasane Teto"
+            className="fixed bottom-[72px] right-0 w-auto h-64 pointer-events-none z-[9500]"
+            style={{
+              animation: tetoLeaving
+                ? "tetoSlideOut 0.45s cubic-bezier(0.4,0,0.2,1) forwards"
+                : "tetoSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 }
@@ -1472,73 +2043,84 @@ function buildShareLink(track) {
   const p = new URLSearchParams({ v: track.videoId });
   const title = track.title || "";
   const artists = Array.isArray(track.artists)
-    ? track.artists.map(a => (a && a.name) || a).filter(Boolean).join(", ")
-    : (track.artists || "");
+    ? track.artists
+        .map((a) => (a && a.name) || a)
+        .filter(Boolean)
+        .join(", ")
+    : track.artists || "";
   if (title) p.set("t", title);
   if (artists) p.set("a", artists);
   if (track.thumbnail) p.set("c", track.thumbnail);
   return `${KODAMA_SHARE_BASE}?${p.toString()}`;
 }
 const APP_ICON_GROUPS = [
-  { id: "default", labelKey: "appIconDefault", icons: [
-    { label: "Standard Pink",  file: "Kodama App Icon - Standard Pink.png" },
-    { label: "Standard White", file: "Kodama App Icon - Standard White.png" },
-    { label: "3D Pink",        file: "Kodama App Icon - 3D Pink.png" },
-  ]},
-  { id: "pride", labelKey: "appIconPride", icons: [
-    { label: "Pride",     file: "Kodama App Icon - Pride.png" },
-    { label: "Progress",  file: "Kodama App Icon - Progress.png" },
-    { label: "Trans",     file: "Kodama App Icon - Trans.png" },
-    { label: "Nonbinary", file: "Kodama App Icon - Nonbinary.png" },
-    { label: "Asexual",   file: "Kodama App Icon - Asexual.png" },
-    { label: "Bisexual",  file: "Kodama App Icon - Bisexual.png" },
-    { label: "Lesbian",   file: "Kodama App Icon - Lesbian.png" },
-    { label: "Pansexual", file: "Kodama App Icon - Pansexual.png" },
-    { label: "Polyamory", file: "Kodama App Icon - Polyamory.png" },
-  ]},
+  {
+    id: "default",
+    labelKey: "appIconDefault",
+    icons: [
+      { label: "Standard Pink", file: "Kodama App Icon - Standard Pink.png" },
+      { label: "Standard White", file: "Kodama App Icon - Standard White.png" },
+      { label: "3D Pink", file: "Kodama App Icon - 3D Pink.png" },
+    ],
+  },
+  {
+    id: "pride",
+    labelKey: "appIconPride",
+    icons: [
+      { label: "Pride", file: "Kodama App Icon - Pride.png" },
+      { label: "Progress", file: "Kodama App Icon - Progress.png" },
+      { label: "Trans", file: "Kodama App Icon - Trans.png" },
+      { label: "Nonbinary", file: "Kodama App Icon - Nonbinary.png" },
+      { label: "Asexual", file: "Kodama App Icon - Asexual.png" },
+      { label: "Bisexual", file: "Kodama App Icon - Bisexual.png" },
+      { label: "Lesbian", file: "Kodama App Icon - Lesbian.png" },
+      { label: "Pansexual", file: "Kodama App Icon - Pansexual.png" },
+      { label: "Polyamory", file: "Kodama App Icon - Polyamory.png" },
+    ],
+  },
 ];
 
 const ACCENT_PRESETS = [
   // Row 1 — saturated
-  { label: "Red",            value: "#e53935" },
-  { label: "Orange",         value: "#f4511e" },
-  { label: "Amber",          value: "#fb8c00" },
-  { label: "Lime",           value: "#7cb342" },
-  { label: "Teal",           value: "#00897b" },
-  { label: "Cyan",           value: "#0097a7" },
-  { label: "Blue",           value: "#1e88e5" },
-  { label: "Purple",         value: "#8e24aa" },
-  { label: "Pink",           value: "#e91e8c" },
+  { label: "Red", value: "#e53935" },
+  { label: "Orange", value: "#f4511e" },
+  { label: "Amber", value: "#fb8c00" },
+  { label: "Lime", value: "#7cb342" },
+  { label: "Teal", value: "#00897b" },
+  { label: "Cyan", value: "#0097a7" },
+  { label: "Blue", value: "#1e88e5" },
+  { label: "Purple", value: "#8e24aa" },
+  { label: "Pink", value: "#e91e8c" },
   // Row 2 — medium
-  { label: "Salmon",         value: "#ef7070" },
-  { label: "Coral",          value: "#f48060" },
-  { label: "Gold",           value: "#fba840" },
-  { label: "Yellow-Green",   value: "#a0c464" },
-  { label: "Medium Teal",    value: "#3aab9f" },
-  { label: "Medium Cyan",    value: "#3ab4c4" },
-  { label: "Cornflower",     value: "#5ca8ec" },
-  { label: "Orchid",         value: "#aa5cc4" },
-  { label: "Hot Pink",       value: "#ee60a8" },
+  { label: "Salmon", value: "#ef7070" },
+  { label: "Coral", value: "#f48060" },
+  { label: "Gold", value: "#fba840" },
+  { label: "Yellow-Green", value: "#a0c464" },
+  { label: "Medium Teal", value: "#3aab9f" },
+  { label: "Medium Cyan", value: "#3ab4c4" },
+  { label: "Cornflower", value: "#5ca8ec" },
+  { label: "Orchid", value: "#aa5cc4" },
+  { label: "Hot Pink", value: "#ee60a8" },
   // Row 3 — light
-  { label: "Light Red",      value: "#f4a0a0" },
-  { label: "Peach",          value: "#f4a890" },
-  { label: "Light Amber",    value: "#fcc880" },
-  { label: "Light Lime",     value: "#bcd888" },
-  { label: "Mint",           value: "#7cccc4" },
-  { label: "Light Cyan",     value: "#7cd0dc" },
-  { label: "Light Blue",     value: "#94c4f4" },
-  { label: "Lavender",       value: "#c494dc" },
-  { label: "Light Pink",     value: "#f4a0c8" },
+  { label: "Light Red", value: "#f4a0a0" },
+  { label: "Peach", value: "#f4a890" },
+  { label: "Light Amber", value: "#fcc880" },
+  { label: "Light Lime", value: "#bcd888" },
+  { label: "Mint", value: "#7cccc4" },
+  { label: "Light Cyan", value: "#7cd0dc" },
+  { label: "Light Blue", value: "#94c4f4" },
+  { label: "Lavender", value: "#c494dc" },
+  { label: "Light Pink", value: "#f4a0c8" },
   // Row 4 — pastel
-  { label: "Pastel Red",     value: "#f9cece" },
-  { label: "Pastel Peach",   value: "#f8ccb8" },
-  { label: "Pastel Yellow",  value: "#fde4b8" },
-  { label: "Pastel Green",   value: "#d8ecb8" },
-  { label: "Pastel Mint",    value: "#b0e0dc" },
-  { label: "Pastel Cyan",    value: "#b0e4ec" },
-  { label: "Pastel Blue",    value: "#c4dcf8" },
-  { label: "Pastel Purple",  value: "#dcbcec" },
-  { label: "Pastel Pink",    value: "#f8cce0" },
+  { label: "Pastel Red", value: "#f9cece" },
+  { label: "Pastel Peach", value: "#f8ccb8" },
+  { label: "Pastel Yellow", value: "#fde4b8" },
+  { label: "Pastel Green", value: "#d8ecb8" },
+  { label: "Pastel Mint", value: "#b0e0dc" },
+  { label: "Pastel Cyan", value: "#b0e4ec" },
+  { label: "Pastel Blue", value: "#c4dcf8" },
+  { label: "Pastel Purple", value: "#dcbcec" },
+  { label: "Pastel Pink", value: "#f8cce0" },
 ];
 
 // ── Smoothly fade the global --accent from its current value to a target hex ──
@@ -1547,7 +2129,10 @@ function hexToRgb(str) {
   if (!str) return null;
   str = str.trim();
   const m = str.match(/^#?([0-9a-fA-F]{6})$/);
-  if (m) { const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  if (m) {
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
   const rgb = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
   if (rgb) return [+rgb[1], +rgb[2], +rgb[3]];
   return null;
@@ -1556,14 +2141,20 @@ function setAccentSmooth(toHex, duration = 380) {
   const root = document.documentElement;
   const a = hexToRgb(getComputedStyle(root).getPropertyValue("--accent"));
   const b = hexToRgb(toHex);
-  if (!a || !b) { root.style.setProperty("--accent", toHex); return; }
+  if (!a || !b) {
+    root.style.setProperty("--accent", toHex);
+    return;
+  }
   cancelAnimationFrame(accentFadeRaf);
   const t0 = performance.now();
   const hx = (v) => Math.round(v).toString(16).padStart(2, "0");
   const tick = (now) => {
     const p = Math.min(1, (now - t0) / duration);
     const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // easeInOutQuad
-    root.style.setProperty("--accent", `#${hx(a[0] + (b[0] - a[0]) * e)}${hx(a[1] + (b[1] - a[1]) * e)}${hx(a[2] + (b[2] - a[2]) * e)}`);
+    root.style.setProperty(
+      "--accent",
+      `#${hx(a[0] + (b[0] - a[0]) * e)}${hx(a[1] + (b[1] - a[1]) * e)}${hx(a[2] + (b[2] - a[2]) * e)}`
+    );
     if (p < 1) accentFadeRaf = requestAnimationFrame(tick);
   };
   accentFadeRaf = requestAnimationFrame(tick);
@@ -1571,39 +2162,82 @@ function setAccentSmooth(toHex, duration = 380) {
 
 // ── Dynamic accent: derive a vibrant, legible accent hex from a cover image ──
 function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  let h = 0; const l = (mx + mn) / 2;
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const mx = Math.max(r, g, b),
+    mn = Math.min(r, g, b),
+    d = mx - mn;
+  let h = 0;
+  const l = (mx + mn) / 2;
   const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
   if (d !== 0) {
     if (mx === r) h = ((g - b) / d) % 6;
     else if (mx === g) h = (b - r) / d + 2;
     else h = (r - g) / d + 4;
-    h *= 60; if (h < 0) h += 360;
+    h *= 60;
+    if (h < 0) h += 360;
   }
   return [h, s, l];
 }
 function hslToHex(h, s, l) {
-  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
-  let r = 0, g = 0, b = 0;
-  if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; }
-  else if (h < 180) { g = c; b = x; } else if (h < 240) { g = x; b = c; }
-  else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
-  const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  const c = (1 - Math.abs(2 * l - 1)) * s,
+    x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
+    m = l - c / 2;
+  let r = 0,
+    g = 0,
+    b = 0;
+  if (h < 60) {
+    r = c;
+    g = x;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+  } else if (h < 180) {
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  const to = (v) =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, "0");
   return `#${to(r)}${to(g)}${to(b)}`;
 }
 // Pick the most saturated×bright pixel, then normalise S/L into a legible accent band.
 // `satMin` raises the saturation floor (vibrancy); `light` sets the target lightness centre.
 function vibrantAccentFromImage(img, satMin = 0.5, light = 0.6) {
-  const c = document.createElement("canvas"); c.width = 48; c.height = 48;
-  const cx = c.getContext("2d"); cx.drawImage(img, 0, 0, 48, 48);
+  const c = document.createElement("canvas");
+  c.width = 48;
+  c.height = 48;
+  const cx = c.getContext("2d");
+  cx.drawImage(img, 0, 0, 48, 48);
   const d = cx.getImageData(0, 0, 48, 48).data;
-  let br = 0, bg = 0, bb = 0, best = -1;
+  let br = 0,
+    bg = 0,
+    bb = 0,
+    best = -1;
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    const r = d[i],
+      g = d[i + 1],
+      b = d[i + 2];
+    const mx = Math.max(r, g, b),
+      mn = Math.min(r, g, b);
     const score = (mx === 0 ? 0 : (mx - mn) / mx) * (mx / 255); // saturation × brightness
-    if (score > best) { best = score; br = r; bg = g; bb = b; }
+    if (score > best) {
+      best = score;
+      br = r;
+      bg = g;
+      bb = b;
+    }
   }
   const [h, s, l] = rgbToHsl(br, bg, bb);
   const L = Math.min(light + 0.08, Math.max(light - 0.08, l)); // keep near the chosen centre
@@ -1618,23 +2252,33 @@ function AccentColorPicker({ value, onChange }) {
   const [color, setColor] = useState(() => parseColor(safe).toFormat("hsb"));
   useEffect(() => {
     if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-      try { setColor(parseColor(value).toFormat("hsb")); } catch {}
+      try {
+        setColor(parseColor(value).toFormat("hsb"));
+      } catch {}
     }
   }, [value]);
-  const apply = (c) => { const hsb = c.toFormat("hsb"); setColor(hsb); onChange(hsb.toString("hex")); };
+  const apply = (c) => {
+    const hsb = c.toFormat("hsb");
+    setColor(hsb);
+    onChange(hsb.toString("hex"));
+  };
   const hex = color.toString("hex");
   return (
     <div className="flex gap-3 items-start mb-3.5">
       {/* Left: preset swatches — HeroUI ColorSwatch filling a full-width grid,
           fixed height + 4 equal rows so it lines up with the picker column. */}
       <div className="grid grid-cols-9 grid-rows-4 gap-1.5 flex-1 min-w-0 h-[210px]">
-        {ACCENT_PRESETS.map(p => (
+        {ACCENT_PRESETS.map((p) => (
           <button
             key={p.value}
             onClick={() => onChange(p.value)}
             title={p.label}
             className="w-full h-full rounded-md cursor-default transition-transform hover:scale-105 leading-[0]"
-            style={value === p.value ? { outline: `2.5px solid ${p.value}`, outlineOffset: 2, borderRadius: 6 } : undefined}
+            style={
+              value === p.value
+                ? { outline: `2.5px solid ${p.value}`, outlineOffset: 2, borderRadius: 6 }
+                : undefined
+            }
           >
             <ColorSwatchRoot color={p.value} shape="square" className="w-full! h-full!" />
           </button>
@@ -1645,7 +2289,15 @@ function AccentColorPicker({ value, onChange }) {
       <div className="w-px h-[210px] bg-border shrink-0" />
 
       {/* Vertical hue slider */}
-      <ColorSliderRoot aria-label="Hue" value={color} onChange={apply} channel="hue" colorSpace="hsb" orientation="vertical" className="w-7! h-[210px] shrink-0">
+      <ColorSliderRoot
+        aria-label="Hue"
+        value={color}
+        onChange={apply}
+        channel="hue"
+        colorSpace="hsb"
+        orientation="vertical"
+        className="w-7! h-[210px] shrink-0"
+      >
         <ColorSliderTrack>
           <ColorSliderThumb />
         </ColorSliderTrack>
@@ -1668,9 +2320,18 @@ function AccentColorPicker({ value, onChange }) {
           <ColorSwatchRoot color={color} shape="square" size="sm" className="shrink-0" />
           <span className="text-t11 text-muted font-mono uppercase flex-1 truncate">{hex}</span>
           {window.EyeDropper && (
-            <Button variant="ghost" size="sm" isIconOnly title="Pipette" onPress={async () => {
-              try { const { sRGBHex } = await new window.EyeDropper().open(); if (/^#[0-9a-fA-F]{6}$/.test(sRGBHex)) onChange(sRGBHex); } catch {}
-            }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              isIconOnly
+              title="Pipette"
+              onPress={async () => {
+                try {
+                  const { sRGBHex } = await new window.EyeDropper().open();
+                  if (/^#[0-9a-fA-F]{6}$/.test(sRGBHex)) onChange(sRGBHex);
+                } catch {}
+              }}
+            >
               <Eyedropper size={14} />
             </Button>
           )}
@@ -1689,37 +2350,57 @@ function LastfmRow() {
   const tokenRef = useRef(null);
 
   const loadStatus = useCallback(() => {
-    fetch(`${API}/lastfm/status`).then(r => r.json()).then(setStatus).catch(() => {});
+    fetch(`${API}/lastfm/status`)
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => {});
   }, []);
-  useEffect(() => { loadStatus(); }, [loadStatus]);
+  useEffect(() => {
+    loadStatus();
+  }, [loadStatus]);
 
   const startConnect = async () => {
     setPhase("working");
     try {
-      const d = await fetch(`${API}/lastfm/connect`).then(r => r.json());
-      if (d.error || !d.token) { toast.danger(t("lastfmError")); setPhase("idle"); return; }
+      const d = await fetch(`${API}/lastfm/connect`).then((r) => r.json());
+      if (d.error || !d.token) {
+        toast.danger(t("lastfmError"));
+        setPhase("idle");
+        return;
+      }
       tokenRef.current = d.token;
       await openUrl(d.authUrl).catch(() => {});
       setPhase("awaiting");
-    } catch { toast.danger(t("lastfmError")); setPhase("idle"); }
+    } catch {
+      toast.danger(t("lastfmError"));
+      setPhase("idle");
+    }
   };
 
   const finishConnect = async () => {
     setPhase("working");
     try {
       const d = await fetch(`${API}/lastfm/session`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: tokenRef.current }),
-      }).then(r => r.json());
-      if (d.connected) { setStatus(s => ({ ...s, connected: true, username: d.username })); window.dispatchEvent(new Event("lastfm-changed")); toast.success(t("lastfmConnected")); }
-      else toast.danger(t("lastfmAuthFailed"));
-    } catch { toast.danger(t("lastfmError")); }
+      }).then((r) => r.json());
+      if (d.connected) {
+        setStatus((s) => ({ ...s, connected: true, username: d.username }));
+        window.dispatchEvent(new Event("lastfm-changed"));
+        toast.success(t("lastfmConnected"));
+      } else toast.danger(t("lastfmAuthFailed"));
+    } catch {
+      toast.danger(t("lastfmError"));
+    }
     setPhase("idle");
   };
 
   const disconnect = async () => {
-    try { await fetch(`${API}/lastfm/disconnect`, { method: "POST" }); } catch {}
-    setStatus(s => ({ ...s, connected: false, username: "" }));
+    try {
+      await fetch(`${API}/lastfm/disconnect`, { method: "POST" });
+    } catch {}
+    setStatus((s) => ({ ...s, connected: false, username: "" }));
     window.dispatchEvent(new Event("lastfm-changed"));
     toast.success(t("lastfmDisconnected"));
   };
@@ -1731,14 +2412,20 @@ function LastfmRow() {
     control = (
       <div className="flex items-center gap-2">
         <span className="text-t12 text-muted truncate max-w-[160px]">@{status.username}</span>
-        <Button variant="danger-soft" size="sm" onPress={disconnect}>{t("disconnect")}</Button>
+        <Button variant="danger-soft" size="sm" onPress={disconnect}>
+          {t("disconnect")}
+        </Button>
       </div>
     );
   } else if (phase === "awaiting") {
     control = (
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onPress={() => setPhase("idle")}>{t("cancel")}</Button>
-        <Button variant="primary" size="sm" onPress={finishConnect}>{t("lastfmIveAuthorized")}</Button>
+        <Button variant="ghost" size="sm" onPress={() => setPhase("idle")}>
+          {t("cancel")}
+        </Button>
+        <Button variant="primary" size="sm" onPress={finishConnect}>
+          {t("lastfmIveAuthorized")}
+        </Button>
       </div>
     );
   } else {
@@ -1752,7 +2439,13 @@ function LastfmRow() {
   return (
     <SettingRow
       label="Last.fm"
-      description={status.connected ? t("lastfmConnectedDesc") : (phase === "awaiting" ? t("lastfmAwaitingDesc") : t("lastfmDesc"))}
+      description={
+        status.connected
+          ? t("lastfmConnectedDesc")
+          : phase === "awaiting"
+            ? t("lastfmAwaitingDesc")
+            : t("lastfmDesc")
+      }
       icon={<BrandLastfm />}
     >
       {control}
@@ -1784,11 +2477,19 @@ const MAX_CACHE_STEPS = [100, 250, 500, 1000, 2000, 5000, 0]; // 0 = unlimited
 function StorageTab({ t }) {
   return (
     <div>
-      <div id="set-sec-storage-downloads" data-settings-section="storage-downloads" style={{ scrollMarginTop: 8 }}>
+      <div
+        id="set-sec-storage-downloads"
+        data-settings-section="storage-downloads"
+        style={{ scrollMarginTop: 8 }}
+      >
         <SettingsSectionLabel>{t("storageDownloads")}</SettingsSectionLabel>
         <DownloadsTab t={t} />
       </div>
-      <div id="set-sec-storage-cache" data-settings-section="storage-cache" style={{ scrollMarginTop: 8 }}>
+      <div
+        id="set-sec-storage-cache"
+        data-settings-section="storage-cache"
+        style={{ scrollMarginTop: 8 }}
+      >
         <SettingsSectionLabel style={{ marginTop: 28 }}>{t("storageCache")}</SettingsSectionLabel>
         <CacheTab t={t} />
       </div>
@@ -1802,7 +2503,11 @@ function DownloadsTab({ t }) {
   const handleChangePath = async () => {
     try {
       const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({ directory: true, title: t("changePath"), defaultPath: mp3Dir || undefined });
+      const selected = await open({
+        directory: true,
+        title: t("changePath"),
+        defaultPath: mp3Dir || undefined,
+      });
       if (selected) {
         setMp3Dir(selected);
         localStorage.setItem("kiyoshi-mp3-dir", selected);
@@ -1817,13 +2522,20 @@ function DownloadsTab({ t }) {
 
   return (
     <div>
-      <SettingRow label={t("defaultSavePath")} icon={<DownloadSimple size={15} />}
-        description={mp3Dir || t("noPathSet")}>
+      <SettingRow
+        label={t("defaultSavePath")}
+        icon={<DownloadSimple size={15} />}
+        description={mp3Dir || t("noPathSet")}
+      >
         <div className="flex gap-1.5">
           {mp3Dir && (
-            <Button variant="ghost" size="sm" onPress={handleResetPath}>{t("resetPath")}</Button>
+            <Button variant="ghost" size="sm" onPress={handleResetPath}>
+              {t("resetPath")}
+            </Button>
           )}
-          <Button variant="primary" size="sm" onPress={handleChangePath}>{t("changePath")}</Button>
+          <Button variant="primary" size="sm" onPress={handleChangePath}>
+            {t("changePath")}
+          </Button>
         </div>
       </SettingRow>
     </div>
@@ -1838,39 +2550,79 @@ function CacheTab({ t }) {
 
   const load = useCallback(() => {
     fetch(`${API}/cache/stats`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`); return r.json(); })
-      .then(data => { setStats(data); setFetchError(null); })
-      .catch(e => setFetchError(e.message || String(e)));
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+        return r.json();
+      })
+      .then((data) => {
+        setStats(data);
+        setFetchError(null);
+      })
+      .catch((e) => setFetchError(e.message || String(e)));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const toggleEnabled = (cat, val) => {
-    setStats(s => s ? { ...s, [cat]: { ...s[cat], enabled: val } } : s);
+    setStats((s) => (s ? { ...s, [cat]: { ...s[cat], enabled: val } } : s));
     fetch(`${API}/cache/settings`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [cat]: val }),
     }).catch(() => {});
   };
 
   const clear = async (cat) => {
-    setClearing(c => ({ ...c, [cat]: true }));
+    setClearing((c) => ({ ...c, [cat]: true }));
     await fetch(`${API}/cache/clear`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category: cat }),
     }).catch(() => {});
-    setClearing(c => ({ ...c, [cat]: false }));
-    setCleared(c => ({ ...c, [cat]: true }));
-    setTimeout(() => setCleared(c => ({ ...c, [cat]: false })), 1800);
+    setClearing((c) => ({ ...c, [cat]: false }));
+    setCleared((c) => ({ ...c, [cat]: true }));
+    setTimeout(() => setCleared((c) => ({ ...c, [cat]: false })), 1800);
     load();
   };
 
   const categories = [
-    { key: "songs",     label: t("cacheSongs"),     icon: <MusicNote size={16} />,    color: "var(--accent)",  colorRaw: "180,80,180" },
-    { key: "lyrics",    label: t("cacheLyrics"),    icon: <Microphone size={16} />,   color: "#7c6ff7",        colorRaw: "124,111,247" },
-    { key: "playlists", label: t("cachePlaylists"), icon: <Queue size={16} />,        color: "#3a9fd6",        colorRaw: "58,159,214" },
-    { key: "albums",    label: t("cacheAlbums"),    icon: <VinylRecord size={16} />,  color: "#c8860a",        colorRaw: "200,134,10" },
-    { key: "images",    label: t("cacheImages"),    icon: <ImageSquare size={16} />,  color: "#2e9e5b",        colorRaw: "46,158,91" },
+    {
+      key: "songs",
+      label: t("cacheSongs"),
+      icon: <MusicNote size={16} />,
+      color: "var(--accent)",
+      colorRaw: "180,80,180",
+    },
+    {
+      key: "lyrics",
+      label: t("cacheLyrics"),
+      icon: <Microphone size={16} />,
+      color: "#7c6ff7",
+      colorRaw: "124,111,247",
+    },
+    {
+      key: "playlists",
+      label: t("cachePlaylists"),
+      icon: <Queue size={16} />,
+      color: "#3a9fd6",
+      colorRaw: "58,159,214",
+    },
+    {
+      key: "albums",
+      label: t("cacheAlbums"),
+      icon: <VinylRecord size={16} />,
+      color: "#c8860a",
+      colorRaw: "200,134,10",
+    },
+    {
+      key: "images",
+      label: t("cacheImages"),
+      icon: <ImageSquare size={16} />,
+      color: "#2e9e5b",
+      colorRaw: "46,158,91",
+    },
   ];
 
   const totalBytes = stats ? categories.reduce((sum, c) => sum + (stats[c.key]?.size ?? 0), 0) : 0;
@@ -1896,18 +2648,38 @@ function CacheTab({ t }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {fetchError && (
-        <div style={{
-          padding: "12px 16px", marginBottom: 6, borderRadius: "var(--r-lg)",
-          background: "rgba(255,60,60,0.12)", color: "#ff7070", fontSize: 12,
-        }}>
+        <div
+          style={{
+            padding: "12px 16px",
+            marginBottom: 6,
+            borderRadius: "var(--r-lg)",
+            background: "rgba(255,60,60,0.12)",
+            color: "#ff7070",
+            fontSize: 12,
+          }}
+        >
           {t("cacheStatsError")}: {fetchError}
         </div>
       )}
 
       {/* ── Summary card ── */}
-      <CardRoot variant="secondary" className="px-[18px] py-4 gap-0! transition-colors"
-        style={{ background: overLimit ? "color-mix(in srgb, #ff4444 8%, var(--surface-1))" : "var(--surface-1)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <CardRoot
+        variant="secondary"
+        className="px-[18px] py-4 gap-0! transition-colors"
+        style={{
+          background: overLimit
+            ? "color-mix(in srgb, #ff4444 8%, var(--surface-1))"
+            : "var(--surface-1)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t1)" }}>
             {t("totalCacheUsage")}
           </div>
@@ -1917,25 +2689,57 @@ function CacheTab({ t }) {
                 {t("cacheWarning")}
               </div>
             )}
-            <div style={{ fontSize: 22, fontWeight: 700, color: overLimit ? "#ff7070" : "var(--t1)" }}>
+            <div
+              style={{ fontSize: 22, fontWeight: 700, color: overLimit ? "#ff7070" : "var(--t1)" }}
+            >
               {stats ? fmtBytes(totalBytes) : "…"}
             </div>
           </div>
         </div>
         {/* Stacked bar */}
-        <div style={{ height: 6, borderRadius: 99, overflow: "hidden", background: "var(--bg-base)", display: "flex" }}>
-          {stats && totalBytes > 0 && categories.map(c => {
-            const pct = (stats[c.key]?.size ?? 0) / totalBytes * 100;
-            return pct > 0 ? (
-              <div key={c.key} style={{ width: `${pct}%`, background: c.color, transition: "width 0.4s ease" }} />
-            ) : null;
-          })}
+        <div
+          style={{
+            height: 6,
+            borderRadius: 99,
+            overflow: "hidden",
+            background: "var(--bg-base)",
+            display: "flex",
+          }}
+        >
+          {stats &&
+            totalBytes > 0 &&
+            categories.map((c) => {
+              const pct = ((stats[c.key]?.size ?? 0) / totalBytes) * 100;
+              return pct > 0 ? (
+                <div
+                  key={c.key}
+                  style={{ width: `${pct}%`, background: c.color, transition: "width 0.4s ease" }}
+                />
+              ) : null;
+            })}
         </div>
         {/* Legend */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginTop: 10 }}>
-          {categories.map(c => (
-            <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--t3)" }}>
-              <div style={{ width: 8, height: 8, borderRadius: 99, background: c.color, flexShrink: 0 }} />
+          {categories.map((c) => (
+            <div
+              key={c.key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 11,
+                color: "var(--t3)",
+              }}
+            >
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 99,
+                  background: c.color,
+                  flexShrink: 0,
+                }}
+              />
               {c.label}
             </div>
           ))}

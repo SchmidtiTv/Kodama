@@ -4,8 +4,12 @@ import { API } from "../context.jsx";
 import { buildSignedRequest } from "./identity.js";
 
 function getUnisonIdentity() {
-  try { const raw = localStorage.getItem("kodama-unison-identity"); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
+  try {
+    const raw = localStorage.getItem("kodama-unison-identity");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 async function unisonVote(lyricsId, vote) {
   const id = getUnisonIdentity();
@@ -13,7 +17,9 @@ async function unisonVote(lyricsId, vote) {
   const method = vote === 0 ? "DELETE" : "POST";
   const body = await buildSignedRequest(id, vote === 0 ? {} : { vote });
   const r = await fetch(`${API}/unison/lyrics/${lyricsId}/vote`, {
-    method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error("vote_failed");
   return true;
@@ -23,7 +29,9 @@ async function unisonReport(lyricsId, reason, details) {
   if (!id) throw new Error("no_identity");
   const body = await buildSignedRequest(id, details ? { reason, details } : { reason });
   const r = await fetch(`${API}/unison/lyrics/${lyricsId}/report`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error("report_failed");
   return true;
@@ -35,7 +43,9 @@ async function unisonSetNickname(nickname) {
   if (!id) throw new Error("no_identity");
   const body = await buildSignedRequest(id, { nickname });
   const r = await fetch(`${API}/unison/auth/nickname`, {
-    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || "nickname_failed");
@@ -46,7 +56,9 @@ async function unisonResetNickname() {
   if (!id) throw new Error("no_identity");
   const body = await buildSignedRequest(id, {});
   const r = await fetch(`${API}/unison/auth/nickname`, {
-    method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error("reset_failed");
   return true;
@@ -59,4 +71,11 @@ async function unisonFetchDisplayName(keyId) {
   return null;
 }
 
-export { getUnisonIdentity, unisonVote, unisonReport, unisonSetNickname, unisonResetNickname, unisonFetchDisplayName };
+export {
+  getUnisonIdentity,
+  unisonVote,
+  unisonReport,
+  unisonSetNickname,
+  unisonResetNickname,
+  unisonFetchDisplayName,
+};

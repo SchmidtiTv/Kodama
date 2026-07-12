@@ -6,7 +6,9 @@ function push(s) {
   try {
     _errs.push(`[${new Date().toISOString().slice(11, 19)}] ${String(s).slice(0, 600)}`);
     if (_errs.length > 40) _errs.shift();
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function installErrorCapture() {
@@ -21,7 +23,24 @@ export function installErrorCapture() {
   });
   const orig = console.error;
   console.error = (...args) => {
-    push("console.error: " + args.map(a => (a && a.stack) || (typeof a === "object" ? (() => { try { return JSON.stringify(a); } catch { return String(a); } })() : String(a))).join(" "));
+    push(
+      "console.error: " +
+        args
+          .map(
+            (a) =>
+              (a && a.stack) ||
+              (typeof a === "object"
+                ? (() => {
+                    try {
+                      return JSON.stringify(a);
+                    } catch {
+                      return String(a);
+                    }
+                  })()
+                : String(a))
+          )
+          .join(" ")
+    );
     orig.apply(console, args);
   };
 }

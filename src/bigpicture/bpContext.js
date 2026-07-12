@@ -4,6 +4,12 @@
 // so a stale target from a previous screen can't leak into the menu.
 let _target = null; // { title, actions: [{ label, run }] } | null
 
-export function setContextTarget(t) { _target = t; }
-export function getContextTarget() { return _target; }
-export function clearContextTarget() { _target = null; }
+export function setContextTarget(t) {
+  _target = t;
+}
+export function getContextTarget() {
+  return _target;
+}
+export function clearContextTarget() {
+  _target = null;
+}

@@ -8,13 +8,21 @@ export function useController({ active, onDirection, onEnter, onBack, onButton }
     if (!active) return;
     let raf = 0;
     const prev = [];
-    let stickDir = null, stickNext = 0;
-    const DEAD = 0.55, FIRST_MS = 380, REPEAT_MS = 140;
+    let stickDir = null,
+      stickNext = 0;
+    const DEAD = 0.55,
+      FIRST_MS = 380,
+      REPEAT_MS = 140;
 
     const poll = () => {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
       let g = null;
-      for (const p of pads) { if (p) { g = p; break; } }
+      for (const p of pads) {
+        if (p) {
+          g = p;
+          break;
+        }
+      }
       if (g) {
         const down = (i) => !!(g.buttons[i] && g.buttons[i].pressed);
         const edge = (i) => down(i) && !prev[i];
@@ -30,14 +38,23 @@ export function useController({ active, onDirection, onEnter, onBack, onButton }
         if (edge(10)) onButton?.("l3"); // left stick press
 
         // Left stick → a direction that fires once, then repeats while held.
-        const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
+        const ax = g.axes[0] || 0,
+          ay = g.axes[1] || 0;
         let d = null;
-        if (ay <= -DEAD) d = "up"; else if (ay >= DEAD) d = "down";
-        else if (ax <= -DEAD) d = "left"; else if (ax >= DEAD) d = "right";
+        if (ay <= -DEAD) d = "up";
+        else if (ay >= DEAD) d = "down";
+        else if (ax <= -DEAD) d = "left";
+        else if (ax >= DEAD) d = "right";
         const now = performance.now();
         if (d) {
-          if (d !== stickDir) { onDirection?.(d); stickDir = d; stickNext = now + FIRST_MS; }
-          else if (now >= stickNext) { onDirection?.(d); stickNext = now + REPEAT_MS; }
+          if (d !== stickDir) {
+            onDirection?.(d);
+            stickDir = d;
+            stickNext = now + FIRST_MS;
+          } else if (now >= stickNext) {
+            onDirection?.(d);
+            stickNext = now + REPEAT_MS;
+          }
         } else {
           stickDir = null;
         }

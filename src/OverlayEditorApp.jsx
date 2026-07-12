@@ -19,9 +19,15 @@ export default function OverlayEditorApp() {
   }, []);
 
   const [language] = useState(() => localStorage.getItem("kiyoshi-lang") || "de");
-  const [obsPort, setObsPort] = useState(() => parseInt(localStorage.getItem("kiyoshi-obs-port") || "9848", 10));
-  const [obsEnabled, setObsEnabled] = useState(() => localStorage.getItem("kiyoshi-obs-enabled") === "true");
-  const [obsPortInput, setObsPortInput] = useState(() => localStorage.getItem("kiyoshi-obs-port") || "9848");
+  const [obsPort, setObsPort] = useState(() =>
+    parseInt(localStorage.getItem("kiyoshi-obs-port") || "9848", 10)
+  );
+  const [obsEnabled, setObsEnabled] = useState(
+    () => localStorage.getItem("kiyoshi-obs-enabled") === "true"
+  );
+  const [obsPortInput, setObsPortInput] = useState(
+    () => localStorage.getItem("kiyoshi-obs-port") || "9848"
+  );
 
   const t = (key, vars) => translate(language, key, vars);
 
@@ -46,11 +52,13 @@ export default function OverlayEditorApp() {
       localStorage.setItem("kiyoshi-obs-port", p);
       if (obsEnabled) {
         fetch(`${API}/overlay/server/stop`, { method: "POST" })
-          .then(() => fetch(`${API}/overlay/server/start`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ port: p }),
-          }))
+          .then(() =>
+            fetch(`${API}/overlay/server/start`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ port: p }),
+            })
+          )
           .catch(() => {});
       }
     }

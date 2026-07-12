@@ -18,8 +18,13 @@ function ensureCanvas() {
   canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   Object.assign(canvas.style, {
-    position: "fixed", left: "0", top: "0", width: "100vw", height: "100vh",
-    pointerEvents: "none", zIndex: "2147483000",
+    position: "fixed",
+    left: "0",
+    top: "0",
+    width: "100vw",
+    height: "100vh",
+    pointerEvents: "none",
+    zIndex: "2147483000",
   });
   document.body.appendChild(canvas);
   ctx = canvas.getContext("2d");
@@ -38,7 +43,8 @@ function samplePalette(img) {
   if (!img || !img.complete || !img.naturalWidth) return null;
   try {
     const c = document.createElement("canvas");
-    c.width = 8; c.height = 8;
+    c.width = 8;
+    c.height = 8;
     const cx = c.getContext("2d");
     cx.drawImage(img, 0, 0, 8, 8);
     const data = cx.getImageData(0, 0, 8, 8).data;
@@ -47,18 +53,21 @@ function samplePalette(img) {
       if (data[i + 3] > 128) cols.push(`rgb(${data[i]},${data[i + 1]},${data[i + 2]})`);
     }
     return cols.length ? cols : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function accentPalette() {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e040fb";
+  const accent =
+    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e040fb";
   return [accent, accent, "#ffffff", "#c9c9c9"];
 }
 
 function tick(now) {
   raf = 0;
-  const ms = lastT ? (now - lastT) : 16.667;      // real time elapsed → particle lifetime
-  const dt = Math.min(ms / 16.667, 3);            // frames elapsed (clamped) → physics step
+  const ms = lastT ? now - lastT : 16.667; // real time elapsed → particle lifetime
+  const dt = Math.min(ms / 16.667, 3); // frames elapsed (clamped) → physics step
   lastT = now;
   ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
   let alive = 0;
@@ -77,7 +86,7 @@ function tick(now) {
     ctx.fillRect(p.x, p.y, s, s);
   }
   ctx.globalAlpha = 1;
-  particles = alive ? particles.filter(p => p.life < p.ttl) : [];
+  particles = alive ? particles.filter((p) => p.life < p.ttl) : [];
   if (particles.length) {
     raf = requestAnimationFrame(tick);
   } else {
@@ -115,10 +124,11 @@ export function particleBurst(el, opts = {}) {
       const ang = Math.atan2(y - cy, x - cx) + (Math.random() - 0.5) * 0.9;
       const spd = 0.6 + Math.random() * 2.2;
       particles.push({
-        x, y,
+        x,
+        y,
         vx: Math.cos(ang) * spd + (x - cx) * 0.02,
         vy: Math.sin(ang) * spd - (0.6 + Math.random() * 1.4), // upward pop
-        g: 0.10 + Math.random() * 0.06,
+        g: 0.1 + Math.random() * 0.06,
         size: cell * (0.28 + Math.random() * 0.34), // smaller, dustier grains
 
         color: palette[(Math.random() * palette.length) | 0],
@@ -128,14 +138,20 @@ export function particleBurst(el, opts = {}) {
     }
   }
   if (particles.length > 4000) particles = particles.slice(-4000); // hard safety cap
-  if (!raf) { lastT = 0; raf = requestAnimationFrame(tick); }
+  if (!raf) {
+    lastT = 0;
+    raf = requestAnimationFrame(tick);
+  }
 }
 
 // Convenience: burst the element AND fade/shrink it out, then run `done` (e.g. the actual
 // state removal) after the short fade so the element visibly dissolves into the particles.
 export function dissolve(el, done, opts = {}) {
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!el || reduce) { if (done) done(); return; }
+  if (!el || reduce) {
+    if (done) done();
+    return;
+  }
   particleBurst(el, opts);
   try {
     el.style.transition = "opacity 150ms ease, transform 150ms ease";

@@ -21,9 +21,17 @@ export default function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenAr
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{color:"var(--text-muted)",paddingTop:40,textAlign:"center"}}>Lädt...</div>;
+  if (loading)
+    return (
+      <div style={{ color: "var(--text-muted)", paddingTop: 40, textAlign: "center" }}>Lädt...</div>
+    );
 
-  if (!sections.length) return <div style={{color:"var(--text-muted)",paddingTop:40,textAlign:"center"}}>Keine Inhalte gefunden.</div>;
+  if (!sections.length)
+    return (
+      <div style={{ color: "var(--text-muted)", paddingTop: 40, textAlign: "center" }}>
+        Keine Inhalte gefunden.
+      </div>
+    );
 
   return (
     <div>
@@ -35,16 +43,17 @@ export default function HomeView({ onPlay, onOpenPlaylist, onOpenAlbum, onOpenAr
               const thumb = item.thumbnails?.slice(-1)[0]?.url;
               const sub = item.artists?.[0]?.name || item.subtitle || item.description || "";
 
-              const isSong     = !!item.videoId;
+              const isSong = !!item.videoId;
               const isPlaylist = !!item.playlistId;
-              const isArtist   = !!item.browseId && !item.videoId && !item.playlistId && !item.artists?.length;
-              const isAlbum    = !!item.browseId && !item.videoId && !item.playlistId && !isArtist;
+              const isArtist =
+                !!item.browseId && !item.videoId && !item.playlistId && !item.artists?.length;
+              const isAlbum = !!item.browseId && !item.videoId && !item.playlistId && !isArtist;
 
               const handleClick = () => {
-                if (isSong)     onPlay(item);
+                if (isSong) onPlay(item);
                 else if (isPlaylist) onOpenPlaylist?.(item);
-                else if (isAlbum)    onOpenAlbum?.(item);
-                else if (isArtist)   onOpenArtist?.(item);
+                else if (isAlbum) onOpenAlbum?.(item);
+                else if (isArtist) onOpenArtist?.(item);
               };
 
               return (

@@ -16,7 +16,15 @@ export const OVERLAY_DOC_VERSION = 2;
 
 // Bindable now-playing data fields a layer can subscribe to.
 // `subtitle` is a composite (artist · album) that preserves the old sub-line.
-export const TEXT_BINDS = ["title", "subtitle", "artist", "album", "position", "duration", "static"];
+export const TEXT_BINDS = [
+  "title",
+  "subtitle",
+  "artist",
+  "album",
+  "position",
+  "duration",
+  "static",
+];
 export const LAYER_TYPES = ["albumArt", "text", "progress", "image", "shape"];
 
 let _idCounter = 0;
@@ -45,18 +53,28 @@ export function strokePaint(color = "#ffffff", opacity = 100) {
 // mirrors the existing per-corner SVG clip-path system (kept verbatim).
 export function uniformCorners(radius = 14, type = "r") {
   return {
-    TL: radius, TR: radius, BR: radius, BL: radius,
-    typeTL: type, typeTR: type, typeBR: type, typeBL: type,
+    TL: radius,
+    TR: radius,
+    BR: radius,
+    BL: radius,
+    typeTL: type,
+    typeTR: type,
+    typeBR: type,
+    typeBL: type,
   };
 }
 
 // Pull a corner object out of a flat v1 config given key prefixes.
 function cornersFromV1(cfg, rKeys, tKeys, fallback) {
   return {
-    TL: cfg[rKeys[0]] ?? fallback, TR: cfg[rKeys[1]] ?? fallback,
-    BR: cfg[rKeys[2]] ?? fallback, BL: cfg[rKeys[3]] ?? fallback,
-    typeTL: cfg[tKeys[0]] || "r", typeTR: cfg[tKeys[1]] || "r",
-    typeBR: cfg[tKeys[2]] || "r", typeBL: cfg[tKeys[3]] || "r",
+    TL: cfg[rKeys[0]] ?? fallback,
+    TR: cfg[rKeys[1]] ?? fallback,
+    BR: cfg[rKeys[2]] ?? fallback,
+    BL: cfg[rKeys[3]] ?? fallback,
+    typeTL: cfg[tKeys[0]] || "r",
+    typeTR: cfg[tKeys[1]] || "r",
+    typeBR: cfg[tKeys[2]] || "r",
+    typeBL: cfg[tKeys[3]] || "r",
   };
 }
 
@@ -80,10 +98,14 @@ function baseLayer(type, over = {}) {
     id: makeId(type.slice(0, 3)),
     type,
     name: over.name || type,
-    x: 0, y: 0, w: 100, h: 40,
+    x: 0,
+    y: 0,
+    w: 100,
+    h: 40,
     rotation: 0,
-    flipH: false, flipV: false,
-    blend: "normal",            // CSS mix-blend-mode
+    flipH: false,
+    flipV: false,
+    blend: "normal", // CSS mix-blend-mode
     opacity: 100,
     z: 0,
     visible: true,
@@ -98,7 +120,8 @@ function baseLayer(type, over = {}) {
 export function makeAlbumArtLayer(over = {}) {
   return baseLayer("albumArt", {
     name: "Album Art",
-    w: 56, h: 56,
+    w: 56,
+    h: 56,
     bind: "cover",
     style: {
       corners: uniformCorners(8, "r"),
@@ -114,18 +137,19 @@ export function makeAlbumArtLayer(over = {}) {
 export function makeTextLayer(over = {}) {
   return baseLayer("text", {
     name: "Text",
-    w: 220, h: 22,
+    w: 220,
+    h: 22,
     bind: "title",
     style: {
-      content: "Text",            // used when bind === "static"
-      parts: ["artist"],          // used when bind === "subtitle"
+      content: "Text", // used when bind === "static"
+      parts: ["artist"], // used when bind === "subtitle"
       fontFamily: "system-ui, sans-serif",
       fontSize: 14,
       fontWeight: 700,
       color: "#ffffff",
       fills: [solidFill("#ffffff", 100)],
-      align: "left",              // left | center | right
-      valign: "top",              // top | middle | bottom
+      align: "left", // left | center | right
+      valign: "top", // top | middle | bottom
       letterSpacing: 0,
       lineHeight: 1.3,
       maxLines: 1,
@@ -139,14 +163,15 @@ export function makeTextLayer(over = {}) {
 export function makeProgressLayer(over = {}) {
   return baseLayer("progress", {
     name: "Progress",
-    w: 400, h: 3,
+    w: 400,
+    h: 3,
     bind: "progress",
     style: {
       fillColor: "#EEA8FF",
       fillOpacity: 100,
       trackColor: "rgba(255,255,255,0.12)",
       corners: uniformCorners(0, "r"),
-      shape: "bar",               // bar | ring (ring = Phase 4)
+      shape: "bar", // bar | ring (ring = Phase 4)
     },
     ...over,
   });
@@ -155,9 +180,10 @@ export function makeProgressLayer(over = {}) {
 export function makeImageLayer(over = {}) {
   return baseLayer("image", {
     name: "Image",
-    w: 64, h: 64,
+    w: 64,
+    h: 64,
     style: {
-      src: "",                    // data URL
+      src: "", // data URL
       fit: "contain",
       corners: uniformCorners(0, "r"),
     },
@@ -168,16 +194,17 @@ export function makeImageLayer(over = {}) {
 export function makeShapeLayer(over = {}) {
   return baseLayer("shape", {
     name: "Shape",
-    w: 80, h: 80,
+    w: 80,
+    h: 80,
     style: {
-      shape: "rect",              // rect | ellipse
+      shape: "rect", // rect | ellipse
       fill: "#EEA8FF",
       fillOpacity: 100,
       fills: [solidFill("#EEA8FF", 100)],
       corners: uniformCorners(8, "r"),
       strokes: [],
       strokeWeight: 1.5,
-      strokePosition: "inside",   // inside | center | outside
+      strokePosition: "inside", // inside | center | outside
       border: { on: false, color: "#ffffff", width: 1.5, position: "inside", opacity: 100 },
     },
     ...over,
@@ -199,7 +226,7 @@ export function defaultCanvas(over = {}) {
   return {
     width: 400,
     height: 80,
-    autoSize: false,             // "fit to content" (replaces old dynamicWidth)
+    autoSize: false, // "fit to content" (replaces old dynamicWidth)
     bg: { color: "#1a1a1a", opacity: 90, blurFromCover: false, blur: 10 },
     corners: uniformCorners(14, "r"),
     border: { on: false, color: "#EEA8FF", width: 1.5, glow: 0 },
@@ -239,9 +266,8 @@ export function migrateV1toV2(cfg = {}) {
   const subLineH = Math.round(subFS * 1.3);
   const textBlockH = titleLineH + 3 + subLineH;
   const rowH = Math.max(showArt ? artSize : 0, textBlockH);
-  const H = cfg.widgetHeight && cfg.widgetHeight > 0
-    ? cfg.widgetHeight
-    : Math.round(padV * 2 + rowH);
+  const H =
+    cfg.widgetHeight && cfg.widgetHeight > 0 ? cfg.widgetHeight : Math.round(padV * 2 + rowH);
 
   const contentX = padH + (showArt ? artSize + gap : 0);
   const contentW = Math.max(10, W - contentX - padH);
@@ -261,7 +287,7 @@ export function migrateV1toV2(cfg = {}) {
       cfg,
       ["radiusTL", "radiusTR", "radiusBR", "radiusBL"],
       ["cornerTypeTL", "cornerTypeTR", "cornerTypeBR", "cornerTypeBL"],
-      cfg.borderRadius ?? 14,
+      cfg.borderRadius ?? 14
     ),
     border: {
       on: !!cfg.border,
@@ -278,71 +304,105 @@ export function migrateV1toV2(cfg = {}) {
   let z = 0;
 
   if (showArt) {
-    layers.push(makeAlbumArtLayer({
-      x: padH,
-      y: Math.round((H - artSize) / 2),
-      w: artSize, h: artSize,
-      z: z++,
-      style: {
-        corners: cornersFromV1(
-          cfg,
-          ["artRadiusTL", "artRadiusTR", "artRadiusBR", "artRadiusBL"],
-          ["artCornerTypeTL", "artCornerTypeTR", "artCornerTypeBR", "artCornerTypeBL"],
-          cfg.artRadius ?? 8,
-        ),
-        fit: "cover",
-        border: { on: false, color: "#EEA8FF", width: 1.5 },
-        shadow: { on: false, strength: 0.35 },
-        placeholderBg: "rgba(255,255,255,0.12)",
-      },
-    }));
+    layers.push(
+      makeAlbumArtLayer({
+        x: padH,
+        y: Math.round((H - artSize) / 2),
+        w: artSize,
+        h: artSize,
+        z: z++,
+        style: {
+          corners: cornersFromV1(
+            cfg,
+            ["artRadiusTL", "artRadiusTR", "artRadiusBR", "artRadiusBL"],
+            ["artCornerTypeTL", "artCornerTypeTR", "artCornerTypeBR", "artCornerTypeBL"],
+            cfg.artRadius ?? 8
+          ),
+          fit: "cover",
+          border: { on: false, color: "#EEA8FF", width: 1.5 },
+          shadow: { on: false, strength: 0.35 },
+          placeholderBg: "rgba(255,255,255,0.12)",
+        },
+      })
+    );
   }
 
   // Title
-  layers.push(makeTextLayer({
-    name: "Title",
-    x: contentX, y: textY, w: contentW, h: titleLineH,
-    z: z++,
-    bind: "title",
-    style: {
-      content: "", parts: [],
-      fontFamily, fontSize: titleFS, fontWeight: 700,
-      color: textColor, align: "left", valign: "top",
-      letterSpacing: 0, lineHeight: 1.3, maxLines: 1,
-      marquee: !!cfg.scrollTitle, marqueeSpeed: cfg.scrollSpeed ?? 80,
-    },
-  }));
+  layers.push(
+    makeTextLayer({
+      name: "Title",
+      x: contentX,
+      y: textY,
+      w: contentW,
+      h: titleLineH,
+      z: z++,
+      bind: "title",
+      style: {
+        content: "",
+        parts: [],
+        fontFamily,
+        fontSize: titleFS,
+        fontWeight: 700,
+        color: textColor,
+        align: "left",
+        valign: "top",
+        letterSpacing: 0,
+        lineHeight: 1.3,
+        maxLines: 1,
+        marquee: !!cfg.scrollTitle,
+        marqueeSpeed: cfg.scrollSpeed ?? 80,
+      },
+    })
+  );
 
   // Subtitle (artist · album) — opacity 65 mirrors the old --wtxts rgba(.65).
   const parts = [];
   if (cfg.showArtist !== false) parts.push("artist");
   if (cfg.showAlbum) parts.push("album");
-  layers.push(makeTextLayer({
-    name: "Subtitle",
-    x: contentX, y: textY + titleLineH + 3, w: contentW, h: subLineH,
-    z: z++,
-    opacity: 65,
-    bind: "subtitle",
-    style: {
-      content: "", parts,
-      fontFamily, fontSize: subFS, fontWeight: 400,
-      color: textColor, align: "left", valign: "top",
-      letterSpacing: 0, lineHeight: 1.3, maxLines: 1,
-      marquee: false, marqueeSpeed: 80,
-    },
-  }));
+  layers.push(
+    makeTextLayer({
+      name: "Subtitle",
+      x: contentX,
+      y: textY + titleLineH + 3,
+      w: contentW,
+      h: subLineH,
+      z: z++,
+      opacity: 65,
+      bind: "subtitle",
+      style: {
+        content: "",
+        parts,
+        fontFamily,
+        fontSize: subFS,
+        fontWeight: 400,
+        color: textColor,
+        align: "left",
+        valign: "top",
+        letterSpacing: 0,
+        lineHeight: 1.3,
+        maxLines: 1,
+        marquee: false,
+        marqueeSpeed: 80,
+      },
+    })
+  );
 
   if (showProgress) {
-    layers.push(makeProgressLayer({
-      x: 0, y: H - progH, w: W, h: progH,
-      z: z++,
-      style: {
-        fillColor: accentColor,
-        trackColor: "rgba(255,255,255,0.12)",
-        corners: uniformCorners(0, "r"),
-        shape: "bar",
-      },
-    }));
+    layers.push(
+      makeProgressLayer({
+        x: 0,
+        y: H - progH,
+        w: W,
+        h: progH,
+        z: z++,
+        style: {
+          fillColor: accentColor,
+          trackColor: "rgba(255,255,255,0.12)",
+          corners: uniformCorners(0, "r"),
+          shape: "bar",
+        },
+      })
+    );
   }
 
   return { version: OVERLAY_DOC_VERSION, canvas, layers };
@@ -352,20 +412,37 @@ export function migrateV1toV2(cfg = {}) {
 //  Default v2 document (= migration of the canonical v1 default).
 // ─────────────────────────────────────────────────────────────────────────────
 export const DEFAULT_V1_CONFIG = {
-  bgColor: "#1a1a1a", bgOpacity: 90,
-  accentColor: "#EEA8FF", textColor: "#ffffff",
+  bgColor: "#1a1a1a",
+  bgOpacity: 90,
+  accentColor: "#EEA8FF",
+  textColor: "#ffffff",
   borderRadius: 14,
-  showProgress: true, showAlbumArt: true, showArtist: true, showAlbum: false,
-  border: false, borderColor: "#EEA8FF", borderWidth: 1.5,
+  showProgress: true,
+  showAlbumArt: true,
+  showArtist: true,
+  showAlbum: false,
+  border: false,
+  borderColor: "#EEA8FF",
+  borderWidth: 1.5,
   fontFamily: "system-ui, sans-serif",
-  titleFontSize: 14, artistFontSize: 12,
-  dynamicWidth: false, widgetWidth: 400, widgetHeight: 0, artSize: 56, artRadius: 8,
-  paddingV: 12, paddingH: 16, gap: 12,
+  titleFontSize: 14,
+  artistFontSize: 12,
+  dynamicWidth: false,
+  widgetWidth: 400,
+  widgetHeight: 0,
+  artSize: 56,
+  artRadius: 8,
+  paddingV: 12,
+  paddingH: 16,
+  gap: 12,
   progressHeight: 3,
-  showShadow: false, shadowStrength: 0.35,
-  bgBlur: 10, bgBlurEnabled: false,
+  showShadow: false,
+  shadowStrength: 0.35,
+  bgBlur: 10,
+  bgBlurEnabled: false,
   autoHide: false,
-  scrollTitle: false, scrollSpeed: 80,
+  scrollTitle: false,
+  scrollSpeed: 80,
 };
 
 export function defaultOverlayDoc() {
@@ -374,11 +451,49 @@ export function defaultOverlayDoc() {
 
 // ── v2 Presets (derived from the old presets via migration → DRY) ─────────────
 const _V1_PRESETS = {
-  basic:   { bgColor: "#1a1a1a", bgOpacity: 90, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 14, border: false },
-  pink:    { bgColor: "#e0527a", bgOpacity: 95, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 22, border: false },
-  outline: { bgColor: "#000000", bgOpacity: 0, accentColor: "#EEA8FF", textColor: "#ffffff", borderRadius: 16, border: true, borderColor: "#EEA8FF" },
-  dark:    { bgColor: "#0d0d0d", bgOpacity: 85, accentColor: "#EEA8FF", textColor: "#ffffff", borderRadius: 10, border: false },
-  minimal: { bgColor: "#000000", bgOpacity: 0, accentColor: "#ffffff", textColor: "#ffffff", borderRadius: 0, border: false, showProgress: false, showAlbumArt: false },
+  basic: {
+    bgColor: "#1a1a1a",
+    bgOpacity: 90,
+    accentColor: "#ffffff",
+    textColor: "#ffffff",
+    borderRadius: 14,
+    border: false,
+  },
+  pink: {
+    bgColor: "#e0527a",
+    bgOpacity: 95,
+    accentColor: "#ffffff",
+    textColor: "#ffffff",
+    borderRadius: 22,
+    border: false,
+  },
+  outline: {
+    bgColor: "#000000",
+    bgOpacity: 0,
+    accentColor: "#EEA8FF",
+    textColor: "#ffffff",
+    borderRadius: 16,
+    border: true,
+    borderColor: "#EEA8FF",
+  },
+  dark: {
+    bgColor: "#0d0d0d",
+    bgOpacity: 85,
+    accentColor: "#EEA8FF",
+    textColor: "#ffffff",
+    borderRadius: 10,
+    border: false,
+  },
+  minimal: {
+    bgColor: "#000000",
+    bgOpacity: 0,
+    accentColor: "#ffffff",
+    textColor: "#ffffff",
+    borderRadius: 0,
+    border: false,
+    showProgress: false,
+    showAlbumArt: false,
+  },
 };
 
 export function buildPresetDoc(presetId) {
@@ -393,8 +508,13 @@ export const OVERLAY_PRESET_IDS = Object.keys(_V1_PRESETS);
 //  Guards & normalization
 // ─────────────────────────────────────────────────────────────────────────────
 export function isV2Doc(obj) {
-  return !!obj && typeof obj === "object" && obj.version === OVERLAY_DOC_VERSION
-    && Array.isArray(obj.layers) && !!obj.canvas;
+  return (
+    !!obj &&
+    typeof obj === "object" &&
+    obj.version === OVERLAY_DOC_VERSION &&
+    Array.isArray(obj.layers) &&
+    !!obj.canvas
+  );
 }
 
 // Coerce any stored value (v1 flat config OR v2 doc OR junk) into a valid v2 doc.
@@ -419,10 +539,29 @@ function migrateLayer(l) {
     };
   }
   if (!Array.isArray(next.effects) && next.fx) {
-    const fx = next.fx, eff = [];
-    if (fx.shadow && fx.shadow.on) eff.push({ id: makeId("fx"), type: "shadow", visible: true, color: fx.shadow.color ?? "#000000", x: fx.shadow.x ?? 0, y: fx.shadow.y ?? 2, blur: fx.shadow.blur ?? 8, opacity: Math.round((fx.shadow.opacity ?? 0.5) * 100) });
-    if (fx.glow && fx.glow.on) eff.push({ id: makeId("fx"), type: "glow", visible: true, color: fx.glow.color ?? "#ffffff", blur: fx.glow.blur ?? 10 });
-    if (fx.blur && fx.blur.on) eff.push({ id: makeId("fx"), type: "blur", visible: true, amount: fx.blur.amount ?? 4 });
+    const fx = next.fx,
+      eff = [];
+    if (fx.shadow && fx.shadow.on)
+      eff.push({
+        id: makeId("fx"),
+        type: "shadow",
+        visible: true,
+        color: fx.shadow.color ?? "#000000",
+        x: fx.shadow.x ?? 0,
+        y: fx.shadow.y ?? 2,
+        blur: fx.shadow.blur ?? 8,
+        opacity: Math.round((fx.shadow.opacity ?? 0.5) * 100),
+      });
+    if (fx.glow && fx.glow.on)
+      eff.push({
+        id: makeId("fx"),
+        type: "glow",
+        visible: true,
+        color: fx.glow.color ?? "#ffffff",
+        blur: fx.glow.blur ?? 10,
+      });
+    if (fx.blur && fx.blur.on)
+      eff.push({ id: makeId("fx"), type: "blur", visible: true, amount: fx.blur.amount ?? 4 });
     next = { ...next, effects: eff };
   }
   return next === s ? l : { ...l, style: next };
