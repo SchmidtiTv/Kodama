@@ -81,6 +81,11 @@ import { parseColor } from "react-aria-components";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { API } from "./shared/api/client.js";
+import { thumb } from "./shared/api/thumbnails.js";
+import { storageCodecs, usePersistedState } from "./shared/hooks/use-persisted-state.js";
+import { matchesShortcut, serializeShortcut } from "./shared/lib/shortcuts.js";
+import { compareVersions } from "./shared/lib/version.js";
 import { LANGUAGES, translate, translationProgress } from "./i18n.js";
 import { normalizeOverlayDoc } from "./overlay/schema.js";
 import OverlayEditor from "./overlay/OverlayEditor.jsx";
@@ -205,8 +210,6 @@ import {
 } from "./icons.jsx";
 
 import {
-  API,
-  thumb,
   LangContext,
   useLang,
   AnimationContext,
@@ -427,21 +430,6 @@ async function sendHeartbeat() {
   }
 }
 
-// Compare dotted version strings (e.g. "1.0.0" vs "0.9.40-beta"). Returns -1 / 0 / 1.
-function cmpVersion(a, b) {
-  const pa = String(a)
-    .split(/[.\-]/)
-    .map((x) => parseInt(x, 10) || 0);
-  const pb = String(b)
-    .split(/[.\-]/)
-    .map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] || 0) - (pb[i] || 0);
-    if (d) return d < 0 ? -1 : 1;
-  }
-  return 0;
-}
-
 // macOS uses a native titled window (traffic lights + native drag), so the custom
 // titlebar/drag-region is Windows-only. (Borderless windows swallow clicks on macOS.)
 const IS_MAC = /Mac OS X|Macintosh/.test(navigator.userAgent || "");
@@ -450,21 +438,6 @@ const IS_MAC = /Mac OS X|Macintosh/.test(navigator.userAgent || "");
 const APP_TAG = "v1.0.0";
 const GITHUB_RELEASES_API =
   "https://api.github.com/repos/KiyoshiTheDevil/Kodama/releases?per_page=1";
-
-function isNewerVersion(latest, current) {
-  const parse = (v) =>
-    v
-      .replace(/^v/, "")
-      .split(".")
-      .map((n) => parseInt(n) || 0);
-  const l = parse(latest),
-    c = parse(current);
-  for (let i = 0; i < Math.max(l.length, c.length); i++) {
-    if ((l[i] || 0) > (c[i] || 0)) return true;
-    if ((l[i] || 0) < (c[i] || 0)) return false;
-  }
-  return false;
-}
 
 // Detect the best matching language from the browser/OS locale.
 // Falls back to "en" for anything that isn't explicitly supported.
@@ -484,38 +457,27 @@ function getInitialLang() {
   return localStorage.getItem("kiyoshi-lang") || detectSystemLang();
 }
 
-// API, thumb, and the language / animation / zoom / font-scale contexts now live in
-// ./context.jsx (imported at the top) so extracted components can share them.
-
-// ── Shortcut helpers ────────────────────────────────────────────────────────
-/** Serialize a keydown event to a storable shortcut string, e.g. "Ctrl+Equal" or "Space" */
-function serializeShortcut(e) {
-  const mods = [];
-  if (e.ctrlKey) mods.push("Ctrl");
-  if (e.shiftKey) mods.push("Shift");
-  if (e.altKey) mods.push("Alt");
-  return mods.length > 0 ? [...mods, e.code].join("+") : e.code;
-}
-
-/** Match a stored shortcut string against a keydown event.
- *  Single-key shortcuts (no "+") match by code only (backwards-compatible).
- *  Compound shortcuts ("Ctrl+Equal") match code + specified modifiers. */
-function matchShortcut(stored, e) {
-  if (!stored) return false;
-  if (!stored.includes("+")) return e.code === stored;
-  const parts = stored.split("+");
-  const code = parts[parts.length - 1];
-  const mods = new Set(parts.slice(0, -1));
-  // Only check the modifiers that are explicitly listed; shiftKey not checked strictly
-  // so that Ctrl+= (no shift) and Ctrl++ (shift) both match "Ctrl+Equal" on any layout.
-  return e.code === code && e.ctrlKey === mods.has("Ctrl") && e.altKey === mods.has("Alt");
-}
-
 // Stepped values for the zoom and font-size sliders
 const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
 const ZOOM_LABELS = ["80%", "90%", "100%", "110%", "120%", "130%", "140%", "150%"];
 const FONT_STEPS = [0.85, 0.93, 1.0, 1.1, 1.2, 1.35, 1.5];
 const FONT_LABELS = FONT_STEPS.map((s) => `${Math.round(13 * s)}px`);
+const UI_ZOOM_STORAGE = {
+  serialize: storageCodecs.number.serialize,
+  deserialize: (raw) => {
+    const value = storageCodecs.number.deserialize(raw);
+    if (!ZOOM_STEPS.includes(value)) throw new TypeError("Stored zoom value is unsupported");
+    return value;
+  },
+};
+const FONT_SCALE_STORAGE = {
+  serialize: storageCodecs.number.serialize,
+  deserialize: (raw) => {
+    const value = storageCodecs.number.deserialize(raw);
+    if (!FONT_STEPS.includes(value)) throw new TypeError("Stored font scale is unsupported");
+    return value;
+  },
+};
 
 const DEFAULT_SHORTCUTS = {
   playPause: "Space",
@@ -1194,6 +1156,16 @@ const SPLIT_MAX = 0.78;
 const QUEUE_DEFAULT = 360; // default queue panel width
 const QUEUE_MIN = 320; // min when dragging
 const QUEUE_MAX = 620; // max when dragging
+const SIDEBAR_WIDTH_STORAGE = {
+  serialize: storageCodecs.integer.serialize,
+  deserialize: (raw) =>
+    Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, storageCodecs.integer.deserialize(raw))),
+};
+const QUEUE_WIDTH_STORAGE = {
+  serialize: storageCodecs.integer.serialize,
+  deserialize: (raw) =>
+    Math.min(QUEUE_MAX, Math.max(QUEUE_MIN, storageCodecs.integer.deserialize(raw))),
+};
 
 function Sidebar({
   view,
@@ -16163,12 +16135,8 @@ export default function App() {
   const [appKey, setAppKey] = useState(0); // increment to force full re-render
   const [viewRefreshKey, setViewRefreshKey] = useState(0); // increment to refresh current view
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = parseInt(localStorage.getItem("kiyoshi-sidebar-width"), 10);
-    return Number.isFinite(saved)
-      ? Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, saved))
-      : SIDEBAR_EXPANDED;
-  });
+  const [sidebarWidth, setSidebarWidth, { setTransient: setSidebarWidthTransient }] =
+    usePersistedState("kiyoshi-sidebar-width", SIDEBAR_EXPANDED, SIDEBAR_WIDTH_STORAGE);
   const [sidebarResizing, setSidebarResizing] = useState(false);
 
   // Drag-to-resize the expanded sidebar. Width is clamped and persisted.
@@ -16180,7 +16148,7 @@ export default function App() {
     const onMove = (ev) => {
       // Sidebar starts at the window's left edge; width ≈ cursor X (account for 8px left padding)
       const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, ev.clientX - 4));
-      setSidebarWidth(w);
+      setSidebarWidthTransient(w);
     };
     const onUp = () => {
       setSidebarResizing(false);
@@ -16188,20 +16156,18 @@ export default function App() {
       document.body.style.userSelect = "";
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      setSidebarWidth((w) => {
-        localStorage.setItem("kiyoshi-sidebar-width", String(w));
-        return w;
-      });
+      setSidebarWidth((width) => width);
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  }, []);
+  }, [setSidebarWidth, setSidebarWidthTransient]);
 
   // Drag-to-resize the queue panel (docked right; handle sits on its left edge).
-  const [queueWidth, setQueueWidth] = useState(() => {
-    const saved = parseInt(localStorage.getItem("kiyoshi-queue-width"), 10);
-    return Number.isFinite(saved) ? Math.min(QUEUE_MAX, Math.max(QUEUE_MIN, saved)) : QUEUE_DEFAULT;
-  });
+  const [queueWidth, setQueueWidth, { setTransient: setQueueWidthTransient }] = usePersistedState(
+    "kiyoshi-queue-width",
+    QUEUE_DEFAULT,
+    QUEUE_WIDTH_STORAGE
+  );
   const [queueResizing, setQueueResizing] = useState(false);
   const startQueueResize = useCallback((e) => {
     e.preventDefault();
@@ -16211,7 +16177,7 @@ export default function App() {
     const onMove = (ev) => {
       // Panel's right edge sits 8px from the window's right; width ≈ (rightEdge - cursorX).
       const w = Math.min(QUEUE_MAX, Math.max(QUEUE_MIN, window.innerWidth - 8 - ev.clientX));
-      setQueueWidth(w);
+      setQueueWidthTransient(w);
     };
     const onUp = () => {
       setQueueResizing(false);
@@ -16219,14 +16185,11 @@ export default function App() {
       document.body.style.userSelect = "";
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      setQueueWidth((w) => {
-        localStorage.setItem("kiyoshi-queue-width", String(w));
-        return w;
-      });
+      setQueueWidth((width) => width);
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  }, []);
+  }, [setQueueWidth, setQueueWidthTransient]);
   const [globalContextMenu, setGlobalContextMenu] = useState(null); // { x, y, playlist }
   const [pinnedIds, setPinnedIds] = useState([]);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
@@ -16444,8 +16407,8 @@ export default function App() {
         (n) =>
           n &&
           n.id &&
-          (!n.min_version || cmpVersion(APP_VERSION, n.min_version) >= 0) &&
-          (!n.max_version || cmpVersion(APP_VERSION, n.max_version) <= 0)
+          (!n.min_version || compareVersions(APP_VERSION, n.min_version) >= 0) &&
+          (!n.max_version || compareVersions(APP_VERSION, n.max_version) <= 0)
       )
     );
   }, []);
@@ -17641,10 +17604,7 @@ export default function App() {
   const [hideUserHandle, setHideUserHandle] = useState(
     () => localStorage.getItem("kiyoshi-hide-handle") === "true"
   );
-  const [uiZoom, setUiZoom] = useState(() => {
-    const saved = parseFloat(localStorage.getItem("kiyoshi-ui-zoom"));
-    return ZOOM_STEPS.includes(saved) ? saved : 1.0;
-  });
+  const [uiZoom, setUiZoom] = usePersistedState("kiyoshi-ui-zoom", 1.0, UI_ZOOM_STORAGE);
 
   const [customShortcuts, setCustomShortcuts] = useState(() => {
     try {
@@ -17698,17 +17658,13 @@ export default function App() {
   }, []);
 
   const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
-  const [appFontScale, setAppFontScale] = useState(() => {
-    const saved = parseFloat(localStorage.getItem("kiyoshi-font-scale"));
-    const scale = FONT_STEPS.includes(saved) ? saved : 1.0;
-    // Set CSS vars synchronously to avoid flash of unstyled text
-    CSS_FONT_SIZES.forEach((s) => {
-      document.documentElement.style.setProperty(`--t${s}`, `${Math.round(s * scale)}px`);
-    });
-    return scale;
-  });
+  const [appFontScale, setAppFontScale] = usePersistedState(
+    "kiyoshi-font-scale",
+    1.0,
+    FONT_SCALE_STORAGE
+  );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     CSS_FONT_SIZES.forEach((s) => {
       document.documentElement.style.setProperty(`--t${s}`, `${Math.round(s * appFontScale)}px`);
     });
@@ -18582,7 +18538,7 @@ export default function App() {
 
       const sc = customShortcutsRef.current;
 
-      if (matchShortcut(sc.playPause, e)) {
+      if (matchesShortcut(sc.playPause, e)) {
         e.preventDefault();
         if (audioRef.current) {
           if (audioRef.current.paused) {
@@ -18593,7 +18549,7 @@ export default function App() {
             setIsPlaying(false);
           }
         }
-      } else if (matchShortcut(sc.nextTrack, e)) {
+      } else if (matchesShortcut(sc.nextTrack, e)) {
         e.preventDefault();
         const q = queueRef.current;
         setCurrentTrack((t) => {
@@ -18601,7 +18557,7 @@ export default function App() {
           const idx = q.findIndex((x) => x.videoId === t.videoId);
           return idx < q.length - 1 ? q[idx + 1] : t;
         });
-      } else if (matchShortcut(sc.prevTrack, e)) {
+      } else if (matchesShortcut(sc.prevTrack, e)) {
         e.preventDefault();
         const q = queueRef.current;
         setCurrentTrack((t) => {
@@ -18609,19 +18565,19 @@ export default function App() {
           const idx = q.findIndex((x) => x.videoId === t.videoId);
           return idx > 0 ? q[idx - 1] : t;
         });
-      } else if (matchShortcut(sc.volUp, e)) {
+      } else if (matchesShortcut(sc.volUp, e)) {
         e.preventDefault();
         if (audioRef.current) {
           const dv = Math.min(1, Math.sqrt(audioRef.current.volume) + 0.02);
           audioRef.current.volume = dv * dv;
         }
-      } else if (matchShortcut(sc.volDown, e)) {
+      } else if (matchesShortcut(sc.volDown, e)) {
         e.preventDefault();
         if (audioRef.current) {
           const dv = Math.max(0, Math.sqrt(audioRef.current.volume) - 0.02);
           audioRef.current.volume = dv * dv;
         }
-      } else if (matchShortcut(sc.fullscreen, e)) {
+      } else if (matchesShortcut(sc.fullscreen, e)) {
         setFullscreen((f) => {
           const next = !f;
           import("@tauri-apps/api/core").then(({ invoke }) =>
@@ -18636,7 +18592,7 @@ export default function App() {
       } else if (e.code === "F8") {
         e.preventDefault();
         openFeedback();
-      } else if (matchShortcut(sc.mute, e)) {
+      } else if (matchesShortcut(sc.mute, e)) {
         e.preventDefault();
         if (audioRef.current) {
           if (audioRef.current.volume > 0) {
@@ -18646,7 +18602,7 @@ export default function App() {
             audioRef.current.volume = mutePrevVolumeRef.current || 0.5;
           }
         }
-      } else if (matchShortcut(sc.lyrics, e)) {
+      } else if (matchesShortcut(sc.lyrics, e)) {
         e.preventDefault();
         if (!currentTrack) return;
         if (overlayOpen) {
@@ -18657,31 +18613,29 @@ export default function App() {
         } else {
           setOverlayOpen(true);
         }
-      } else if (matchShortcut(sc.seekBack, e)) {
+      } else if (matchesShortcut(sc.seekBack, e)) {
         e.preventDefault();
         if (audioRef.current)
           audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
-      } else if (matchShortcut(sc.seekForward, e)) {
+      } else if (matchesShortcut(sc.seekForward, e)) {
         e.preventDefault();
         if (audioRef.current)
           audioRef.current.currentTime = Math.min(
             audioRef.current.duration || 0,
             audioRef.current.currentTime + 5
           );
-      } else if (matchShortcut(sc.zoomIn, e) || (e.ctrlKey && e.code === "NumpadAdd")) {
+      } else if (matchesShortcut(sc.zoomIn, e) || (e.ctrlKey && e.code === "NumpadAdd")) {
         e.preventDefault();
         setUiZoom((z) => {
           const idx = ZOOM_STEPS.indexOf(z);
           const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, idx >= 0 ? idx + 1 : 2)];
-          localStorage.setItem("kiyoshi-ui-zoom", next);
           return next;
         });
-      } else if (matchShortcut(sc.zoomOut, e) || (e.ctrlKey && e.code === "NumpadSubtract")) {
+      } else if (matchesShortcut(sc.zoomOut, e) || (e.ctrlKey && e.code === "NumpadSubtract")) {
         e.preventDefault();
         setUiZoom((z) => {
           const idx = ZOOM_STEPS.indexOf(z);
           const next = ZOOM_STEPS[Math.max(0, idx >= 0 ? idx - 1 : 2)];
-          localStorage.setItem("kiyoshi-ui-zoom", next);
           return next;
         });
       }
@@ -19968,12 +19922,10 @@ export default function App() {
                         uiZoom={uiZoom}
                         onUiZoomChange={(v) => {
                           setUiZoom(v);
-                          localStorage.setItem("kiyoshi-ui-zoom", v);
                         }}
                         appFontScale={appFontScale}
                         onFontScaleChange={(v) => {
                           setAppFontScale(v);
-                          localStorage.setItem("kiyoshi-font-scale", v);
                         }}
                         showRomaji={showRomaji}
                         onToggleRomaji={() => {
