@@ -13,9 +13,9 @@ import {
   ModalBody,
   ModalCloseTrigger,
 } from "@heroui/react";
-import { Sliders } from "../icons.jsx";
-import { useLang } from "../context.jsx";
-import { Slider } from "../ui/settings-controls.jsx";
+import { Sliders } from "../../icons.jsx";
+import { useLang } from "../../context.jsx";
+import { Slider } from "../../ui/settings-controls.jsx";
 
 export function FadeEditorModal({
   from,
@@ -105,3 +105,4 @@ export function FadeEditorModal({
     </ModalRoot>
   );
 }
+
