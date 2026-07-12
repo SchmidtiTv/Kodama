@@ -1,0 +1,6 @@
+composer/
+coverage/
+dist/
+node_modules/
+python-backend/
+src-tauri/
