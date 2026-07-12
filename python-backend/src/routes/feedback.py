@@ -4,11 +4,12 @@ import requests
 from flask import Blueprint, current_app, jsonify, request
 
 from src.lib.runtime.logging import FEEDBACK_LOG_RING
+from src.type_defs import RouteResponse
 
 blueprint = Blueprint("feedback", __name__)
 
 @blueprint.route("/feedback", methods=["POST"])
-def submit_feedback():
+def submit_feedback() -> RouteResponse:
     webhook_url = current_app.extensions.get("feedback_webhook_url", "")
     if not webhook_url:
         return jsonify({"error": "feedback_not_configured"}), 503
@@ -42,7 +43,7 @@ def submit_feedback():
     if reporter:
         embed["footer"] = {"text": f"from {reporter[:80]}"}
 
-    files = {}
+    files: dict[str, tuple[str, bytes, str]] = {}
     # Optional screenshot (base64, with or without a data: URL prefix) → inline embed image.
     shot = data.get("screenshot")
     if shot:
@@ -59,7 +60,7 @@ def submit_feedback():
     payload = {"username": "Kodama Feedback", "embeds": [embed]}
     if include_logs and FEEDBACK_LOG_RING:
         log_text = "\n".join(list(FEEDBACK_LOG_RING)[-80:])
-        files["file_log"] = ("backend-log.txt", log_text, "text/plain")
+        files["file_log"] = ("backend-log.txt", log_text.encode("utf-8"), "text/plain")
     try:
         if files:
             resp = requests.post(webhook_url,

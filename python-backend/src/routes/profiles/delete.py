@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/delete", methods=["POST"])
-def delete_profile():
+def delete_profile() -> RouteResponse:
     name = (request.json or {}).get("name")
     if not name:
         return jsonify({"error": "Name fehlt"}), 400

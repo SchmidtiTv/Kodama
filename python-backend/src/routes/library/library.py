@@ -6,16 +6,17 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/library/playlists")
-def library_playlists():
+def library_playlists() -> RouteResponse:
     session = music_session()
     profile_repo = profiles()
     profile_name = session.state.current_profile
     try:
         if profile_repo.is_local(profile_name):
-            with profile_repo.local_database(profile_name) as db:
+            with profile_repo.local_database(profile_name or "default") as db:
                 rows = db.execute(
                     "SELECT playlist_id, title, description, (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id=p.playlist_id) FROM playlists p ORDER BY updated_at DESC"
                 ).fetchall()
@@ -36,7 +37,7 @@ def library_playlists():
 
 
 @blueprint.route("/library/albums")
-def library_albums():
+def library_albums() -> RouteResponse:
     session = music_session()
     profile_repo = profiles()
     profile_name = session.state.current_profile
@@ -60,7 +61,7 @@ def library_albums():
 
 
 @blueprint.route("/library/artists")
-def library_artists():
+def library_artists() -> RouteResponse:
     session = music_session()
     profile_repo = profiles()
     profile_name = session.state.current_profile

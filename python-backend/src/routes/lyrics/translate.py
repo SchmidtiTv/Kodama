@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import lyrics_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/translate-lyrics", methods=["POST"])
-def translate_lyrics():
+def translate_lyrics() -> RouteResponse:
     data = request.get_json() or {}
     lines = data.get("lines", [])
     target_lang = data.get("target_lang", "DE").upper()

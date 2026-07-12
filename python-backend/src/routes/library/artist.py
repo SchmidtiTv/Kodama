@@ -6,10 +6,11 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 # Old server.py: _extract_artist_desc_url
-def _extract_artist_desc_url(browse_id):
+def _extract_artist_desc_url(browse_id: str) -> str | None:
     """ytmusicapi keeps only the first description run, dropping the trailing
     "From Wikipedia (URL)" link run. Re-fetch and pull the real source URL out."""
     try:
@@ -31,7 +32,7 @@ def _extract_artist_desc_url(browse_id):
 
 
 @blueprint.route("/artist/<browse_id>")
-def get_artist(browse_id):
+def get_artist(browse_id: str) -> RouteResponse:
     try:
         artist = music_session().get_active_client().get_artist(browse_id)
 
@@ -132,7 +133,7 @@ def get_artist(browse_id):
 
 
 @blueprint.route("/artist/<browse_id>/subscribe", methods=["POST"])
-def artist_subscribe(browse_id):
+def artist_subscribe(browse_id: str) -> RouteResponse:
     try:
         data = request.get_json(silent=True) or {}
         channel_id = data.get("channelId") or browse_id
@@ -143,7 +144,7 @@ def artist_subscribe(browse_id):
 
 
 @blueprint.route("/artist/<browse_id>/unsubscribe", methods=["POST"])
-def artist_unsubscribe(browse_id):
+def artist_unsubscribe(browse_id: str) -> RouteResponse:
     try:
         data = request.get_json(silent=True) or {}
         channel_id = data.get("channelId") or browse_id

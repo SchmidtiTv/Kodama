@@ -3,6 +3,13 @@
 import os
 import threading
 import time
+from collections.abc import MutableMapping
+from os import PathLike
+from typing import TypeVar
+
+
+Key = TypeVar("Key")
+Value = TypeVar("Value")
 
 
 class DelayedCleanup:
@@ -10,9 +17,9 @@ class DelayedCleanup:
 
     @staticmethod
     # Old server.py: _schedule_cleanup
-    def schedule_removal(data, key, delay=300):
+    def schedule_removal(data: MutableMapping[Key, Value], key: Key, delay: float = 300) -> None:
         """Remove *key* from *data* after *delay* seconds."""
-        def cleanup():
+        def cleanup() -> None:
             time.sleep(delay)
             data.pop(key, None)
 
@@ -24,7 +31,7 @@ class DirectoryInspector:
 
     @staticmethod
     # Old server.py: _dir_size_and_count
-    def size_and_file_count(path):
+    def size_and_file_count(path: str | PathLike[str]) -> tuple[int, int]:
         """Return ``(total_bytes, file_count)`` for direct child files."""
         total, count = 0, 0
         try:

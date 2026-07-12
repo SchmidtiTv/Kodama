@@ -8,7 +8,7 @@ class ProfileAuthHeaders:
 
     @staticmethod
     # Old server.py: parse_curl_to_dict
-    def parse_curl_command(curl_command):
+    def parse_curl_command(curl_command: object) -> object:
         """Extract cookies and ``-H`` headers from bash or Windows cURL input."""
         headers = {}
 
@@ -33,7 +33,7 @@ class ProfileAuthHeaders:
 
     @staticmethod
     # Old server.py: parse_raw_headers_to_dict
-    def parse_raw_headers(raw_headers):
+    def parse_raw_headers(raw_headers: object) -> object:
         """Extract ``Header: value`` lines into a normalized mapping."""
         headers = {}
         for line in raw_headers.splitlines():
@@ -41,7 +41,7 @@ class ProfileAuthHeaders:
         return headers
 
     @staticmethod
-    def _add_header(headers, header):
+    def _add_header(headers: object, header: object) -> object:
         if ": " not in header:
             return
         key, _, value = header.partition(": ")

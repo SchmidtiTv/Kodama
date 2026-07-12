@@ -4,21 +4,28 @@ import json
 import os
 import sys
 import time
+from collections.abc import Generator
+from typing import Optional, TypedDict
 
 import requests
 
 from src.config import PROJECT_ROOT
 
 
+class LatestVersion(TypedDict):
+    ts: float
+    ver: Optional[str]
+
+
 class FFmpeg:
     """Locates an ffmpeg binary and, on Windows, can fetch one from gyan.dev."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Old server.py: _FFMPEG_LATEST
-        self._latest = {"ts": 0.0, "ver": None}
+        self._latest: LatestVersion = {"ts": 0.0, "ver": None}
 
     # Old server.py: _find_ffmpeg
-    def find(self):
+    def find(self) -> str | None | bool:
         """Return the directory holding ffmpeg, ``None`` if it is on PATH, or
         ``False`` if it cannot be found."""
         bin_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
@@ -54,19 +61,19 @@ class FFmpeg:
         return False  # not found
 
     # Old server.py: _ffmpeg_exe_path
-    def exe_path(self):
+    def exe_path(self) -> Optional[str]:
         """Absolute path (or bare 'ffmpeg' for PATH) to the binary, or None if unavailable."""
         directory = self.find()
         if directory is False:
             return None
         bin_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
-        return os.path.join(directory, bin_name) if directory else bin_name
+        return os.path.join(directory, bin_name) if isinstance(directory, str) else bin_name
 
-    def available(self):
+    def available(self) -> bool:
         return self.find() is not False
 
     # Old server.py: _ffmpeg_version
-    def version(self):
+    def version(self) -> Optional[str]:
         """Installed ffmpeg version as a dotted string (e.g. '8.1'), or None."""
         import re
         import subprocess
@@ -74,15 +81,14 @@ class FFmpeg:
         if not exe:
             return None
         try:
-            kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}  # CREATE_NO_WINDOW
-            out = subprocess.run([exe, "-version"], capture_output=True, text=True, timeout=10, **kw).stdout or ""
+            out = subprocess.run([exe, "-version"], capture_output=True, text=True, timeout=10).stdout or ""
             m = re.search(r"version\s+(\d+(?:\.\d+)+)", out)
             return m.group(1) if m else None
         except Exception:
             return None
 
     # Old server.py: _ffmpeg_latest_version
-    def latest_version(self):
+    def latest_version(self) -> Optional[str]:
         """Latest gyan.dev release version (cached 1h), or None on failure."""
         now = time.time()
         if self._latest["ver"] and now - self._latest["ts"] < 3600:
@@ -100,19 +106,19 @@ class FFmpeg:
 
     @staticmethod
     # Old server.py: _ver_tuple
-    def version_tuple(v):
+    def version_tuple(v: str) -> tuple[int, ...]:
         import re
         return tuple(int(x) for x in re.findall(r"\d+", v or ""))
 
     # Old server.py: ffmpeg_check_update
-    def check_update(self):
+    def check_update(self) -> dict[str, object]:
         installed = self.version()
         latest = self.latest_version()
         update = bool(installed and latest and self.version_tuple(latest) > self.version_tuple(installed))
         return {"installed": installed, "latest": latest, "updateAvailable": update}
 
     # Old server.py: ffmpeg_download (_stream generator)
-    def download_stream(self, force=False):
+    def download_stream(self, force: bool = False) -> Generator[str, None, None]:
         """Yield SSE events while downloading ffmpeg.exe from gyan.dev and placing
         it next to the server executable (install dir). Windows/frozen only."""
         import io

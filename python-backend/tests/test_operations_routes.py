@@ -4,7 +4,7 @@ from route_test_support import RouteTestCase
 
 
 class OperationsRouteTests(RouteTestCase):
-    def test_debug_info_route_reports_runtime_context(self):
+    def test_debug_info_route_reports_runtime_context(self) -> None:
         with patch("src.routes.operations.debug.time.time", return_value=1065.0), patch(
             "src.routes.operations.debug.shutil.which", return_value="/usr/bin/node"
         ):
@@ -17,12 +17,12 @@ class OperationsRouteTests(RouteTestCase):
         self.assertIn("python", response.json)
         self.assertIn("logs", response.json)
 
-    def test_local_fonts_route_returns_a_list(self):
+    def test_local_fonts_route_returns_a_list(self) -> None:
         response = self.client.get("/api/local-fonts")
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.json, list)
 
-    def test_overlay_routes(self):
+    def test_overlay_routes(self) -> None:
         page = self.client.get("/overlay")
         self.assertEqual(page.status_code, 200)
         self.assertIn(b"Overlay", page.data)
@@ -45,7 +45,7 @@ class OperationsRouteTests(RouteTestCase):
         self.assertEqual(self.client.post("/overlay/server/stop").json, {"ok": True})
         self.assertEqual(self.client.get("/overlay/status").json, {"running": False, "clients": 0})
 
-    def test_remote_desktop_routes_are_localhost_only(self):
+    def test_remote_desktop_routes_are_localhost_only(self) -> None:
         forbidden = self.client.post("/remote/_enable", json={"enabled": True}, environ_overrides={"REMOTE_ADDR": "192.0.2.10"})
         self.assertEqual(forbidden.status_code, 403)
 
@@ -71,7 +71,7 @@ class OperationsRouteTests(RouteTestCase):
         self.assertEqual(self.client.post("/remote/_sync", json={"state": {"title": "Synced"}}).json, {"commands": ["prev"]})
         self.assertEqual(self.remote_control.state["title"], "Synced")
 
-    def test_remote_phone_routes_and_page(self):
+    def test_remote_phone_routes_and_page(self) -> None:
         self.client.post("/remote/_enable", json={"enabled": True, "token": "tok"})
 
         self.assertEqual(self.client.post("/remote/hello", json={"token": "bad", "deviceId": "phone"}).status_code, 403)

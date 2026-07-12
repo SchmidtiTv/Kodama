@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import lyrics_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/lyrics/custom", methods=["POST"])
-def save_custom_lyrics():
+def save_custom_lyrics() -> RouteResponse:
     data = request.get_json() or {}
     video_id = data.get("videoId", "").strip()
     content = data.get("content", "")

@@ -1,19 +1,25 @@
 """Shared services for the operations and integrations routes."""
 
+from typing import cast
+
 from flask import current_app
 
-
-def overlay_server():
-    return current_app.extensions["overlay_server"]
-
-
-def remote_control():
-    return current_app.extensions["remote_control"]
+from src.lib.music.youtube_music import YoutubeMusicSession
+from src.lib.runtime.overlay import OverlayServer
+from src.lib.runtime.remote import RemoteControl
 
 
-def music_session():
-    return current_app.extensions["youtube_music_session"]
+def overlay_server() -> OverlayServer:
+    return cast(OverlayServer, current_app.extensions["overlay_server"])
 
 
-def server_start_time():
-    return current_app.extensions["server_start_time"]
+def remote_control() -> RemoteControl:
+    return cast(RemoteControl, current_app.extensions["remote_control"])
+
+
+def music_session() -> YoutubeMusicSession:
+    return cast(YoutubeMusicSession, current_app.extensions["youtube_music_session"])
+
+
+def server_start_time() -> float:
+    return cast(float, current_app.extensions["server_start_time"])

@@ -6,7 +6,7 @@ from src.lib.music.youtube_music import YoutubeMusicSession
 
 
 class YoutubeMusicSessionTests(unittest.TestCase):
-    def test_cookie_refresh_loop_starts_only_once_per_session(self):
+    def test_cookie_refresh_loop_starts_only_once_per_session(self) -> None:
         session = YoutubeMusicSession(profiles=MagicMock())
 
         with patch("src.lib.music.youtube_music.threading.Thread") as thread_class:
@@ -20,7 +20,7 @@ class YoutubeMusicSessionTests(unittest.TestCase):
         )
         thread_class.return_value.start.assert_called_once_with()
 
-    def test_reauth_and_logout_clear_only_that_profiles_playlist_memory(self):
+    def test_reauth_and_logout_clear_only_that_profiles_playlist_memory(self) -> None:
         playlist_cache = MagicMock()
         session = YoutubeMusicSession(profiles=MagicMock(), playlist_cache=playlist_cache)
         client = MagicMock()
@@ -38,7 +38,7 @@ class YoutubeMusicSessionTests(unittest.TestCase):
             [call("default"), call("default")],
         )
 
-    def test_profile_memory_clear_preserves_other_profiles_entries(self):
+    def test_profile_memory_clear_preserves_other_profiles_entries(self) -> None:
         playlist_cache = Playlist()
         playlist_cache.put("LM", "default", {"tracks": ["old"]})
         playlist_cache.put("LM", "second", {"tracks": ["other"]})

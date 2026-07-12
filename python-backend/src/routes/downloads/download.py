@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import download_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/song/download/<video_id>", methods=["POST"])
-def download_song(video_id):
+def download_song(video_id: str) -> RouteResponse:
     service = download_service()
     if service.song_audio_path(video_id):
         service.status[video_id] = "done"
@@ -28,7 +29,7 @@ def download_song(video_id):
 
 
 @blueprint.route("/song/download/status/<video_id>")
-def download_status(video_id):
+def download_status(video_id: str) -> RouteResponse:
     service = download_service()
     if service.song_audio_path(video_id):
         return jsonify({"status": "done"})
@@ -36,5 +37,5 @@ def download_status(video_id):
 
 
 @blueprint.route("/downloads/queue")
-def downloads_queue():
+def downloads_queue() -> RouteResponse:
     return jsonify({"queue": download_service().queue_snapshot()})

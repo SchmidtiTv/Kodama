@@ -6,10 +6,11 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/validate")
-def validate_auth():
+def validate_auth() -> RouteResponse:
     session = music_session()
     if session.state.adding_account:
         return jsonify({"valid": False, "reason": "adding_account"})

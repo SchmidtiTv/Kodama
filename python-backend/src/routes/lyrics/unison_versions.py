@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import lyrics_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/lyrics/unison/versions")
-def unison_versions():
+def unison_versions() -> RouteResponse:
     return jsonify(
         {
             "versions": lyrics_service().unison_versions(

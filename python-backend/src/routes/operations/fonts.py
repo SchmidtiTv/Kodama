@@ -1,12 +1,22 @@
 """Local system fonts (Windows Registry)."""
 
 from flask import jsonify
+from typing import Protocol, cast
 
 from . import blueprint
+from src.type_defs import RouteResponse
+
+
+class WindowsRegistry(Protocol):
+    HKEY_LOCAL_MACHINE: object
+    HKEY_CURRENT_USER: object
+    def OpenKey(self, hive: object, path: str) -> object: ...
+    def EnumValue(self, key: object, index: int) -> tuple[str, object, object]: ...
+    def CloseKey(self, key: object) -> None: ...
 
 
 @blueprint.route("/api/local-fonts")
-def api_local_fonts():
+def api_local_fonts() -> RouteResponse:
     """Return sorted list of font family names installed on the system (Windows Registry)."""
     families = set()
     _style_suffixes = (
@@ -20,19 +30,20 @@ def api_local_fonts():
     )
     try:
         import winreg
+        registry = cast(WindowsRegistry, winreg)
         reg_paths = [
-            (winreg.HKEY_LOCAL_MACHINE,
+            (registry.HKEY_LOCAL_MACHINE,
              r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
-            (winreg.HKEY_CURRENT_USER,
+            (registry.HKEY_CURRENT_USER,
              r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
         ]
         for hive, path in reg_paths:
             try:
-                key = winreg.OpenKey(hive, path)
+                key = registry.OpenKey(hive, path)
                 i = 0
                 while True:
                     try:
-                        name, _, _ = winreg.EnumValue(key, i)
+                        name, _, _ = registry.EnumValue(key, i)
                         # Strip "(TrueType)", "(OpenType)", "(All res)" etc.
                         name = name.split("(")[0].strip()
                         # Strip style suffixes (longest match first)
@@ -45,7 +56,7 @@ def api_local_fonts():
                         i += 1
                     except OSError:
                         break
-                winreg.CloseKey(key)
+                registry.CloseKey(key)
             except Exception:
                 pass
     except Exception:

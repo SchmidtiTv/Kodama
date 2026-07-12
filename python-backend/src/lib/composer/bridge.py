@@ -5,11 +5,23 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, Iterator, Optional, Tuple
+from collections.abc import Iterator, Mapping
+from typing import Dict, Optional, Protocol, Tuple, cast
 
 import requests
 
 from src.config import BACKEND_PORT, PROJECT_ROOT, config_composer, config_dirs
+from src.lib.composer.settings import ComposerSettings
+from src.lib.music.youtube_music import YoutubeMusicSession
+from src.lib.runtime.cache import CacheSettings
+
+
+class UpstreamResponse(Protocol):
+    headers: Mapping[str, str]
+
+    def iter_content(self, chunk_size: int) -> Iterator[bytes]: ...
+
+    def close(self) -> None: ...
 
 
 class ComposerBridgeError(RuntimeError):
@@ -36,7 +48,9 @@ class ComposerBridge:
         ".wav": "audio/wav",
     }
 
-    def __init__(self, settings, cache_settings, music_session):
+    def __init__(
+        self, settings: ComposerSettings, cache_settings: CacheSettings, music_session: YoutubeMusicSession
+    ) -> None:
         self._settings = settings
         self._cache_settings = cache_settings
         self._music_session = music_session
@@ -45,7 +59,7 @@ class ComposerBridge:
     def autocache_enabled(self) -> bool:
         return self._settings.autocache
 
-    def set_autocache_enabled(self, enabled) -> bool:
+    def set_autocache_enabled(self, enabled: bool) -> bool:
         return self._settings.set_autocache(enabled)
 
     def track_metadata(self, video_id: str) -> Dict[str, Optional[str]]:
@@ -80,7 +94,7 @@ class ComposerBridge:
     def audio_mime_type(self, path: Path) -> str:
         return self._AUDIO_MIME_TYPES.get(path.suffix.lower(), "audio/mp4")
 
-    def open_audio_stream(self, video_id: str):
+    def open_audio_stream(self, video_id: str) -> UpstreamResponse:
         """Resolve the current stream through the existing local stream endpoint."""
         try:
             resolution = requests.get(f"{self.STREAM_ENDPOINT}/{video_id}", timeout=60)
@@ -93,11 +107,11 @@ class ComposerBridge:
             error = data.get("error", "no_url") if isinstance(data, dict) else "no_url"
             raise ComposerBridgeError(error)
         try:
-            return requests.get(url, stream=True, timeout=120)
+            return cast(UpstreamResponse, requests.get(url, stream=True, timeout=120))
         except Exception as error:
             raise ComposerBridgeError(str(error)) from error
 
-    def stream_with_optional_cache(self, video_id: str, upstream) -> Iterator[bytes]:
+    def stream_with_optional_cache(self, video_id: str, upstream: UpstreamResponse) -> Iterator[bytes]:
         """Yield upstream bytes and atomically cache them when enabled."""
         content_type = upstream.headers.get("Content-Type", "audio/mp4")
         extension = ".webm" if "webm" in content_type else ".mp3" if "mpeg" in content_type or "mp3" in content_type else ".m4a"

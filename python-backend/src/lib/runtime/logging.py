@@ -2,9 +2,11 @@
 
 import collections
 import logging
+from typing import override
 import sys
 import threading
 import time
+from typing import TextIO
 
 DEBUG_LOG = collections.deque(maxlen=500)
 DEBUG_LOG_LOCK = threading.Lock()
@@ -14,11 +16,11 @@ FEEDBACK_LOG_RING = collections.deque(maxlen=300)
 class LogTee:
     """Mirror complete stdout/stderr lines into the feedback log ring."""
 
-    def __init__(self, stream):
+    def __init__(self, stream: TextIO) -> None:
         self._stream = stream
         self._buffer = ""
 
-    def write(self, data):
+    def write(self, data: str) -> int:
         try:
             if self._stream is not None:
                 self._stream.write(data)
@@ -43,7 +45,8 @@ class LogTee:
 class _RingBufferHandler(logging.Handler):
     """Capture standard logging records for the debug endpoint."""
 
-    def emit(self, record) -> None:
+    @override
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             level = "WARN" if record.levelname == "WARNING" else record.levelname
             if level not in ("INFO", "ERROR", "WARN", "DEBUG"):

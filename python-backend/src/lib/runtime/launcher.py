@@ -19,7 +19,7 @@ HOST = "0.0.0.0"
 class StartupLog:
     """Best-effort, persistent diagnostics for packaged backend startup."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         self.path = path
 
     def reset(self) -> None:

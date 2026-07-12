@@ -3,7 +3,7 @@ from flask import Blueprint, request
 blueprint = Blueprint("clientlog", __name__)
 
 @blueprint.route("/clientlog", methods=["POST", "OPTIONS"])
-def clientlog():
+def clientlog() -> tuple[str, int]:
     if request.method == "OPTIONS":
         return ("", 204)
     try:

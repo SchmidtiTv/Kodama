@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import lyrics_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/lyrics")
-def get_lyrics():
+def get_lyrics() -> RouteResponse:
     return jsonify(
         lyrics_service().get_lyrics(
             title=request.args.get("title", ""),

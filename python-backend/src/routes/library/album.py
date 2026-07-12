@@ -6,10 +6,11 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import album_cache, cache_settings, music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/album/<browse_id>")
-def get_album(browse_id):
+def get_album(browse_id: str) -> RouteResponse:
     try:
         cache = album_cache()
         cache_flags = cache_settings().enabled

@@ -12,9 +12,10 @@ from src.lib.runtime.logging import DEBUG_LOG, DEBUG_LOG_LOCK
 
 from . import blueprint
 from ._services import music_session, server_start_time
+from src.type_defs import RouteResponse
 
 
-def _pkg_version(name):
+def _pkg_version(name: str) -> str:
     try:
         import importlib.metadata
         return importlib.metadata.version(name)
@@ -23,7 +24,7 @@ def _pkg_version(name):
 
 
 @blueprint.route("/debug/info")
-def debug_info():
+def debug_info() -> RouteResponse:
     """Returns system info + last log entries for the Debug tab in the frontend."""
     node_path = shutil.which("node") or shutil.which("node.exe") or shutil.which("nodejs")
 

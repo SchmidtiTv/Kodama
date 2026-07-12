@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import lyrics_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/romanize-lyrics", methods=["POST"])
-def romanize_lyrics():
+def romanize_lyrics() -> RouteResponse:
     lines = (request.get_json() or {}).get("lines", [])
     if not lines:
         return jsonify({"romanizations": []})

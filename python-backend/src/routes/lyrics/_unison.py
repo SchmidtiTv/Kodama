@@ -3,8 +3,10 @@
 import requests
 from flask import jsonify, request
 
+from src.type_defs import RouteResponse
 
-def forward_signed_request(method, path):
+
+def forward_signed_request(method: str, path: str) -> RouteResponse:
     """Forward the frontend's signed JSON envelope without interpreting it."""
     try:
         response = requests.request(

@@ -1,16 +1,18 @@
 """Clear one cache category or every cache category."""
 
 from flask import jsonify, request
+from pathlib import Path
 
 from src.config import config_dirs
 from src.lib import CacheSettings
 
 from . import blueprint
 from ._services import download_service, playlist_cache
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/cache/clear", methods=["POST"])
-def cache_clear():
+def cache_clear() -> RouteResponse:
     directories = CacheSettings.category_directories(config_dirs)
     category = (request.get_json(silent=True) or {}).get("category", "all")
     categories = [category] if category in directories else list(directories)
@@ -18,7 +20,7 @@ def cache_clear():
         try:
             paths = list(directories[current_category].iterdir())
         except OSError:
-            paths = []
+            paths: list[Path] = []
         for path in paths:
             try:
                 path.unlink()

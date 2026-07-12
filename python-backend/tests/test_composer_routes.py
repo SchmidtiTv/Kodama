@@ -2,7 +2,7 @@ from route_test_support import RouteTestCase
 
 
 class ComposerRouteTests(RouteTestCase):
-    def test_composer_routes(self):
+    def test_composer_routes(self) -> None:
         health = self.client.get("/composer-bridge/health")
         self.assertEqual(health.json["status"], "ok")
         self.assertEqual(health.headers["Access-Control-Allow-Origin"], "https://composer.boidu.dev")

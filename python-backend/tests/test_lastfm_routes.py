@@ -2,7 +2,7 @@ from route_test_support import RouteTestCase
 
 
 class LastFMRouteTests(RouteTestCase):
-    def test_lastfm_routes(self):
+    def test_lastfm_routes(self) -> None:
         self.assertEqual(self.client.get("/lastfm/status").json["username"], "alice")
         connect = self.client.get("/lastfm/connect")
         self.assertEqual(connect.status_code, 200)

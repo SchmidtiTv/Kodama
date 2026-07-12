@@ -2,8 +2,9 @@
 
 from . import blueprint
 from ._actions import submit_track_action
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/unlove", methods=["POST"])
-def lastfm_unlove():
+def lastfm_unlove() -> RouteResponse:
     return submit_track_action("track.unlove")

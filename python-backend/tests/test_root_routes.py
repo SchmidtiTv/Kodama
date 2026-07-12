@@ -2,7 +2,7 @@ from route_test_support import RouteTestCase
 
 
 class RootMusicRouteTests(RouteTestCase):
-    def test_root_music_routes(self):
+    def test_root_music_routes(self) -> None:
         self.assertEqual(self.client.get("/status").json["ok"], True)
         self.assertEqual(self.client.get("/search").json, {"results": []})
         self.assertEqual(self.client.get("/search?q=song").json["results"][0]["type"], "song")

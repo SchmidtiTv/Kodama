@@ -1,6 +1,9 @@
 """Runtime cache settings that begin with configuration defaults."""
 
-from src.config import Config
+from collections.abc import Mapping
+from pathlib import Path
+
+from src.config import Config, ConfigDirs
 
 
 class CacheSettings:
@@ -8,18 +11,18 @@ class CacheSettings:
 
     CATEGORIES = ("playlists", "albums", "images", "songs", "lyrics")
 
-    def __init__(self, defaults=None):
+    def __init__(self, defaults: Mapping[str, bool] | None = None) -> None:
         # Old server.py: _cache_enabled
-        self.enabled = dict(defaults or Config.CACHE_DEFAULTS)
+        self.enabled: dict[str, bool] = dict(defaults or Config.CACHE_DEFAULTS)
 
-    def update(self, values):
+    def update(self, values: Mapping[str, object]) -> None:
         """Apply only recognized cache flags and keep their values boolean."""
         for category in self.CATEGORIES:
             if category in values:
                 self.enabled[category] = bool(values[category])
 
     @staticmethod
-    def category_directories(config_dirs):
+    def category_directories(config_dirs: ConfigDirs) -> dict[str, Path]:
         """Map cache categories to their configured filesystem directories."""
         return {
             "playlists": config_dirs.PLAYLIST_CACHE_DIR,

@@ -7,14 +7,17 @@ import os
 import shutil
 import sys
 import time
+from typing import Optional, cast
 
 import requests
 
 from src.config import config_dirs
+from src.lib.music.youtube_music import YoutubeMusicSessionState
+from src.lib.profiles.profile import Profile
 
 
 # Old server.py: _is_hard_error
-def is_hard_error(err_str):
+def is_hard_error(err_str: str) -> bool:
     # Only Music Premium is a guaranteed dead end regardless of client.
     # "Video unavailable" can still succeed with web_music/android_music
     # for YouTube Music exclusive content.
@@ -22,14 +25,19 @@ def is_hard_error(err_str):
 
 
 # Old server.py: _is_unavailable
-def is_unavailable(err_str):
+def is_unavailable(err_str: str) -> bool:
     return any(k in err_str for k in ("Video unavailable", "This video is not available"))
 
 
 class YTDLP:
     """Prepares yt-dlp's update path and bundled Node.js runtime."""
 
-    def __init__(self, profiles=None, music_state=None, logger=None):
+    def __init__(
+        self,
+        profiles: Optional[Profile] = None,
+        music_state: Optional[YoutubeMusicSessionState] = None,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         self._profiles = profiles
         self._music_state = music_state
         self._logger = logger or logging.getLogger(__name__)
@@ -78,7 +86,7 @@ class YTDLP:
             pass
 
     # Old server.py: _get_ydl_cookiefile
-    def create_authenticated_cookie_file(self):
+    def create_authenticated_cookie_file(self) -> Optional[str]:
         """Write active profile/session cookies in yt-dlp's Netscape format."""
         if self._profiles is None or self._music_state is None:
             raise RuntimeError("YTDLP requires profile storage and active music-session state.")
@@ -88,8 +96,8 @@ class YTDLP:
         try:
             cookie_file = os.path.join(self._profiles.directory, f"{profile_name}_ydl_cookies.txt")
             with open(self._profiles.profile_file_path(profile_name), encoding="utf-8") as profile_file:
-                headers = json.load(profile_file)
-            cookie_values = {}
+                headers = cast(dict[str, str], json.load(profile_file))
+            cookie_values: dict[str, str] = {}
             for part in headers.get("cookie", "").split(";"):
                 name, separator, value = part.strip().partition("=")
                 if separator and name:
@@ -135,7 +143,7 @@ class YTDLP:
             return None
 
     # Old server.py: _apply_ydl_auth
-    def apply_active_session_auth(self, ydl_options):
+    def apply_active_session_auth(self, ydl_options: dict[str, object]) -> dict[str, object]:
         """Attach the active-session cookie file to yt-dlp options."""
         cookie_file = self.create_authenticated_cookie_file()
         if cookie_file:
@@ -144,19 +152,20 @@ class YTDLP:
 
     @staticmethod
     # Old server.py: _active_ytdlp_version
-    def active_version():
+    def active_version() -> Optional[str]:
         try:
             import yt_dlp
-            return getattr(yt_dlp.version, "__version__", None) or getattr(yt_dlp, "__version__", None)
+            from yt_dlp import version
+            return getattr(version, "__version__", None) or getattr(yt_dlp, "__version__", None)
         except Exception:
             return None
 
     @staticmethod
     # Old server.py: _cmp_ytdlp
-    def compare_versions(a, b):
+    def compare_versions(a: str, b: str) -> int:
         """Compare yt-dlp date versions (e.g. 2025.06.24). Returns 1 / 0 / -1."""
-        def parse(v):
-            return [int(p) if p.isdigit() else 0 for p in str(v).replace("-", ".").split(".")]
+        def parse(v: str) -> list[int]:
+            return [int(p) if p.isdigit() else 0 for p in v.replace("-", ".").split(".")]
         pa, pb = parse(a), parse(b)
         n = max(len(pa), len(pb))
         pa += [0] * (n - len(pa))
@@ -164,7 +173,7 @@ class YTDLP:
         return (pa > pb) - (pa < pb)
 
     # Old server.py: ytdlp_check_update
-    def check_update(self):
+    def check_update(self) -> dict[str, object]:
         installed = self.active_version()
         latest = None
         try:
@@ -175,7 +184,7 @@ class YTDLP:
         return {"installed": installed, "latest": latest, "updateAvailable": update}
 
     # Old server.py: ytdlp_update
-    def update(self):
+    def update(self) -> tuple[dict[str, object], int]:
         """Download the latest yt-dlp wheel from PyPI, activate it on sys.path and reload, so the
         new version takes effect without an app restart (yt_dlp is imported lazily). Returns
         ``(payload, status_code)``."""
@@ -186,7 +195,7 @@ class YTDLP:
                 if entry.get("packagetype") == "bdist_wheel" and entry.get("filename", "").endswith(".whl"):
                     wheel_url, wheel_name = entry["url"], entry["filename"]
                     break
-            if not wheel_url:
+            if not isinstance(wheel_url, str) or not isinstance(wheel_name, str):
                 return {"ok": False, "error": "no wheel on PyPI"}, 502
             dest = os.path.join(config_dirs.YTDLP_UPDATE_DIR, wheel_name)
             tmp = dest + ".part"

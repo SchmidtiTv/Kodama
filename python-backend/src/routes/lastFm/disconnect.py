@@ -4,10 +4,11 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import read_active_metadata, write_active_metadata
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/disconnect", methods=["POST"])
-def lastfm_disconnect():
+def lastfm_disconnect() -> RouteResponse:
     metadata = read_active_metadata()
     metadata.pop("lastfm_session", None)
     metadata.pop("lastfm_user", None)

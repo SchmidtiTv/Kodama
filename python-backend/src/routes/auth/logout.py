@@ -4,10 +4,11 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/logout", methods=["POST"])
-def logout():
+def logout() -> RouteResponse:
     session = music_session()
     name = session.state.current_profile
     if not name:

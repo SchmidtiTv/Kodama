@@ -1,19 +1,20 @@
 import json
+from typing import cast
 from unittest.mock import patch
 
-from route_test_support import RouteTestCase
+from route_test_support import JsonValue, RouteTestCase, TestResponse
 
 
-def sse_events(response):
-    events = []
+def sse_events(response: TestResponse) -> list[JsonValue]:
+    events: list[JsonValue] = []
     for block in response.data.decode("utf-8").strip().split("\n\n"):
         if block.startswith("data: "):
-            events.append(json.loads(block[6:]))
+            events.append(cast(JsonValue, json.loads(block[6:])))
     return events
 
 
 class LibraryListingRouteTests(RouteTestCase):
-    def test_online_library_listing_routes(self):
+    def test_online_library_listing_routes(self) -> None:
         playlists = self.client.get("/library/playlists")
         self.assertEqual(playlists.status_code, 200)
         self.assertEqual(playlists.json["playlists"][0]["playlistId"], "pl")
@@ -26,7 +27,7 @@ class LibraryListingRouteTests(RouteTestCase):
         self.assertEqual(artists.status_code, 200)
         self.assertEqual(artists.json["artists"][0]["artist"], "Artist")
 
-    def test_local_library_listing_routes(self):
+    def test_local_library_listing_routes(self) -> None:
         self.profile_repository.local_profiles.add("default")
 
         playlists = self.client.get("/library/playlists")
@@ -39,7 +40,7 @@ class LibraryListingRouteTests(RouteTestCase):
 
 
 class PlaylistRouteTests(RouteTestCase):
-    def test_online_playlist_mutation_routes(self):
+    def test_online_playlist_mutation_routes(self) -> None:
         self.assertEqual(self.client.post("/playlist/create", json={}).status_code, 400)
         created = self.client.post(
             "/playlist/create",
@@ -64,7 +65,7 @@ class PlaylistRouteTests(RouteTestCase):
         self.assertEqual(self.client.delete("/playlist/pl").json, {"ok": True})
         self.assertEqual(self.music_session.client.deleted_playlists, ["pl"])
 
-    def test_online_playlist_fetch_and_stream_cache(self):
+    def test_online_playlist_fetch_and_stream_cache(self) -> None:
         playlist = self.client.get("/playlist/pl")
         self.assertEqual(playlist.status_code, 200)
         self.assertEqual(playlist.json["title"], "Playlist")
@@ -82,7 +83,7 @@ class PlaylistRouteTests(RouteTestCase):
         self.assertTrue(cached_events[0]["cached"])
         self.assertEqual(cached_events[-1], {"type": "done"})
 
-    def test_in_memory_playlist_cache_is_profile_scoped(self):
+    def test_in_memory_playlist_cache_is_profile_scoped(self) -> None:
         default_events = sse_events(self.client.get("/playlist/LM/stream"))
         self.assertEqual(default_events[1]["title"], "Liked Songs")
         self.assertIn(("default", "LM"), self.playlist_cache.playlist_cache)
@@ -93,7 +94,7 @@ class PlaylistRouteTests(RouteTestCase):
         self.assertFalse(second_events[0].get("cached", False))
         self.assertIn(("second", "LM"), self.playlist_cache.playlist_cache)
 
-    def test_liked_songs_playlist_fetch_and_stream(self):
+    def test_liked_songs_playlist_fetch_and_stream(self) -> None:
         playlist = self.client.get("/playlist/LM")
         self.assertEqual(playlist.status_code, 200)
         self.assertEqual(playlist.json["title"], "Liked Songs")
@@ -104,7 +105,7 @@ class PlaylistRouteTests(RouteTestCase):
         self.assertEqual(events[1]["type"], "header")
         self.assertEqual(events[-1], {"type": "done"})
 
-    def test_local_playlist_routes(self):
+    def test_local_playlist_routes(self) -> None:
         self.profile_repository.local_profiles.add("default")
 
         created = self.client.post("/playlist/create", json={"title": "Local New"})
@@ -129,7 +130,7 @@ class PlaylistRouteTests(RouteTestCase):
 
 
 class LibraryDetailRouteTests(RouteTestCase):
-    def test_radio_album_artist_and_song_meta_routes(self):
+    def test_radio_album_artist_and_song_meta_routes(self) -> None:
         radio = self.client.get("/radio/pl")
         self.assertEqual(radio.status_code, 200)
         self.assertEqual(radio.json["tracks"][0]["videoId"], "vid")
@@ -161,11 +162,11 @@ class LibraryDetailRouteTests(RouteTestCase):
         self.assertEqual(info.status_code, 200)
         self.assertEqual(info.json, {"artistBrowseId": "UCartist", "albumBrowseId": "MPREb"})
 
-    def test_song_stats_route_formats_raw_counts(self):
+    def test_song_stats_route_formats_raw_counts(self) -> None:
         class StatsResponse:
             status_code = 200
 
-            def json(self):
+            def json(self) -> object:
                 return {"viewCount": 1_250_000, "likes": 42_500, "dislikes": 321}
 
         with patch("src.routes.library.song.requests.get", return_value=StatsResponse()) as request:
@@ -178,7 +179,7 @@ class LibraryDetailRouteTests(RouteTestCase):
         self.assertEqual(stats.json["viewsRaw"], 1_250_000)
         request.assert_called_once()
 
-    def test_song_stats_route_reports_unavailable_stats(self):
+    def test_song_stats_route_reports_unavailable_stats(self) -> None:
         class FailedStatsResponse:
             status_code = 404
 
@@ -188,7 +189,7 @@ class LibraryDetailRouteTests(RouteTestCase):
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json, {"error": "stats unavailable"})
 
-    def test_song_credits_routes_use_cache_after_first_fetch(self):
+    def test_song_credits_routes_use_cache_after_first_fetch(self) -> None:
         self.song_credits_cache.clear()
         payload = {
             "contents": {
@@ -205,7 +206,7 @@ class LibraryDetailRouteTests(RouteTestCase):
         }
 
         class JsonResponse:
-            def json(self):
+            def json(self) -> object:
                 return payload
 
         with patch("src.routes.library.song.requests.post", return_value=JsonResponse()) as post:

@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import composer_bridge
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/composer-bridge/autocache", methods=["GET", "POST"])
-def composer_bridge_autocache():
+def composer_bridge_autocache() -> RouteResponse:
     bridge = composer_bridge()
     body = request.get_json(silent=True) or {}
     if request.method == "POST" and "enabled" in body:

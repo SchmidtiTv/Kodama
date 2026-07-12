@@ -2,7 +2,7 @@
 
 import time
 
-from flask import Flask, request
+from flask import Flask, Response, g, request
 
 from src.config import Config
 
@@ -18,7 +18,7 @@ def setup_debug(app: Flask) -> None:
 
 
 def _dbg_before() -> None:
-    request._dbg_t0 = time.time()
+    g.dbg_t0 = time.time()
     if request.path != "/clientlog":
         print(
             f"[req] --> {request.method} {request.full_path.rstrip('?')} from {request.remote_addr}",
@@ -26,10 +26,11 @@ def _dbg_before() -> None:
         )
 
 
-def _dbg_after(response):
+def _dbg_after(response: Response) -> Response:
     try:
         if request.path != "/clientlog":
-            elapsed_ms = (time.time() - getattr(request, "_dbg_t0", time.time())) * 1000
+            started_at = getattr(g, "dbg_t0", time.time())
+            elapsed_ms = (time.time() - started_at) * 1000
             print(f"[req] <-- {request.method} {request.path} {response.status_code} in {elapsed_ms:.0f}ms", flush=True)
     except Exception:
         pass

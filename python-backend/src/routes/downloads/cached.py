@@ -4,10 +4,11 @@ from flask import jsonify, request, send_file
 
 from . import blueprint
 from ._services import download_service
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/song/cached/<video_id>")
-def serve_cached_song(video_id):
+def serve_cached_song(video_id: str) -> RouteResponse:
     service = download_service()
     path = service.song_audio_path(video_id)
     if not path:
@@ -16,18 +17,18 @@ def serve_cached_song(video_id):
 
 
 @blueprint.route("/song/cached/list")
-def list_cached_songs():
+def list_cached_songs() -> RouteResponse:
     return jsonify({"songs": download_service().list_cached()})
 
 
 @blueprint.route("/song/cached/<video_id>", methods=["DELETE"])
-def delete_cached_song(video_id):
+def delete_cached_song(video_id: str) -> RouteResponse:
     download_service().delete_cached(video_id)
     return jsonify({"ok": True})
 
 
 @blueprint.route("/songs/cached/delete-batch", methods=["POST"])
-def delete_cached_songs_batch():
+def delete_cached_songs_batch() -> RouteResponse:
     data = request.get_json() or {}
     video_ids = data.get("videoIds", [])
     service = download_service()

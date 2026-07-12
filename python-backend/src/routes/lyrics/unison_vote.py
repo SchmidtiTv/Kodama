@@ -4,8 +4,9 @@ from flask import request
 
 from . import blueprint
 from ._unison import forward_signed_request
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/unison/lyrics/<lyrics_id>/vote", methods=["POST", "DELETE"])
-def unison_vote(lyrics_id):
+def unison_vote(lyrics_id: str) -> RouteResponse:
     return forward_signed_request(request.method, f"/lyrics/{lyrics_id}/vote")

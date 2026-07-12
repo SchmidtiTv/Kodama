@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/refresh-cookies", methods=["POST"])
-def refresh_cookies():
+def refresh_cookies() -> RouteResponse:
     cookie_string = ((request.json or {}).get("cookie") or "").strip()
     ok, error, has_psidts = music_session().apply_webview_cookies(cookie_string)
     if not ok:

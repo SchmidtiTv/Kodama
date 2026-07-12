@@ -4,7 +4,7 @@ from route_test_support import RouteTestCase
 
 
 class CacheRouteTests(RouteTestCase):
-    def test_cache_routes_use_isolated_directories(self):
+    def test_cache_routes_use_isolated_directories(self) -> None:
         with patch("src.routes.cache.stats.config_dirs", self.cache_dirs):
             stats = self.client.get("/cache/stats")
         self.assertEqual(stats.status_code, 200)

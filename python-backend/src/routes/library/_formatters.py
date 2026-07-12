@@ -1,15 +1,17 @@
 """Track normalization shared by the playlist fetch and stream endpoints."""
 
 from src.lib import YoutubeResponseMapper
+from typing import cast
+from typing import cast
 
 
 # Old server.py: the `fmt` closure in stream_playlist / the track loop in get_playlist
-def format_track(track):
+def format_track(track: dict[str, object]) -> dict[str, object]:
     """Full track object as returned by /playlist/<id> and /playlist/<id>/stream."""
-    artist_list = track.get("artists", [])
+    artist_list = cast(list[dict[str, str]], track.get("artists", []))
     artists = ", ".join(a["name"] for a in artist_list)
     artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
-    album = track.get("album") or {}
+    album = cast(dict[str, str], track.get("album") or {})
     return {
         "videoId": track.get("videoId", ""),
         "setVideoId": track.get("setVideoId", ""),
@@ -20,6 +22,6 @@ def format_track(track):
         "album": album.get("name", ""),
         "albumBrowseId": (album.get("id") or ""),
         "duration": track.get("duration", ""),
-        "thumbnail": YoutubeResponseMapper.select_thumbnail(track.get("thumbnails", [])),
+        "thumbnail": YoutubeResponseMapper.select_thumbnail(cast(list[dict[str, object]], track.get("thumbnails", []))),
         "isExplicit": bool(track.get("isExplicit", False)),
     }

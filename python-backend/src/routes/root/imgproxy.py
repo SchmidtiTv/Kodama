@@ -11,10 +11,11 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import cache_settings
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/imgproxy")
-def img_proxy():
+def img_proxy() -> RouteResponse:
     url = request.args.get("url", "")
     if not url:
         return "", 400

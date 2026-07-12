@@ -8,31 +8,33 @@ import json
 import logging
 import queue
 import threading
+from collections.abc import Mapping
+from typing import Generator
 
 from flask import Flask, Response, jsonify
 from flask_cors import CORS
-from werkzeug.serving import make_server as _make_wsgi_server
+from werkzeug.serving import BaseWSGIServer, make_server as _make_wsgi_server
 
 from src.config import PROJECT_ROOT, config_overlay
 
 
 # ── v2 document schema / migration helpers ───────────────────────────────────
-def _r(v):
+def _r(v: float) -> int:
     return int(v + 0.5)  # round-half-up for non-negative (mirrors JS Math.round)
 
 
-def _make_id(prefix="l"):
+def _make_id(prefix: str = "l") -> str:
     import time as _t
     import random as _rnd
     return "%s_%x%x" % (prefix, int(_t.time() * 1000) & 0xffffffff, _rnd.randint(0, 0xffff))
 
 
-def _uniform_corners(radius=14, t="r"):
+def _uniform_corners(radius: float = 14, t: str = "r") -> dict[str, object]:
     return {"TL": radius, "TR": radius, "BR": radius, "BL": radius,
             "typeTL": t, "typeTR": t, "typeBR": t, "typeBL": t}
 
 
-def _corners_from_v1(cfg, rk, tk, fb):
+def _corners_from_v1(cfg: Mapping[str, object], rk: list[str], tk: list[str], fb: object) -> dict[str, object]:
     return {
         "TL": cfg.get(rk[0], fb), "TR": cfg.get(rk[1], fb),
         "BR": cfg.get(rk[2], fb), "BL": cfg.get(rk[3], fb),
@@ -41,16 +43,16 @@ def _corners_from_v1(cfg, rk, tk, fb):
     }
 
 
-def _base_layer(type_, over):
-    layer = {"id": _make_id(type_[:3]), "type": type_, "name": over.get("name", type_),
+def _base_layer(type_: str, over: dict[str, object]) -> dict[str, object]:
+    layer: dict[str, object] = {"id": _make_id(type_[:3]), "type": type_, "name": over.get("name", type_),
              "x": 0, "y": 0, "w": 100, "h": 40, "rotation": 0, "opacity": 100,
              "z": 0, "visible": True, "locked": False, "bind": None, "style": {}, "effects": []}
     layer.update(over)
     return layer
 
 
-def _default_canvas(over=None):
-    c = {"width": 400, "height": 80, "autoSize": False,
+def _default_canvas(over: dict[str, object] | None = None) -> dict[str, object]:
+    c: dict[str, object] = {"width": 400, "height": 80, "autoSize": False,
          "bg": {"color": "#1a1a1a", "opacity": 90, "blurFromCover": False, "blur": 10},
          "corners": _uniform_corners(14, "r"),
          "border": {"on": False, "color": "#EEA8FF", "width": 1.5, "glow": 0},
@@ -62,41 +64,53 @@ def _default_canvas(over=None):
     return c
 
 
-def migrate_v1_to_v2(cfg):
+def _number(value: object, default: float) -> float:
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else default
+
+
+def _string(value: object, default: str) -> str:
+    return value if isinstance(value, str) else default
+
+
+def _enabled(value: object, default: bool = True) -> bool:
+    return value if isinstance(value, bool) else default
+
+
+def migrate_v1_to_v2(cfg: Mapping[str, object] | None) -> dict[str, object]:
     """Accepts a flat v1 config OR a v2 doc (passthrough). Returns a v2 doc."""
     cfg = cfg or {}
     if cfg.get("version") == config_overlay.DOCUMENT_VERSION and isinstance(cfg.get("layers"), list) and cfg.get("canvas"):
-        return cfg
+        return dict(cfg)
     g = cfg.get
-    padH = g("paddingH", 16); padV = g("paddingV", 12); gap = g("gap", 12)
-    artSize = g("artSize", 56)
-    showArt = g("showAlbumArt", True) is not False
-    showProgress = g("showProgress", True) is not False
-    progH = g("progressHeight", 3)
-    titleFS = g("titleFontSize", 14); subFS = g("artistFontSize", 12)
-    textColor = g("textColor") or "#ffffff"
-    accentColor = g("accentColor") or "#EEA8FF"
-    fontFamily = g("fontFamily") or "system-ui, sans-serif"
-    W = g("widgetWidth", 400)
+    padH = _number(g("paddingH"), 16); padV = _number(g("paddingV"), 12); gap = _number(g("gap"), 12)
+    artSize = _number(g("artSize"), 56)
+    showArt = _enabled(g("showAlbumArt"))
+    showProgress = _enabled(g("showProgress"))
+    progH = _number(g("progressHeight"), 3)
+    titleFS = _number(g("titleFontSize"), 14); subFS = _number(g("artistFontSize"), 12)
+    textColor = _string(g("textColor"), "#ffffff")
+    accentColor = _string(g("accentColor"), "#EEA8FF")
+    fontFamily = _string(g("fontFamily"), "system-ui, sans-serif")
+    W = _number(g("widgetWidth"), 400)
     titleLineH = _r(titleFS * 1.3); subLineH = _r(subFS * 1.3)
     textBlockH = titleLineH + 3 + subLineH
     rowH = max(artSize if showArt else 0, textBlockH)
-    wh = g("widgetHeight", 0)
+    wh = _number(g("widgetHeight"), 0)
     H = wh if (wh and wh > 0) else _r(padV * 2 + rowH)
     contentX = padH + (artSize + gap if showArt else 0)
     contentW = max(10, W - contentX - padH)
     textY = _r((H - textBlockH) / 2)
     canvas = _default_canvas({
-        "width": W, "height": H, "autoSize": bool(g("dynamicWidth", False)),
-        "bg": {"color": g("bgColor") or "#1a1a1a", "opacity": g("bgOpacity", 90),
-               "blurFromCover": bool(g("bgBlurEnabled", False)), "blur": g("bgBlur", 10)},
+        "width": W, "height": H, "autoSize": _enabled(g("dynamicWidth"), False),
+        "bg": {"color": _string(g("bgColor"), "#1a1a1a"), "opacity": _number(g("bgOpacity"), 90),
+               "blurFromCover": _enabled(g("bgBlurEnabled"), False), "blur": _number(g("bgBlur"), 10)},
         "corners": _corners_from_v1(cfg, ["radiusTL", "radiusTR", "radiusBR", "radiusBL"],
                                     ["cornerTypeTL", "cornerTypeTR", "cornerTypeBR", "cornerTypeBL"],
-                                    g("borderRadius", 14)),
-        "border": {"on": bool(g("border", False)), "color": g("borderColor") or "#EEA8FF",
-                   "width": g("borderWidth", 1.5), "glow": g("borderBlur", 0)},
-        "shadow": {"on": bool(g("showShadow", False)), "strength": g("shadowStrength", 0.35)},
-        "autoHide": bool(g("autoHide", False)),
+                                    _number(g("borderRadius"), 14)),
+        "border": {"on": _enabled(g("border"), False), "color": _string(g("borderColor"), "#EEA8FF"),
+                   "width": _number(g("borderWidth"), 1.5), "glow": _number(g("borderBlur"), 0)},
+        "shadow": {"on": _enabled(g("showShadow"), False), "strength": _number(g("shadowStrength"), 0.35)},
+        "autoHide": _enabled(g("autoHide"), False),
         "theme": {"fontFamily": fontFamily, "textColor": textColor, "accentColor": accentColor},
     })
     layers = []; z = 0
@@ -105,7 +119,7 @@ def migrate_v1_to_v2(cfg):
             "name": "Album Art", "x": padH, "y": _r((H - artSize) / 2), "w": artSize, "h": artSize,
             "z": z, "bind": "cover",
             "style": {"corners": _corners_from_v1(cfg, ["artRadiusTL", "artRadiusTR", "artRadiusBR", "artRadiusBL"],
-                      ["artCornerTypeTL", "artCornerTypeTR", "artCornerTypeBR", "artCornerTypeBL"], g("artRadius", 8)),
+                      ["artCornerTypeTL", "artCornerTypeTR", "artCornerTypeBR", "artCornerTypeBL"], _number(g("artRadius"), 8)),
                       "fit": "cover", "border": {"on": False, "color": "#EEA8FF", "width": 1.5},
                       "shadow": {"on": False, "strength": 0.35}, "placeholderBg": "rgba(255,255,255,0.12)"}}))
         z += 1
@@ -113,11 +127,11 @@ def migrate_v1_to_v2(cfg):
         "name": "Title", "x": contentX, "y": textY, "w": contentW, "h": titleLineH, "z": z, "bind": "title",
         "style": {"content": "", "parts": [], "fontFamily": fontFamily, "fontSize": titleFS, "fontWeight": 700,
                   "color": textColor, "align": "left", "valign": "top", "letterSpacing": 0, "lineHeight": 1.3,
-                  "maxLines": 1, "marquee": bool(g("scrollTitle", False)), "marqueeSpeed": g("scrollSpeed", 80)}}))
+                  "maxLines": 1, "marquee": _enabled(g("scrollTitle"), False), "marqueeSpeed": _number(g("scrollSpeed"), 80)}}))
     z += 1
     parts = []
-    if g("showArtist", True) is not False: parts.append("artist")
-    if g("showAlbum", False): parts.append("album")
+    if _enabled(g("showArtist")): parts.append("artist")
+    if _enabled(g("showAlbum"), False): parts.append("album")
     layers.append(_base_layer("text", {
         "name": "Subtitle", "x": contentX, "y": textY + titleLineH + 3, "w": contentW, "h": subLineH,
         "z": z, "opacity": 65, "bind": "subtitle",
@@ -137,24 +151,24 @@ def migrate_v1_to_v2(cfg):
 class OverlayServer:
     """Owns the overlay document/state and the optional OBS-facing WSGI server."""
 
-    def __init__(self, logger=None):
-        self._logger = logger or logging.getLogger(__name__)
+    def __init__(self, logger: logging.Logger | None = None) -> None:
+        self._logger: logging.Logger = logger or logging.getLogger(__name__)
         # Old server.py: _ov_state
-        self._state = {
+        self._state: dict[str, object] = {
             "title": "", "artist": "", "album": "",
             "cover": "", "progress": 0.0, "duration": 0.0, "isPlaying": False,
         }
         # Old server.py: _ov_doc — the frontend may POST v1 configs → migrated on arrival.
         self._doc = migrate_v1_to_v2(config_overlay.V1_DEFAULT)
-        self._clients = []
+        self._clients: list[queue.Queue[str]] = []
         self._lock = threading.Lock()
-        self._server_obj = None
-        self._server_thread = None
-        self._html_cache = None
+        self._server_obj: BaseWSGIServer | None = None
+        self._server_thread: threading.Thread | None = None
+        self._html_cache: str | None = None
         self._app = self._build_overlay_app()
 
     # ── Widget HTML (lazy so a missing file only breaks the page, not startup) ─
-    def _overlay_html(self):
+    def _overlay_html(self) -> str:
         if self._html_cache is None:
             with open(PROJECT_ROOT / "static" / "overlay.html", "r", encoding="utf-8") as f:
                 self._html_cache = f.read()
@@ -162,7 +176,7 @@ class OverlayServer:
 
     # Second WSGI app registered with the shared overlay handlers, so OBS keeps
     # working even when the main app is busy.
-    def _build_overlay_app(self):
+    def _build_overlay_app(self) -> Flask:
         overlay_app = Flask("kiyoshi_overlay")
         CORS(overlay_app)
         overlay_app.add_url_rule("/overlay", "overlay_page", self.page_response)
@@ -171,7 +185,7 @@ class OverlayServer:
         return overlay_app
 
     # Old server.py: _ov_push
-    def push(self, payload):
+    def push(self, payload: dict[str, object]) -> None:
         msg = "data: " + json.dumps(payload) + "\n\n"
         with self._lock:
             dead = []
@@ -187,7 +201,7 @@ class OverlayServer:
                     pass
 
     # Old server.py: _ov_page_resp
-    def page_response(self):
+    def page_response(self) -> Response:
         resp = Response(self._overlay_html(), content_type="text/html; charset=utf-8")
         resp.headers["X-Frame-Options"] = "ALLOWALL"
         resp.headers["Content-Security-Policy"] = "frame-ancestors *"
@@ -200,13 +214,13 @@ class OverlayServer:
         return resp
 
     # Old server.py: _ov_stream_resp
-    def stream_response(self):
+    def stream_response(self) -> Response:
         q = queue.Queue(maxsize=30)
         with self._lock:
             self._clients.append(q)
         initial = "data: " + json.dumps({**self._state, "_config": self._doc}) + "\n\n"
 
-        def _gen():
+        def _gen() -> Generator[str, None, None]:
             try:
                 yield initial
                 while True:
@@ -224,22 +238,22 @@ class OverlayServer:
                         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
                                  "Access-Control-Allow-Origin": "*"})
 
-    def get_config(self):
+    def get_config(self) -> dict[str, object]:
         return self._doc
 
     # Old server.py: overlay_config (POST branch)
-    def set_config(self, cfg):
+    def set_config(self, cfg: dict[str, object] | None) -> dict[str, object]:
         self._doc = migrate_v1_to_v2(cfg or {})
         self.push({"_configUpdate": True, "config": self._doc})
         return self._doc
 
     # Old server.py: overlay_push
-    def update_state(self, data):
+    def update_state(self, data: dict[str, object] | None) -> None:
         self._state.update({k: v for k, v in (data or {}).items() if k in self._state})
         self.push(self._state)
 
     # Old server.py: _ov_start
-    def start(self, port):
+    def start(self, port: int) -> bool:
         self.stop()
         try:
             # threaded=True is essential: OBS holds a long-lived SSE connection on
@@ -248,7 +262,7 @@ class OverlayServer:
             srv = _make_wsgi_server("0.0.0.0", port, self._app, threaded=True)
             self._server_obj = srv
 
-            def _serve_safe():
+            def _serve_safe() -> None:
                 try:
                     srv.serve_forever()
                 except Exception as e:
@@ -262,7 +276,7 @@ class OverlayServer:
             return False
 
     # Old server.py: _ov_stop
-    def stop(self):
+    def stop(self) -> None:
         if self._server_obj:
             try:
                 self._server_obj.shutdown()
@@ -272,5 +286,5 @@ class OverlayServer:
         self._server_thread = None
 
     # Old server.py: overlay_status
-    def status(self):
+    def status(self) -> dict[str, bool | int]:
         return {"running": self._server_obj is not None, "clients": len(self._clients)}

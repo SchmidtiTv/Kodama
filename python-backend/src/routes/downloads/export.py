@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import export_service, ffmpeg, music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/song/export/<video_id>", methods=["POST"])
-def export_audio(video_id):
+def export_audio(video_id: str) -> RouteResponse:
     service = export_service()
     data = request.get_json() or {}
     output_path = data.get("output_path", "")
@@ -51,10 +52,10 @@ def export_audio(video_id):
 
 
 @blueprint.route("/song/export/status/<video_id>")
-def export_status(video_id):
+def export_status(video_id: str) -> RouteResponse:
     return jsonify({"status": export_service().status.get(video_id, "not_found")})
 
 
 @blueprint.route("/song/export/ffmpeg-available")
-def ffmpeg_available():
+def ffmpeg_available() -> RouteResponse:
     return jsonify({"available": ffmpeg().available()})

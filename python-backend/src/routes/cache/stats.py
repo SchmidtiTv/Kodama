@@ -7,10 +7,11 @@ from src.lib import CacheSettings, DirectoryInspector
 
 from . import blueprint
 from ._services import cache_settings
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/cache/stats")
-def cache_stats():
+def cache_stats() -> RouteResponse:
     directories = CacheSettings.category_directories(config_dirs)
     result = {}
     settings = cache_settings()

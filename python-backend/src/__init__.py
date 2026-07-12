@@ -42,7 +42,7 @@ CORS_ORIGINS = [
 ]
 
 
-def create_app():
+def create_app() -> Flask:
     try:
         setup_log_tee()
         setup_logger()

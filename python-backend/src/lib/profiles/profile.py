@@ -5,6 +5,9 @@ import os
 import shutil
 import sqlite3
 from contextlib import contextmanager
+from collections.abc import Iterator, Mapping
+from pathlib import Path
+from typing import Optional, cast
 
 from src.config import PROJECT_ROOT, config_dirs
 
@@ -14,60 +17,60 @@ from .meta import Meta
 class Profile:
     """Locates profile files and identifies local-only profiles."""
 
-    def __init__(self, profiles_dir=None, meta=None):
+    def __init__(self, profiles_dir: Optional[Path] = None, meta: Optional[Meta] = None) -> None:
         self._profiles_dir = profiles_dir or config_dirs.PROFILES_DIR
         self._meta = meta or Meta()
 
     @property
-    def directory(self):
+    def directory(self) -> Path:
         return self._profiles_dir
 
     # Old server.py: profile_path
-    def profile_file_path(self, name):
-        return os.path.join(self._profiles_dir, f"{name}.json")
+    def profile_file_path(self, name: str) -> Path:
+        return self._profiles_dir / f"{name}.json"
 
     # Old server.py: local_db_path
-    def local_database_path(self, name):
-        return os.path.join(self._profiles_dir, f"{name}.db")
+    def local_database_path(self, name: str) -> Path:
+        return self._profiles_dir / f"{name}.db"
 
-    def metadata_file_path(self, name):
+    def metadata_file_path(self, name: str) -> Path:
         return self._meta.meta_path(name)
 
-    def update_metadata(self, name, **updates):
+    def update_metadata(self, name: str, **updates: object) -> dict[str, object]:
         """Merge fields into a profile's metadata file and persist the result."""
         metadata = self.read_metadata(name)
         metadata.update(updates)
         self.write_metadata(name, metadata)
         return metadata
 
-    def read_metadata(self, name):
+    def read_metadata(self, name: str) -> dict[str, object]:
         """Return a profile's metadata, or an empty mapping when it is absent."""
         return self._read_metadata(name)
 
-    def write_metadata(self, name, metadata):
+    def write_metadata(self, name: str, metadata: Mapping[str, object]) -> None:
         """Persist a complete profile metadata mapping."""
         with open(self.metadata_file_path(name), "w", encoding="utf-8") as meta_file:
             json.dump(metadata, meta_file)
 
-    def write_auth_headers(self, name, headers):
+    def write_auth_headers(self, name: str, headers: Mapping[str, str]) -> None:
         """Persist browser-auth headers for a Google profile."""
         with open(self.profile_file_path(name), "w", encoding="utf-8") as profile_file:
             json.dump(headers, profile_file, indent=2)
 
-    def remove_auth_headers(self, name):
+    def remove_auth_headers(self, name: str) -> None:
         """Remove a profile's browser-auth headers while retaining its metadata."""
         path = self.profile_file_path(name)
         if os.path.exists(path):
             os.remove(path)
 
-    def delete_files(self, name):
+    def delete_files(self, name: str) -> None:
         """Delete browser-auth, metadata, and local-database files for a profile."""
         for path in (self.profile_file_path(name), self.metadata_file_path(name), self.local_database_path(name)):
             if os.path.exists(path):
                 os.remove(path)
 
     # Old server.py: is_local_profile
-    def is_local(self, name):
+    def is_local(self, name: Optional[str]) -> bool:
         if not name:
             return False
         path = self._meta.meta_path(name)
@@ -75,12 +78,12 @@ class Profile:
             return False
         try:
             with open(path, encoding="utf-8") as profile_meta:
-                return json.load(profile_meta).get("type") == "local"
+                return cast(dict[str, object], json.load(profile_meta)).get("type") == "local"
         except (OSError, ValueError, TypeError):
             return False
 
     # Old server.py: get_local_db
-    def open_local_database(self, name):
+    def open_local_database(self, name: str) -> sqlite3.Connection:
         """Open or create the SQLite database for a local profile."""
         database = sqlite3.connect(self.local_database_path(name), check_same_thread=False)
         database.execute("PRAGMA journal_mode=WAL")
@@ -113,7 +116,7 @@ class Profile:
 
     # Old server.py: local_db
     @contextmanager
-    def local_database(self, name):
+    def local_database(self, name: str) -> Iterator[sqlite3.Connection]:
         """Yield a local-profile database and always close it afterwards."""
         database = self.open_local_database(name)
         try:
@@ -122,10 +125,10 @@ class Profile:
             database.close()
 
     # Old server.py: get_profiles
-    def list_profiles(self, active_profile=None):
+    def list_profiles(self, active_profile: Optional[str] = None) -> list[dict[str, object]]:
         """Return Google, local, and logged-out profiles from profile storage."""
-        profiles = []
-        seen = set()
+        profiles: list[dict[str, object]] = []
+        seen: set[str] = set()
         for path in self.directory.glob("*.json"):
             name = path.stem
             if name.endswith(".meta") or name in seen:
@@ -180,18 +183,18 @@ class Profile:
         return profiles
 
     # Old server.py: migrate_legacy
-    def migrate_legacy_browser_profile(self, active_profile=None):
+    def migrate_legacy_browser_profile(self, active_profile: Optional[str] = None) -> None:
         """Copy the legacy browser.json profile into profile storage once."""
         legacy_path = PROJECT_ROOT / "browser.json"
         if legacy_path.exists() and not self.list_profiles(active_profile):
-            shutil.copy(str(legacy_path), self.profile_file_path("default"))
+            shutil.copy(legacy_path, self.profile_file_path("default"))
             with open(self.metadata_file_path("default"), "w", encoding="utf-8") as meta_file:
                 json.dump({"displayName": "Standard"}, meta_file)
             print("[i] browser.json zu profiles/default.json migriert")
 
-    def _read_metadata(self, name):
+    def _read_metadata(self, name: str) -> dict[str, object]:
         try:
             with open(self.metadata_file_path(name), encoding="utf-8") as meta_file:
-                return json.load(meta_file)
+                return cast(dict[str, object], json.load(meta_file))
         except (OSError, ValueError, TypeError):
             return {}

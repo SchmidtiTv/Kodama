@@ -6,10 +6,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/like/<video_id>", methods=["POST"])
-def like_song(video_id):
+def like_song(video_id: str) -> RouteResponse:
     data = request.get_json(silent=True) or {}
     rating = data.get("rating", "LIKE")
     session = music_session()
@@ -17,7 +18,7 @@ def like_song(video_id):
     profile_name = session.state.current_profile
     try:
         if profile_repository.is_local(profile_name):
-            with profile_repository.local_database(profile_name) as database:
+            with profile_repository.local_database(profile_name or "default") as database:
                 if rating == "LIKE":
                     database.execute(
                         "INSERT OR REPLACE INTO liked_songs "

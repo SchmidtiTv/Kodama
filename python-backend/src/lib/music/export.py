@@ -3,24 +3,27 @@
 import logging
 import os
 import threading
+from collections.abc import Mapping
+from typing import Optional, cast
 
 from src.config import config_ytdlp
-from src.lib.integrations.ytdlp import is_hard_error
+from src.lib.integrations.ffmpeg import FFmpeg
+from src.lib.integrations.ytdlp import YTDLP, is_hard_error
 from src.lib.runtime.maintenance import DelayedCleanup
 
 
 class ExportService:
     """Downloads/converts a song to a user path and tags it with cover art."""
 
-    def __init__(self, ytdlp, ffmpeg, logger=None):
+    def __init__(self, ytdlp: YTDLP, ffmpeg: FFmpeg, logger: Optional[logging.Logger] = None) -> None:
         self._ytdlp = ytdlp
         self._ffmpeg = ffmpeg
         self._logger = logger or logging.getLogger(__name__)
         # Old server.py: _export_status — video_id -> "exporting" | "done" | "error"
-        self.status = {}
+        self.status: dict[str, str] = {}
 
     # Old server.py: _embed_metadata
-    def embed_metadata(self, file_path, meta, fmt="opus"):
+    def embed_metadata(self, file_path: str, meta: Mapping[str, object], fmt: str = "opus") -> None:
         """Embed artist, title, album, year, and cover art into audio file."""
         try:
             import requests as _req
@@ -30,6 +33,11 @@ class ExportService:
             album = meta.get("album", "")
             year = meta.get("year", "")
             thumbnail = meta.get("thumbnail", "")
+            title = title if isinstance(title, str) else ""
+            artists = artists if isinstance(artists, str) else ""
+            album = album if isinstance(album, str) else ""
+            year = year if isinstance(year, str | int) else ""
+            thumbnail = thumbnail if isinstance(thumbnail, str) else ""
 
             print(f"Metadata: embedding for {file_path} | title={title} | artists={artists} | album={album} | year={year} | thumbnail={thumbnail[:80] if thumbnail else 'EMPTY'}")
 
@@ -118,6 +126,8 @@ class ExportService:
                 if audio.tags is None:
                     audio.add_tags()
                 tags = audio.tags
+                if tags is None:
+                    return
                 if title:
                     tags.add(TIT2(encoding=3, text=[title]))
                 if artists:
@@ -155,7 +165,9 @@ class ExportService:
             print(f"Metadata embed error: {e}")
 
     # Old server.py: _export_audio_bg
-    def _export_bg(self, video_id, output_path, fmt="opus", meta=None):
+    def _export_bg(
+        self, video_id: str, output_path: str, fmt: str = "opus", meta: Optional[Mapping[str, object]] = None
+    ) -> None:
         """Download / convert song and save to user-chosen path."""
         try:
             import yt_dlp
@@ -170,7 +182,7 @@ class ExportService:
                 last_exp_err = None
                 for attempt_fmt, extra, no_auth in config_ytdlp.STREAM_ATTEMPTS:
                     try:
-                        ydl_opts = {
+                        ydl_opts: dict[str, object] = {
                             "format": attempt_fmt,
                             "quiet": True,
                             "no_warnings": True,
@@ -189,7 +201,7 @@ class ExportService:
                             }]
                             if ffmpeg_dir:
                                 ydl_opts["ffmpeg_location"] = ffmpeg_dir
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
                             ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
                         last_exp_err = None
                         break
@@ -230,7 +242,7 @@ class ExportService:
             last_mp3_err = None
             for attempt_fmt, extra, no_auth in config_ytdlp.STREAM_ATTEMPTS:
                 try:
-                    ydl_opts = {
+                    ydl_opts: dict[str, object] = {
                         "format": attempt_fmt,
                         "quiet": True,
                         "no_warnings": True,
@@ -247,7 +259,7 @@ class ExportService:
                         self._ytdlp.apply_active_session_auth(ydl_opts)
                     if ffmpeg_dir:
                         ydl_opts["ffmpeg_location"] = ffmpeg_dir
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
                         ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
                     last_mp3_err = None
                     break
@@ -276,6 +288,6 @@ class ExportService:
             print(f"Audio export error for {video_id}: {e}")
 
     # Old server.py: the thread-spawn portion of export_audio
-    def start(self, video_id, output_path, fmt, meta):
+    def start(self, video_id: str, output_path: str, fmt: str, meta: Mapping[str, object]) -> None:
         self.status[video_id] = "exporting"
         threading.Thread(target=self._export_bg, args=(video_id, output_path, fmt, meta), daemon=True).start()

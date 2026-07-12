@@ -7,10 +7,11 @@ from src.lib import YoutubeResponseMapper
 from . import blueprint
 from ._formatters import is_podcast_section, song_result
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/home")
-def get_home():
+def get_home() -> RouteResponse:
     try:
         home = music_session().get_active_client().get_home(limit=15)
         sections = []

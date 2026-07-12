@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/avatar", methods=["POST"])
-def set_profile_avatar():
+def set_profile_avatar() -> RouteResponse:
     data = request.json or {}
     name = data.get("name")
     if not name:

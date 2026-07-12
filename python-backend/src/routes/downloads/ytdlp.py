@@ -4,14 +4,15 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import ytdlp
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/ytdlp/check-update")
-def ytdlp_check_update():
+def ytdlp_check_update() -> RouteResponse:
     return jsonify(ytdlp().check_update())
 
 
 @blueprint.route("/ytdlp/update", methods=["POST"])
-def ytdlp_update():
+def ytdlp_update() -> RouteResponse:
     payload, status = ytdlp().update()
     return jsonify(payload), status

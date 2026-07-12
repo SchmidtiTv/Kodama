@@ -12,10 +12,13 @@ import os
 import tempfile
 import threading
 import time
+from collections.abc import Mapping
+from typing import Generator, cast
 
 import requests
 
 from src.config import BACKEND_PORT, config_ytdlp
+from src.lib.integrations.ytdlp import YTDLP
 
 
 class StreamService:
@@ -26,7 +29,7 @@ class StreamService:
     # symphonia has no Opus decoder, so WebM is intentionally excluded.
     PLAYABLE_EXTS = {".m4a", ".mp4", ".mp3", ".ogg", ".flac", ".wav"}
 
-    def __init__(self, ytdlp, logger=None):
+    def __init__(self, ytdlp: YTDLP, logger: logging.Logger | None = None) -> None:
         self._ytdlp = ytdlp
         self._logger = logger or logging.getLogger(__name__)
         self._browser_cookie_lock = threading.Lock()
@@ -35,14 +38,14 @@ class StreamService:
 
     # ── yt-dlp extraction helpers ────────────────────────────────────────────
     # Old server.py: _ydl_extract_url
-    def _extract_url(self, video_id, fmt, skip_download=True, extra_opts=None, skip_auth=False, use_ytm=True):
+    def _extract_url(self, video_id: str, fmt: str, skip_download: bool = True, extra_opts: Mapping[str, object] | None = None, skip_auth: bool = False, use_ytm: bool = True) -> dict[str, object]:
         """Run yt-dlp extraction with the given format string. Returns info dict.
 
         use_ytm=True  → music.youtube.com (authenticated / YouTube Music content)
         use_ytm=False → www.youtube.com   (anonymous fallback; wider format availability)
         """
         import yt_dlp
-        ydl_opts = {
+        ydl_opts: dict[str, object] = {
             "format": fmt,
             "quiet": True,
             "no_warnings": True,
@@ -53,20 +56,20 @@ class StreamService:
         if not skip_auth:
             self._ytdlp.apply_active_session_auth(ydl_opts)
         base = "music.youtube.com" if use_ytm else "www.youtube.com"
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(f"https://{base}/watch?v={video_id}", download=False)
+        with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
+            return cast(dict[str, object], ydl.extract_info(f"https://{base}/watch?v={video_id}", download=False))
 
     # Old server.py: _ydl_pick_any_audio
-    def _pick_any_audio(self, video_id, extra_opts=None, skip_auth=False, use_ytm=True):
+    def _pick_any_audio(self, video_id: str, extra_opts: Mapping[str, object] | None = None, skip_auth: bool = False, use_ytm: bool = True) -> str | None:
         """Last-resort: fetch all formats without a selector and pick manually."""
         import yt_dlp
-        ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+        ydl_opts: dict[str, object] = {"quiet": True, "no_warnings": True, "skip_download": True}
         if extra_opts:
             ydl_opts.update(extra_opts)
         if not skip_auth:
             self._ytdlp.apply_active_session_auth(ydl_opts)
         base = "music.youtube.com" if use_ytm else "www.youtube.com"
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
             info = ydl.extract_info(f"https://{base}/watch?v={video_id}", download=False)
         fmts = info.get("formats") or []
         self._logger.info(f"[stream] {video_id} available formats: {[f.get('format_id') for f in fmts]}")
@@ -79,18 +82,22 @@ class StreamService:
 
     # Old server.py: _stream_url_from_info
     @staticmethod
-    def _stream_url_from_info(info):
+    def _stream_url_from_info(info: dict[str, object]) -> str | None:
         url = info.get("url")
-        if not url and info.get("formats"):
-            audio_fmts = [f for f in info["formats"]
-                          if f.get("acodec") != "none" and f.get("vcodec") == "none"]
-            chosen = audio_fmts[-1] if audio_fmts else info["formats"][-1]
-            url = chosen.get("url")
-        return url
+        if isinstance(url, str):
+            return url
+        formats = info.get("formats")
+        if not isinstance(formats, list):
+            return None
+        entries = [entry for entry in formats if isinstance(entry, dict)]
+        audio_formats = [entry for entry in entries if entry.get("acodec") != "none" and entry.get("vcodec") == "none"]
+        chosen = audio_formats[-1] if audio_formats else entries[-1] if entries else None
+        candidate = chosen.get("url") if chosen else None
+        return candidate if isinstance(candidate, str) else None
 
     # Old server.py: _is_hard_error
     @staticmethod
-    def _is_hard_error(err_str):
+    def _is_hard_error(err_str: str) -> bool:
         # Only Music Premium is a guaranteed dead end regardless of client.
         # "Video unavailable" can still succeed with web_music/android_music
         # for YouTube Music exclusive content.
@@ -98,7 +105,7 @@ class StreamService:
 
     # Old server.py: _is_unavailable
     @staticmethod
-    def _is_unavailable(err_str):
+    def _is_unavailable(err_str: str) -> bool:
         return any(k in err_str for k in ("Video unavailable", "This video is not available"))
 
     # ── Cached browser-cookie file ───────────────────────────────────────────
@@ -113,7 +120,7 @@ class StreamService:
     # PO tokens from live browser storage. In practice this is fine here; log in
     # via the app for a first-class authenticated session if a track needs it.
     # Old server.py: _get_browser_cookiefile
-    def _browser_cookiefile(self, force=False):
+    def _browser_cookiefile(self, force: bool = False) -> str | None:
         """Return a path to a cached Netscape cookie file extracted from the
         user's browser, or None if none could be produced. Extraction (which may
         trigger a keychain prompt) runs at most once per TTL, and never more than
@@ -158,7 +165,7 @@ class StreamService:
 
     # ── /stream ──────────────────────────────────────────────────────────────
     # Old server.py: stream_url
-    def resolve_stream(self, video_id):
+    def resolve_stream(self, video_id: str) -> tuple[dict[str, str | bool], int]:
         """Resolve a playable audio URL. Returns ``(payload, status_code)``."""
         last_err = None
         _t_total = time.time()
@@ -242,7 +249,7 @@ class StreamService:
 
     # ── /stream-prepare ──────────────────────────────────────────────────────
     # Old server.py: stream_prepare
-    def prepare_download(self, video_id):
+    def prepare_download(self, video_id: str) -> tuple[dict[str, str | bool], int]:
         """Download audio via yt-dlp to a temp file and return the local path.
         Rust reads from disk — no HTTP proxy overhead, no truncation. Returns
         ``(payload, status_code)``."""
@@ -268,7 +275,7 @@ class StreamService:
         last_err = None
         for fmt, extra, no_auth in config_ytdlp.STREAM_ATTEMPTS:
             try:
-                ydl_opts = {
+                ydl_opts: dict[str, object] = {
                     "format": fmt,
                     "outtmpl": outtmpl,
                     "quiet": True,
@@ -278,7 +285,7 @@ class StreamService:
                     ydl_opts.update(extra)
                 if not no_auth:
                     self._ytdlp.apply_active_session_auth(ydl_opts)
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
                     info = ydl.extract_info(f"https://music.youtube.com/watch?v={video_id}", download=True)
                     path = ydl.prepare_filename(info)
                 self._logger.info(f"[stream-prepare] downloaded {video_id}: {os.path.getsize(path)} bytes")
@@ -302,7 +309,7 @@ class StreamService:
     # video (it's expensive to extract and the Rust source makes several range
     # requests per song).
     # Old server.py: _resolve_audio_url
-    def resolve_audio_url(self, video_id):
+    def resolve_audio_url(self, video_id: str) -> str | None:
         now = time.time()
         ent = self._audio_url_cache.get(video_id)
         if ent and ent[1] > now:
@@ -319,7 +326,7 @@ class StreamService:
         return url
 
     # Old server.py: audio_stream (resolution portion)
-    def open_audio_stream(self, video_id, range_header=None):
+    def open_audio_stream(self, video_id: str, range_header: str | None = None) -> tuple[requests.Response | None, tuple[dict[str, str | bool], int] | None]:
         """Resolve and open the upstream googlevideo response.
 
         Returns ``(upstream, error)`` where ``error`` is ``(payload, status)``
@@ -351,7 +358,7 @@ class StreamService:
         return upstream, None
 
     @staticmethod
-    def build_proxy_headers(upstream):
+    def build_proxy_headers(upstream: requests.Response) -> dict[str, str]:
         resp_headers = {"Accept-Ranges": "bytes"}
         for h in ("Content-Type", "Content-Length", "Content-Range"):
             v = upstream.headers.get(h)
@@ -360,13 +367,13 @@ class StreamService:
         return resp_headers
 
     @staticmethod
-    def iter_upstream(upstream):
+    def iter_upstream(upstream: requests.Response) -> Generator[bytes, None, None]:
         for chunk in upstream.iter_content(chunk_size=65536):
             if chunk:
                 yield chunk
 
     # Old server.py: audio_stream_warm
-    def warm(self, video_id):
+    def warm(self, video_id: str) -> bool:
         """Resolve + cache the stream URL ahead of time (no byte transfer) so the
         next play of this song skips the yt-dlp extraction wait. Used to prewarm
         upcoming queue tracks."""

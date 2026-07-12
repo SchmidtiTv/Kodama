@@ -4,10 +4,11 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import lastfm_client, read_active_metadata
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/status")
-def lastfm_status():
+def lastfm_status() -> RouteResponse:
     metadata = read_active_metadata()
     return jsonify(
         {

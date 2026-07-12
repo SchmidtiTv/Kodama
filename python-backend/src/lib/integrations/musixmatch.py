@@ -11,11 +11,11 @@ from src.config import config_musixmatch
 class MusixMatch:
     """Look up synchronized lyrics through Musixmatch's desktop API."""
 
-    def __init__(self):
-        self._token = None
+    def __init__(self) -> None:
+        self._token: str | None = None
         self._token_expires = 0.0
 
-    def _get_token(self):
+    def _get_token(self) -> str | None:
         """Holt oder erneuert den Musixmatch User-Token (10-Minuten-Cache)."""
         if self._token and time.time() < self._token_expires:
             return self._token
@@ -34,7 +34,7 @@ class MusixMatch:
             print(f"[lyrics] Musixmatch token error: {error}", flush=True)
             return None
 
-    def lookup(self, title, artist, duration=None):
+    def lookup(self, title: str, artist: str, duration: str | None = None) -> dict[str, object] | None:
         """Sucht einen Track auf Musixmatch und gibt RichSync (Word) oder Subtitle (LRC) zurück."""
         token = self._get_token()
         if not token:
@@ -54,6 +54,8 @@ class MusixMatch:
         if not track_list:
             return None
         track_id = track_list[0]["track"]["track_id"]
+        if not isinstance(track_id, str | int):
+            return None
         bp = {**base, "track_id": track_id}
 
         # RichSync (Word-Sync)

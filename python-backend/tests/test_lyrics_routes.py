@@ -5,7 +5,7 @@ from route_test_support import RouteTestCase
 
 
 class LyricsRouteTests(RouteTestCase):
-    def test_lyrics_and_unison_routes(self):
+    def test_lyrics_and_unison_routes(self) -> None:
         lyrics = self.client.get("/lyrics?title=Song&artist=Artist&source=auto")
         self.assertEqual(lyrics.json["title"], "Song")
         self.assertEqual(self.client.post("/romanize-lyrics", json={"lines": ["kana"]}).json["romanizations"], ["ro:kana"])

@@ -4,11 +4,12 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("", methods=["GET"])
 @blueprint.route("/", methods=["GET"])
-def list_profiles():
+def list_profiles() -> RouteResponse:
     session = music_session()
     return jsonify(
         {

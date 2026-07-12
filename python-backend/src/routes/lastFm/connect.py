@@ -6,10 +6,11 @@ from src.config import config_lastfm
 
 from . import blueprint
 from ._services import lastfm_client
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/connect")
-def lastfm_connect():
+def lastfm_connect() -> RouteResponse:
     client = lastfm_client()
     if not client.lastfm_enabled():
         return jsonify({"error": "lastfm_not_configured"}), 400

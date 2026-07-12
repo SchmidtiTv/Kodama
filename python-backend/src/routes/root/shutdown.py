@@ -5,11 +5,12 @@ import threading
 import time
 
 from . import blueprint
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/shutdown", methods=["GET", "POST"])
-def shutdown():
-    def stop_process():
+def shutdown() -> RouteResponse:
+    def stop_process() -> None:
         time.sleep(0.2)
         os._exit(0)
 

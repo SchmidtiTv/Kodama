@@ -5,7 +5,7 @@ from src.lib.integrations.musixmatch import MusixMatch
 
 
 class MusixMatchTests(unittest.TestCase):
-    def test_lookup_uses_instance_token_state_and_returns_richsync(self):
+    def test_lookup_uses_instance_token_state_and_returns_richsync(self) -> None:
         responses = [
             {"message": {"body": {"user_token": "token"}}},
             {"message": {"body": {"track_list": [{"track": {"track_id": 42}}]}}},
@@ -13,10 +13,10 @@ class MusixMatchTests(unittest.TestCase):
         ]
 
         class Response:
-            def __init__(self, payload):
+            def __init__(self, payload: object) -> None:
                 self._payload = payload
 
-            def json(self):
+            def json(self) -> object:
                 return self._payload
 
         with patch(

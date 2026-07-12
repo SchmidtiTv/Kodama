@@ -8,44 +8,54 @@ operations are additionally restricted to localhost by the routes.
 
 import secrets
 import time
+from collections.abc import Mapping
+from typing import Optional, TypedDict, cast
 
 from src.config import BACKEND_PORT, PROJECT_ROOT
+
+
+class Device(TypedDict):
+    name: str
+    status: str
+    last_seen: float
 
 
 class RemoteControl:
     """Owns remote-control enablement, the session token, trusted devices, the
     now-playing state mirror, and the pending-command queue."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Old server.py: _remote_enabled / _remote_token
-        self.enabled = False
-        self.token = None
+        self.enabled: bool = False
+        self.token: Optional[str] = None
         # Old server.py: _remote_state
-        self.state = {
+        self.state: dict[str, object] = {
             "title": "", "artists": "", "thumbnail": "",
             "isPlaying": False, "position": 0, "duration": 0, "hasTrack": False,
             "shuffle": False, "repeat": "none",
         }
-        self.cmds = []       # pending command strings, drained by the app frontend
-        self.devices = {}    # deviceId -> {name, status: pending|approved, last_seen}
-        self._ips_cache = {"ips": None, "ts": 0.0}
-        self._html_cache = None
+        self.cmds: list[str] = []
+        self.devices: dict[str, Device] = {}
+        self._ips_cache: dict[str, object] = {"ips": None, "ts": 0.0}
+        self._html_cache: Optional[str] = None
 
-    def page_html(self):
+    def page_html(self) -> str:
         if self._html_cache is None:
             with open(PROJECT_ROOT / "static" / "remote.html", "r", encoding="utf-8") as f:
                 self._html_cache = f.read()
         return self._html_cache
 
     # Old server.py: _remote_local_ips
-    def local_ips(self):
+    def local_ips(self) -> list[str]:
         # Cached: the underlying getaddrinfo(hostname) can be slow/blocking on Windows and was
         # previously called on every _status poll (~2.5s). The LAN IP rarely changes.
         now = time.time()
-        if self._ips_cache["ips"] is not None and now - self._ips_cache["ts"] < 30:
-            return self._ips_cache["ips"]
+        cached_ips = cast(list[str] | None, self._ips_cache["ips"])
+        cached_at = cast(float, self._ips_cache["ts"])
+        if cached_ips is not None and now - cached_at < 30:
+            return cached_ips
         import socket
-        ips = []
+        ips: list[str] = []
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))            # no packets sent; just picks the primary iface
@@ -54,7 +64,7 @@ class RemoteControl:
             pass
         try:
             for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-                ip = info[4][0]
+                ip = str(info[4][0])
                 if ip not in ips and not ip.startswith("127."):
                     ips.append(ip)
         except Exception:
@@ -64,19 +74,19 @@ class RemoteControl:
         return ips
 
     # Old server.py: _remote_token_ok
-    def token_ok(self, token):
+    def token_ok(self, token: object) -> bool:
         return bool(self.enabled and self.token and token == self.token)
 
     # ── Desktop-only control operations ──
     # Old server.py: remote_enable
-    def enable(self, data):
+    def enable(self, data: Mapping[str, object]) -> dict[str, object]:
         enabled = bool(data.get("enabled"))
         self.enabled = enabled
         if enabled:
             # The desktop persists the token + trusted devices across restarts (backend state is
             # in-memory) and re-supplies them here, so old QR codes and remembered phones keep
             # working after a restart. A supplied token is reused; otherwise a fresh one is minted.
-            supplied = (data.get("token") or "").strip()
+            supplied = str(data.get("token") or "").strip()
             if supplied:
                 self.token = supplied[:64]
             elif not self.token:
@@ -84,9 +94,12 @@ class RemoteControl:
             trusted = data.get("trusted")
             if isinstance(trusted, list):
                 for tdev in trusted:
-                    did = (tdev or {}).get("id")
+                    if not isinstance(tdev, dict):
+                        continue
+                    device = cast(dict[str, object], tdev)
+                    did = str(device.get("id") or "")
                     if did and did not in self.devices:
-                        self.devices[did] = {"name": (tdev.get("name") or "Device")[:48],
+                        self.devices[did] = {"name": str(device.get("name") or "Device")[:48],
                                              "status": "approved", "last_seen": 0}
         else:
             self.token = None
@@ -96,7 +109,7 @@ class RemoteControl:
                 "port": BACKEND_PORT, "ips": self.local_ips()}
 
     # Old server.py: remote_status
-    def status_payload(self):
+    def status_payload(self) -> dict[str, object]:
         now = time.time()
         devices = [{"id": did, "name": d["name"], "status": d["status"],
                     "online": (now - d.get("last_seen", 0)) < 12}
@@ -105,8 +118,8 @@ class RemoteControl:
                 "port": BACKEND_PORT, "ips": self.local_ips(), "devices": devices}
 
     # Old server.py: remote_device
-    def device_action(self, data):
-        did, action = data.get("id"), data.get("action")
+    def device_action(self, data: Mapping[str, object]) -> tuple[dict[str, object], int]:
+        did, action = str(data.get("id") or ""), str(data.get("action") or "")
         d = self.devices.get(did)
         if not d:
             return {"error": "unknown"}, 404
@@ -117,31 +130,31 @@ class RemoteControl:
         return {"ok": True}, 200
 
     # Old server.py: remote_push
-    def push_state(self, data):
+    def push_state(self, data: Mapping[str, object]) -> None:
         self.state.update({k: v for k, v in (data or {}).items() if k in self.state})
 
     # Old server.py: remote_poll
-    def poll(self):
-        cmds, self.cmds = self.cmds, []
+    def poll(self) -> list[str]:
+        cmds, self.cmds = self.cmds, list[str]()
         return cmds
 
     # Old server.py: remote_sync
-    def sync(self, data):
+    def sync(self, data: Mapping[str, object]) -> list[str]:
         """Combined push + poll — the app frontend sends now-playing state and
         receives any pending commands in one request."""
         st = (data or {}).get("state")
         if isinstance(st, dict):
             self.state.update({k: v for k, v in st.items() if k in self.state})
-        cmds, self.cmds = self.cmds, []
+        cmds, self.cmds = self.cmds, list[str]()
         return cmds
 
     # ── Phone-facing operations (token + device-approval gated) ──
     # Old server.py: remote_hello
-    def hello(self, data):
+    def hello(self, data: Mapping[str, object]) -> tuple[dict[str, object], int]:
         if not self.token_ok(data.get("token")):
             return {"error": "invalid_token"}, 403
-        did = (data.get("deviceId") or "").strip()[:64]
-        name = (data.get("name") or "Device").strip()[:48] or "Device"
+        did = str(data.get("deviceId") or "").strip()[:64]
+        name = str(data.get("name") or "Device").strip()[:48] or "Device"
         if not did:
             return {"error": "no_device"}, 400
         d = self.devices.get(did)
@@ -152,7 +165,7 @@ class RemoteControl:
         return {"status": self.devices[did]["status"]}, 200
 
     # Old server.py: remote_state
-    def get_state(self, token, device_id):
+    def get_state(self, token: object, device_id: Optional[str]) -> tuple[dict[str, object], int]:
         if not self.token_ok(token):
             return {"error": "invalid_token"}, 403
         d = self.devices.get(device_id or "")
@@ -164,14 +177,14 @@ class RemoteControl:
         return {"status": "approved", "state": self.state}, 200
 
     # Old server.py: remote_cmd
-    def command(self, data):
+    def command(self, data: Mapping[str, object]) -> tuple[dict[str, object], int]:
         if not self.token_ok(data.get("token")):
             return {"error": "invalid_token"}, 403
-        d = self.devices.get(data.get("deviceId") or "")
+        d = self.devices.get(str(data.get("deviceId") or ""))
         if not d or d["status"] != "approved":
             return {"error": "not_allowed"}, 403
         d["last_seen"] = time.time()
-        action = data.get("action")
+        action = str(data.get("action") or "")
         if action in ("playpause", "next", "prev", "shuffle", "repeat"):
             self.cmds.append(action)
             return {"ok": True}, 200

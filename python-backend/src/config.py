@@ -76,7 +76,7 @@ class Config:
 class ConfigDirs:
     """Resolved data directories. They are created once during startup."""
 
-    def __init__(self, base_dir: Optional[Path] = None):
+    def __init__(self, base_dir: Optional[Path] = None) -> None:
         self.BASE_DIR = base_dir or _resolve_base_dir()
         self.PROFILES_DIR = self.BASE_DIR / "profiles"
         self.IMG_CACHE_DIR = self.BASE_DIR / "imgcache"
@@ -105,7 +105,7 @@ class ConfigLastFM:
 
     API_ROOT = "https://ws.audioscrobbler.com/2.0/"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.LASTFM_API_KEY, self.LASTFM_API_SECRET = _load_lastfm_credentials()
 
 
@@ -121,7 +121,7 @@ class ConfigComposer:
     ORIGIN = "https://composer.boidu.dev"
     DEFAULT_AUTOCACHE = True
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path) -> None:
         self.SETTINGS_FILE = base_dir / "composer_settings.json"
 
 
@@ -149,7 +149,7 @@ class ConfigYTDLP:
     BROWSER_COOKIE_TTL = 6 * 3600
     BROWSER_COOKIE_MIN_GAP = 600
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path) -> None:
         self.BROWSER_COOKIE_FILE = base_dir / "browser_cookies.txt"
         self.STREAM_ATTEMPTS = [
             (self.AUDIO_FORMAT, self.WEB_MUSIC_OPTIONS, False),

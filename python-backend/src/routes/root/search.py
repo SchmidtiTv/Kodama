@@ -1,22 +1,27 @@
 """Search YouTube Music and normalize the supported result categories."""
 
 from flask import jsonify, request
+from typing import Literal, cast
 
 from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._formatters import song_result
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/search")
-def search():
+def search() -> RouteResponse:
     query = request.args.get("q", "")
     filter_type = request.args.get("filter", "songs")
+    allowed_filters = {"albums", "artists", "community_playlists", "episodes", "featured_playlists", "playlists", "podcasts", "profiles", "songs", "videos"}
+    if filter_type not in allowed_filters:
+        filter_type = "songs"
     if not query:
         return jsonify({"results": []})
     try:
-        results = music_session().get_active_client().search(query, filter=filter_type, limit=20)
+        results = music_session().get_active_client().search(query, filter=cast(Literal["albums", "artists", "community_playlists", "episodes", "featured_playlists", "playlists", "podcasts", "profiles", "songs", "videos"], filter_type), limit=20)
         items = []
         for result in results:
             thumbnail = YoutubeResponseMapper.select_thumbnail(result.get("thumbnails", []))

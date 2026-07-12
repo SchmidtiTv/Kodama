@@ -8,10 +8,11 @@ from flask import jsonify
 
 from . import blueprint
 from ._services import music_session, song_credits_cache
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/song/meta/<video_id>")
-def song_meta(video_id):
+def song_meta(video_id: str) -> RouteResponse:
     """Minimal track metadata for a videoId — used to turn a shared kodama://song/<id>
     deep link into a playable track object on the frontend."""
     try:
@@ -33,7 +34,7 @@ def song_meta(video_id):
 
 
 @blueprint.route("/song/info/<video_id>")
-def song_info(video_id):
+def song_info(video_id: str) -> RouteResponse:
     """Return albumBrowseId and artistBrowseId for a given video ID."""
     try:
         client = music_session().get_active_client()
@@ -65,7 +66,7 @@ def song_info(video_id):
 
 
 @blueprint.route("/song/stats/<video_id>")
-def song_stats(video_id):
+def song_stats(video_id: str) -> RouteResponse:
     try:
         r = requests.get(
             f"https://returnyoutubedislikeapi.com/votes?videoId={video_id}",
@@ -75,10 +76,9 @@ def song_stats(video_id):
         if r.status_code == 200:
             d = r.json()
 
-            def fmt_num(n):
+            def fmt_num(n: int | None) -> str | None:
                 if n is None:
                     return None
-                n = int(n)
                 if n >= 1_000_000:
                     return f"{n/1_000_000:.1f}M"
                 if n >= 1_000:
@@ -98,7 +98,7 @@ def song_stats(video_id):
 
 
 @blueprint.route("/song/credits/<video_id>")
-def get_song_credits(video_id):
+def get_song_credits(video_id: str) -> RouteResponse:
     # Serve from cache if available
     cached = song_credits_cache().get(video_id)
     if cached is not None:

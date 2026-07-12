@@ -6,10 +6,11 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/podcast/<playlist_id>")
-def get_podcast(playlist_id):
+def get_podcast(playlist_id: str) -> RouteResponse:
     """Fetch podcast metadata + episodes. Episodes have videoId and are playable."""
     try:
         data = music_session().get_active_client().get_podcast(playlist_id, limit=50)

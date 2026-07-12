@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import cache_settings
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/cache/settings", methods=["GET", "POST"])
-def cache_settings_route():
+def cache_settings_route() -> RouteResponse:
     settings = cache_settings()
     if request.method == "POST":
         settings.update(request.get_json(silent=True) or {})

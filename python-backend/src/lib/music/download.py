@@ -4,9 +4,11 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Mapping
+from typing import Optional, cast
 
 from src.config import config_dirs, config_ytdlp
-from src.lib.integrations.ytdlp import is_hard_error
+from src.lib.integrations.ytdlp import YTDLP, is_hard_error
 from src.lib.runtime.maintenance import DelayedCleanup
 
 
@@ -16,17 +18,17 @@ class DownloadService:
     # Old server.py: mime map in serve_cached_song
     MIME_BY_EXT = {".opus": "audio/opus", ".m4a": "audio/mp4", ".webm": "audio/webm", ".mp3": "audio/mpeg"}
 
-    def __init__(self, ytdlp, logger=None):
+    def __init__(self, ytdlp: YTDLP, logger: Optional[logging.Logger] = None) -> None:
         self._ytdlp = ytdlp
         self._logger = logger or logging.getLogger(__name__)
         # Old server.py: _download_status — video_id -> "downloading" | "done" | "error"
-        self.status = {}
+        self.status: dict[str, str] = {}
         # Old server.py: _download_queue — video_id -> {title, artists, thumbnail, status, progress}
-        self.queue = {}
+        self.queue: dict[str, dict[str, object]] = {}
 
     # Old server.py: _song_audio_path
     @staticmethod
-    def song_audio_path(video_id):
+    def song_audio_path(video_id: str) -> Optional[str]:
         """Return the path to the cached audio file (.opus or .m4a), or None."""
         safe = video_id.replace("/", "_").replace("\\", "_")
         for ext in (".opus", ".m4a", ".webm", ".mp3"):
@@ -37,33 +39,35 @@ class DownloadService:
 
     # Old server.py: _song_meta_path
     @staticmethod
-    def song_meta_path(video_id):
+    def song_meta_path(video_id: str) -> str:
         safe = video_id.replace("/", "_").replace("\\", "_")
         return os.path.join(config_dirs.SONG_CACHE_DIR, safe + ".json")
 
     @classmethod
-    def audio_mime_type(cls, path):
+    def audio_mime_type(cls, path: str) -> str:
         return cls.MIME_BY_EXT.get(os.path.splitext(path)[1].lower(), "application/octet-stream")
 
     # Old server.py: _download_song_bg
-    def _download_bg(self, video_id, meta):
+    def _download_bg(self, video_id: str, meta: Mapping[str, object]) -> None:
         """Background download via yt-dlp."""
         try:
             import yt_dlp
             safe = video_id.replace("/", "_").replace("\\", "_")
             output_tpl = os.path.join(config_dirs.SONG_CACHE_DIR, safe + ".%(ext)s")
 
-            def progress_hook(d):
+            def progress_hook(d: Mapping[str, object]) -> None:
                 if d.get("status") == "downloading":
-                    total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
-                    downloaded = d.get("downloaded_bytes", 0)
+                    total_value = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+                    downloaded_value = d.get("downloaded_bytes", 0)
+                    total = total_value if isinstance(total_value, int | float) else 0
+                    downloaded = downloaded_value if isinstance(downloaded_value, int | float) else 0
                     if total > 0 and video_id in self.queue:
                         self.queue[video_id]["progress"] = round(downloaded / total, 3)
 
             last_dl_err = None
             for fmt, extra, no_auth in config_ytdlp.STREAM_ATTEMPTS:
                 try:
-                    ydl_opts = {
+                    ydl_opts: dict[str, object] = {
                         "format": fmt,
                         "quiet": True,
                         "no_warnings": True,
@@ -74,7 +78,7 @@ class DownloadService:
                         ydl_opts.update(extra)
                     if not no_auth:
                         self._ytdlp.apply_active_session_auth(ydl_opts)
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    with yt_dlp.YoutubeDL(cast("yt_dlp._Params", ydl_opts)) as ydl:
                         ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
                     last_dl_err = None
                     break
@@ -105,7 +109,7 @@ class DownloadService:
             self._logger.error(f"[download] {video_id}: {type(e).__name__}: {e}")
 
     # Old server.py: the state-setup portion of download_song
-    def start(self, video_id, meta):
+    def start(self, video_id: str, meta: Mapping[str, object]) -> None:
         """Mark a song as downloading and spawn the background worker."""
         self.status[video_id] = "downloading"
         self.queue[video_id] = {
@@ -119,7 +123,7 @@ class DownloadService:
         threading.Thread(target=self._download_bg, args=(video_id, meta), daemon=True).start()
 
     # Old server.py: downloads_queue
-    def queue_snapshot(self):
+    def queue_snapshot(self) -> list[dict[str, object]]:
         """Return active + recently finished entries and prune the finished ones."""
         to_remove = [vid for vid, d in self.queue.items() if d["status"] in ("done", "error")]
         result = list(self.queue.values())
@@ -128,14 +132,14 @@ class DownloadService:
         return result
 
     # Old server.py: list_cached_songs
-    def list_cached(self):
-        songs = []
+    def list_cached(self) -> list[dict[str, object]]:
+        songs: list[dict[str, object]] = []
         try:
             for name in os.listdir(config_dirs.SONG_CACHE_DIR):
                 if name.endswith(".json"):
                     try:
                         with open(os.path.join(config_dirs.SONG_CACHE_DIR, name), "r", encoding="utf-8") as fh:
-                            songs.append(json.load(fh))
+                            songs.append(cast(dict[str, object], json.load(fh)))
                     except Exception:
                         pass
         except Exception:
@@ -143,7 +147,7 @@ class DownloadService:
         return songs
 
     # Old server.py: the body of delete_cached_song
-    def delete_cached(self, video_id):
+    def delete_cached(self, video_id: str) -> None:
         audio = self.song_audio_path(video_id)
         if audio:
             try:

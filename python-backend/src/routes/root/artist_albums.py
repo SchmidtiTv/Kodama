@@ -6,10 +6,11 @@ from src.lib import YoutubeResponseMapper
 
 from . import blueprint
 from ._services import music_session
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/artist_albums")
-def get_artist_albums():
+def get_artist_albums() -> RouteResponse:
     channel_id = request.args.get("channelId", "")
     params = request.args.get("params", "")
     if not channel_id or not params:

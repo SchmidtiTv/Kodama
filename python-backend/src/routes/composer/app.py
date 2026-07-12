@@ -5,11 +5,12 @@ from werkzeug.exceptions import NotFound
 
 from . import blueprint
 from ._services import composer_bridge
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/composer-app/", defaults={"subpath": ""})
 @blueprint.route("/composer-app/<path:subpath>")
-def composer_app(subpath):
+def composer_app(subpath: str) -> RouteResponse:
     root = composer_bridge().composer_dist_directory()
     if not root.is_dir():
         return jsonify({"error": "composer_not_built"}), 404

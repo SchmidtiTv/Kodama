@@ -7,10 +7,11 @@ from src.lib import ComposerBridgeError
 from . import blueprint
 from ._responses import bridge_headers, bridge_headers_with_metadata
 from ._services import composer_bridge
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/composer-bridge/audio/<video_id>")
-def composer_bridge_audio(video_id):
+def composer_bridge_audio(video_id: str) -> RouteResponse:
     bridge = composer_bridge()
     metadata = bridge.track_metadata(video_id)
     cached_path = bridge.cached_audio_path(video_id)

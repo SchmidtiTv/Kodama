@@ -7,10 +7,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/local-create", methods=["POST"])
-def local_create():
+def local_create() -> RouteResponse:
     display_name = ((request.json or {}).get("displayName") or "").strip()
     if not display_name:
         return jsonify({"error": "Name fehlt"}), 400

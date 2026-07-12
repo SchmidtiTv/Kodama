@@ -4,10 +4,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/rename", methods=["POST"])
-def rename_profile():
+def rename_profile() -> RouteResponse:
     data = request.json or {}
     name = data.get("name")
     display_name = data.get("displayName")

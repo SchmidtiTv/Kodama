@@ -5,7 +5,7 @@ from route_test_support import FakeUpstream, RouteTestCase
 
 
 class MiscRouteTests(RouteTestCase):
-    def test_imgproxy_news_feedback_clientlog_and_shutdown(self):
+    def test_imgproxy_news_feedback_clientlog_and_shutdown(self) -> None:
         image_response = FakeUpstream(status_code=200, content=b"img", content_type="image/jpeg")
         with patch("src.routes.root.imgproxy.config_dirs", self.cache_dirs), patch(
             "src.routes.root.imgproxy.requests.get", return_value=image_response

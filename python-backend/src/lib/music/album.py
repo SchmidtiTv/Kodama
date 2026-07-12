@@ -3,18 +3,19 @@
 import json
 import os
 import time
+from typing import cast
 
 from src.config import Config, config_dirs
 
 
 class Album:
     # Old server.py: _album_disk_path
-    def album_disk_path(self, browse_id):
+    def album_disk_path(self, browse_id: str) -> str:
         safe = browse_id.replace("/", "_").replace("\\", "_")
         return os.path.join(config_dirs.ALBUM_CACHE_DIR, f"{safe}.json")
 
     # Old server.py: _load_album_disk
-    def load_album_disk(self, browse_id):
+    def load_album_disk(self, browse_id: str) -> dict[str, object] | None:
         path = self.album_disk_path(browse_id)
         if not os.path.exists(path):
             return None
@@ -22,9 +23,9 @@ class Album:
             return None
         try:
             with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+                data = cast(dict[str, object], json.load(f))
             # Invalidate old caches that don't have isExplicit yet
-            tracks = data.get("tracks", [])
+            tracks = cast(list[dict[str, object]], data.get("tracks", []))
             if tracks and "isExplicit" not in tracks[0]:
                 return None
             return data
@@ -32,7 +33,7 @@ class Album:
             return None
 
     # Old server.py: _save_album_disk
-    def save_album_disk(self, browse_id, data):
+    def save_album_disk(self, browse_id: str, data: dict[str, object]) -> None:
         path = self.album_disk_path(browse_id)
         try:
             with open(path, "w", encoding="utf-8") as f:

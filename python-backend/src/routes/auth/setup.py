@@ -1,6 +1,7 @@
 """Create a profile from copied browser request headers."""
 
 import threading
+from typing import cast
 
 from flask import jsonify, request
 
@@ -8,10 +9,11 @@ from src.lib import ProfileAuthHeaders
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/setup", methods=["POST"])
-def setup_auth():
+def setup_auth() -> RouteResponse:
     data = request.json or {}
     raw_headers = data.get("headers_raw", "").strip()
     profile_name = data.get("profile_name", "")
@@ -20,9 +22,9 @@ def setup_auth():
         return jsonify({"error": "headers_raw und profile_name erforderlich"}), 400
 
     if raw_headers.startswith("curl "):
-        headers = ProfileAuthHeaders.parse_curl_command(raw_headers)
+        headers = cast(dict[str, str], ProfileAuthHeaders.parse_curl_command(raw_headers))
     else:
-        headers = ProfileAuthHeaders.parse_raw_headers(raw_headers)
+        headers = cast(dict[str, str], ProfileAuthHeaders.parse_raw_headers(raw_headers))
     if "cookie" not in headers:
         return jsonify(
             {

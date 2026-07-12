@@ -6,10 +6,11 @@ from flask import jsonify, request
 
 from . import blueprint
 from ._services import music_session, profiles
+from src.type_defs import RouteResponse
 
 
 @blueprint.route("/cookie-login", methods=["POST"])
-def cookie_login():
+def cookie_login() -> RouteResponse:
     data = request.json or {}
     cookie_string = data.get("cookie", "")
     user_agent = data.get("user_agent", "Mozilla/5.0")

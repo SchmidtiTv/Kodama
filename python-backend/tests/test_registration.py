@@ -2,7 +2,7 @@ from route_test_support import RouteTestCase
 
 
 class RouteRegistrationTests(RouteTestCase):
-    def test_all_migrated_routes_are_registered(self):
+    def test_all_migrated_routes_are_registered(self) -> None:
         rules = {str(rule) for rule in self.app.url_map.iter_rules()}
         expected = {
             "/auth/begin-add",

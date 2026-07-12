@@ -5,7 +5,7 @@ from src.lib.runtime.launcher import run_server
 
 
 class RuntimeLauncherTests(TestCase):
-    def test_run_server_preserves_the_packaged_backend_runtime_contract(self):
+    def test_run_server_preserves_the_packaged_backend_runtime_contract(self) -> None:
         app = Mock()
         with patch("src.lib.runtime.launcher._port_is_free", return_value=True), patch(
             "src.lib.runtime.launcher._start_self_test"

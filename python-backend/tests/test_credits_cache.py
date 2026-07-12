@@ -4,7 +4,7 @@ from src.lib.music.credits import SongCreditsCache
 
 
 class SongCreditsCacheTests(unittest.TestCase):
-    def test_cache_is_bounded_and_keeps_recently_used_entries(self):
+    def test_cache_is_bounded_and_keeps_recently_used_entries(self) -> None:
         cache = SongCreditsCache(max_entries=2)
         cache.put("first", {"description": "first"})
         cache.put("second", {"description": "second"})

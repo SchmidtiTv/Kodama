@@ -4,7 +4,7 @@ from route_test_support import RouteTestCase
 
 
 class AuthRouteTests(RouteTestCase):
-    def test_auth_routes_cover_success_and_validation_paths(self):
+    def test_auth_routes_cover_success_and_validation_paths(self) -> None:
         self.assertEqual(self.client.post("/auth/begin-add").json, {"ok": True})
         self.assertEqual(self.client.get("/auth/validate").json["reason"], "adding_account")
         self.assertEqual(self.client.post("/auth/end-add").json, {"ok": True})
@@ -44,7 +44,7 @@ class AuthRouteTests(RouteTestCase):
 
 
 class ProfileRouteTests(RouteTestCase):
-    def test_profile_routes(self):
+    def test_profile_routes(self) -> None:
         listed = self.client.get("/profiles").json
         self.assertEqual(listed["current"], "default")
         self.assertGreaterEqual(len(listed["profiles"]), 1)
