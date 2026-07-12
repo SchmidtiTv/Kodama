@@ -219,6 +219,15 @@ const APP_VERSION = __APP_VERSION__;
 // Published news feed (edit + commit updates/news.json in the public Kodama repo).
 const NEWS_URL = "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/news.json";
 
+// ── Demo / screenshot mode (Ctrl+Shift+D) ────────────────────────────────────
+// A hidden pose-for-screenshots mode: clean identity + no update/notification
+// chrome, and it auto-plays a signature track (seeked to a nice lyric line) so
+// the player + lyrics views look consistent. Not a user-facing feature.
+const DEMO_TRACK_ID = "lrpAl2Eca70"; // mechanical corpse (feat. GUMI) — tommy.
+const DEMO_SEEK_S   = 33;            // pose at ~0:33
+const DEMO_NAME     = "Kodama";
+const DEMO_PROFILE  = { name: "demo", displayName: DEMO_NAME, avatar: "" };
+
 // Anonymous active-user heartbeat endpoint (Cloudflare Worker, see analytics/).
 // Leave "" until the Worker is deployed — the heartbeat no-ops while empty.
 // NOTE: when set, add this host to CSP connect-src in index.html + tauri.conf.json.
@@ -10549,6 +10558,21 @@ export default function App() {
     }
   }, [handlePlay]);
 
+  // ── Demo / screenshot mode (Ctrl+Shift+D) ─────────────────────────────────
+  const [demoMode, setDemoMode] = useState(false);
+  const demoSeekRef = useRef(false);
+  // Once the signature track has loaded, seek it to the posed timestamp (once).
+  useEffect(() => {
+    if (!demoMode) { demoSeekRef.current = false; return; }
+    const iv = setInterval(() => {
+      const a = audioRef.current;
+      if (!demoSeekRef.current && currentTrack?.videoId === DEMO_TRACK_ID && a && (a.duration || 0) >= DEMO_SEEK_S + 1) {
+        a.currentTime = DEMO_SEEK_S; demoSeekRef.current = true; clearInterval(iv);
+      }
+    }, 300);
+    return () => clearInterval(iv);
+  }, [demoMode, currentTrack, audioRef]);
+
   // Deep links: kodama://song/<videoId>. Handles both cold start (getCurrent) and while
   // the app is already running (onOpenUrl, routed via the single-instance plugin).
   useEffect(() => {
@@ -11568,12 +11592,20 @@ export default function App() {
       } else if (matchShortcut(sc.zoomOut, e) || (e.ctrlKey && e.code === "NumpadSubtract")) {
         e.preventDefault();
         setUiZoom(z => { const idx = ZOOM_STEPS.indexOf(z); const next = ZOOM_STEPS[Math.max(0, idx >= 0 ? idx - 1 : 2)]; localStorage.setItem("kiyoshi-ui-zoom", next); return next; });
+      } else if (e.ctrlKey && e.shiftKey && e.code === "KeyD") {
+        // Toggle demo / screenshot mode; on enable, pose the signature track.
+        e.preventDefault();
+        setDemoMode(d => {
+          const next = !d;
+          if (next) { demoSeekRef.current = false; playByVideoId(DEMO_TRACK_ID); }
+          return next;
+        });
       }
     };
     // capture:true so we intercept before the WebView can handle Ctrl+= etc.
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom, splitView, openFeedback]);
+  }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom, splitView, openFeedback, playByVideoId]);
 
   // Animated view wrapper
   const AnimatedView = useCallback(({ children }) => (
@@ -11631,7 +11663,7 @@ export default function App() {
           padding: fullscreen ? 0 : "8px 4px 8px 8px",
           position: "relative",
         }}>
-          <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenAccountTab={() => { setSettingsTab("account"); setSettingsOpen(true); }} onOpenUpdateTab={() => { setSettingsTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
+          <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenAccountTab={() => { setSettingsTab("account"); setSettingsOpen(true); }} onOpenUpdateTab={() => { setSettingsTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={demoMode ? DEMO_PROFILE : profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
             onSwitchProfile={async (name) => {
               await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
               await fetchProfiles();
@@ -11662,7 +11694,7 @@ export default function App() {
               setHasProfile(false); setShowLogin(true);
             }}
             onCreatePlaylist={() => setCreatePlaylistOpen(true)}
-            updateInfo={updateInfo}
+            updateInfo={demoMode ? null : updateInfo}
             offlineMode={offlineMode}
             isActuallyOffline={isActuallyOffline}
             onToggleOffline={handleToggleOffline}
@@ -11671,9 +11703,9 @@ export default function App() {
             onOpenOverlaySettings={() => { setSettingsTab("overlay"); setSettingsOpen(true); }}
             onOpenNews={openNews}
             onOpenFeedback={openFeedback}
-            newsUnread={newsUnreadCount}
+            newsUnread={demoMode ? 0 : newsUnreadCount}
             settingsOpen={settingsOpen}
-            hideUserHandle={hideUserHandle}
+            hideUserHandle={demoMode ? true : hideUserHandle}
           />
           {(settingsOpen || settingsClosing) && !fullscreen && (
             <SettingsSidebarContent
@@ -11717,7 +11749,7 @@ export default function App() {
             pointerEvents: (overlayOpen || settingsOpen || settingsClosing) ? "none" : "auto",
           }}>
           <div key={appKey} className="scrollable" style={{ height: "100%", overflowY: "auto" }}>
-            {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
+            {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={demoMode ? DEMO_NAME : profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} onSelectAll={selectAllTracks} onBack={goBack} /></AnimatedView>}
             {view === "history" && <AnimatedView key={`history-${viewRefreshKey}`}><HistoryView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "history")} onTrackContextMenu={(e, track, extra) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onBack={goBack} /></AnimatedView>}
