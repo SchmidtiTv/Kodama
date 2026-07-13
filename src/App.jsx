@@ -9065,7 +9065,11 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
     const name = forcedProfileName || ("account_" + Date.now());
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("open_login_window", { profileName: name });
+      await invoke("open_login_window", {
+        profileName: name,
+        confirmLabel: t("loginUseThisAccount"),
+        switchHint: t("loginSwitchAccountHint"),
+      });
       setStep("waiting");
     } catch (e) {
       console.error("open_login_window failed:", e);

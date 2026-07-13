@@ -746,6 +746,20 @@ def clean_headers_for_storage(headers):
             h["authorization"] = f"SAPISIDHASH {ts}_{sha}"
     return h
 
+def _brand_user_id(name):
+    """The brand-account user id stored for a profile, or None. Passed to YTMusic as
+    `user=` so requests act on behalf of a brand account (ytmusicapi's onBehalfOfUser).
+    Captured at login from the WebView's ytcfg DELEGATED_SESSION_ID."""
+    mp = meta_path(name)
+    if not os.path.exists(mp):
+        return None
+    try:
+        with open(mp) as f:
+            bid = (json.load(f).get("brandUserId") or "").strip()
+        return bid or None
+    except Exception:
+        return None
+
 def make_ytmusic(name):
     """Build a YTMusic instance for a stored browser-auth profile.
 
@@ -764,7 +778,7 @@ def make_ytmusic(name):
         cleaned = clean_headers_for_storage(raw)
         with open(path, "w") as f:
             json.dump(cleaned, f, indent=2)
-    return YTMusic(path)
+    return YTMusic(path, user=_brand_user_id(name))
 
 def load_profile(name):
     global _ytm, _current_profile, _playlist_cache
@@ -900,6 +914,12 @@ def refresh_cookies():
     cookie_str = (data.get("cookie") or "").strip()
     if "SAPISID" not in cookie_str:
         return jsonify({"error": "invalid"}), 400
+    # The keeper WebView may still hold the login helper cookies (KODAMA_DSID/KODAMA_DONE,
+    # max-age 1h) — never let them bleed into the persisted auth header.
+    if "KODAMA_" in cookie_str:
+        cookie_str = "; ".join(
+            p.strip() for p in cookie_str.split(";") if not p.strip().startswith("KODAMA_")
+        )
     base = getattr(_ytm, "base_headers", None)
     if base is None:
         return jsonify({"error": "no_headers"}), 500
@@ -1402,6 +1422,20 @@ def cookie_login():
     cookie_str = data.get("cookie", "")
     user_agent = data.get("user_agent", "Mozilla/5.0")
     profile_name = data.get("profile_name", "default")
+    # Brand-account id captured from the login WebView's ytcfg (DELEGATED_SESSION_ID).
+    # Empty for the default (non-brand) account. The native side sends it separately, but
+    # also defensively strip any KODAMA_* helper cookies out of the auth cookie string and
+    # recover the id from KODAMA_DSID if the body didn't carry it.
+    delegated = (data.get("delegated_session_id") or "").strip()
+    if cookie_str:
+        kept = []
+        for part in cookie_str.split(";"):
+            p = part.strip()
+            if p.startswith("KODAMA_DSID=") and not delegated:
+                delegated = p[len("KODAMA_DSID="):].strip()
+            if not p.startswith("KODAMA_"):
+                kept.append(p)
+        cookie_str = "; ".join(kept)
 
     if not cookie_str:
         return jsonify({"error": "Keine Cookies"}), 400
@@ -1439,9 +1473,11 @@ def cookie_login():
     with open(path, "w") as f:
         json.dump(headers, f, indent=2)
 
-    # Try to initialize YTMusic
+    # Try to initialize YTMusic — with the brand-account context if one was selected, so the
+    # validation test actually exercises the chosen (brand) account, not the default one.
+    print(f"[login] cookie-login profile={profile_name} brand_account={'yes id=' + delegated if delegated else 'no (default account)'}", flush=True)
     try:
-        ytm_temp = YTMusic(path)
+        ytm_temp = YTMusic(path, user=delegated or None)
         # Quick test
         ytm_temp.get_liked_songs(limit=1)
         global _ytm, _current_profile, _playlist_cache
@@ -1451,17 +1487,23 @@ def cookie_login():
 
         # Save meta — merge with any existing meta so a re-login into a logged-out
         # profile keeps its data and drops the logged_out flag.
-        meta_path = os.path.join(PROFILES_DIR, f"{profile_name}.meta.json")
+        meta_path_ = os.path.join(PROFILES_DIR, f"{profile_name}.meta.json")
         meta = {}
-        if os.path.exists(meta_path):
+        if os.path.exists(meta_path_):
             try:
-                with open(meta_path) as f:
+                with open(meta_path_) as f:
                     meta = json.load(f)
             except Exception:
                 meta = {}
         meta.pop("logged_out", None)
         meta.setdefault("displayName", profile_name.capitalize())
-        with open(meta_path, "w") as f:
+        # Persist (or clear) the brand-account context for this profile so make_ytmusic
+        # rebuilds the session on behalf of the same account after restarts/switches.
+        if delegated:
+            meta["brandUserId"] = delegated
+        else:
+            meta.pop("brandUserId", None)
+        with open(meta_path_, "w") as f:
             json.dump(meta, f)
 
         # Fetch real account name in background
