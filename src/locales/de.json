@@ -569,6 +569,8 @@
   "ovlProperties": "Eigenschaften",
   "ovlCanvas": "Canvas",
   "ovlNoSelection": "Wähle eine Ebene zum Bearbeiten – oder passe unten die Canvas an.",
+  "ovlSelectedCount": "ausgewählt",
+  "ovlMultiHint": "Zieh eines davon, um die Gruppe zu bewegen. Löschen entfernt alle.",
   "ovlWidth": "Breite",
   "ovlHeight": "Höhe",
   "ovlBackground": "Hintergrund",

@@ -38,6 +38,7 @@ const TYPE_META = {
   shape:    { icon: PaintBrushBroad, label: "Shape" },
 };
 const ADD_TYPES = ["text", "albumArt", "progress", "image", "shape"];
+const PAN_SPEED = 0.5; // wheel-scroll pan damping (raw wheel deltas feel too coarse at 1:1)
 
 // Fonts preloaded by the engine HTML (must match the <link> in server.py).
 const FONT_LIST = [
@@ -617,7 +618,11 @@ export default function OverlayEditor({
   standalone = false,
 }) {
   const [doc, setDoc] = useState(loadInitialDoc);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  // `selectedId` (compat) is the single selection — non-null only when exactly one layer is
+  // selected, so the detailed inspector + resize/rotate handles show for single selection.
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
+  const setSelectedId = (id) => setSelectedIds(id == null ? [] : [id]);
   const [copied, setCopied] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -626,6 +631,31 @@ export default function OverlayEditor({
   const [shapeMenu, setShapeMenu] = useState(false);
   const [tool, setTool] = useState(null);     // null = select; { type, shape? } = draw mode
   const [drawRect, setDrawRect] = useState(null); // live preview while drawing
+  const [marquee, setMarquee] = useState(null);   // left-drag selection box (canvas coords)
+  const [hoveredId, setHoveredId] = useState(null); // canvas hover → show grey outline only then
+  const [leftW, setLeftW] = useState(() => Number(localStorage.getItem("ovl-left-w")) || 184);   // layers panel width
+  const [rightW, setRightW] = useState(() => Number(localStorage.getItem("ovl-right-w")) || 248); // inspector width
+  useEffect(() => { localStorage.setItem("ovl-left-w", String(leftW)); }, [leftW]);
+  useEffect(() => { localStorage.setItem("ovl-right-w", String(rightW)); }, [rightW]);
+  // Drag a panel's inner edge to resize it (Figma-style). `side` is which panel.
+  const startPanelResize = (side, e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = side === "left" ? leftW : rightW;
+    const move = (ev) => {
+      const delta = side === "left" ? (ev.clientX - startX) : (startX - ev.clientX);
+      const w = Math.max(160, Math.min(420, startW + delta));
+      (side === "left" ? setLeftW : setRightW)(w);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
   const [aspectLock, setAspectLock] = useState(false);
   const aspectLockRef = useRef(false);
   const [canvasCornersInd, setCanvasCornersInd] = useState(false); // uniform ↔ per-corner radius (canvas)
@@ -807,6 +837,12 @@ export default function OverlayEditor({
     setSelectedId(nl.id); setAddOpen(false);
   };
   const deleteLayer = (id) => { commit({ ...doc, layers: doc.layers.filter((l) => l.id !== id) }, doc); setSelectedId(null); };
+  const deleteSelected = () => {
+    const del = new Set(doc.layers.filter((l) => selectedIds.includes(l.id) && !l.locked).map((l) => l.id));
+    if (!del.size) return;
+    commit({ ...doc, layers: doc.layers.filter((l) => !del.has(l.id)) }, doc);
+    setSelectedIds([]);
+  };
   const duplicateSelected = useCallback(() => {
     if (!selectedId) return;
     const l = doc.layers.find((x) => x.id === selectedId);
@@ -854,10 +890,12 @@ export default function OverlayEditor({
 
   // Pixel-precise keyboard nudging (uses the shared live-edit burst infra).
   const nudge = (dx, dy) => {
-    if (!selectedId) return;
-    const cur = (liveDocRef.current || doc).layers.find((x) => x.id === selectedId);
-    if (!cur || cur.locked) return;
-    liveEdit((b) => ({ ...b, layers: b.layers.map((x) => (x.id === selectedId ? { ...x, x: x.x + dx, y: x.y + dy } : x)) }));
+    if (!selectedIds.length) return;
+    const movable = new Set(
+      (liveDocRef.current || doc).layers.filter((x) => selectedIds.includes(x.id) && !x.locked).map((x) => x.id)
+    );
+    if (!movable.size) return;
+    liveEdit((b) => ({ ...b, layers: b.layers.map((x) => (movable.has(x.id) ? { ...x, x: x.x + dx, y: x.y + dy } : x)) }));
   };
 
   const undo = useCallback(() => {
@@ -898,10 +936,9 @@ export default function OverlayEditor({
       if (e.key === "Escape" && tool) { e.preventDefault(); setTool(null); setDrawRect(null); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault(); if (e.shiftKey) redo(); else undo();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
-        const l = doc.layers.find((x) => x.id === selectedId);
-        if (l && !l.locked) { e.preventDefault(); deleteLayer(selectedId); }
-      } else if (selectedId && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length) {
+        e.preventDefault(); deleteSelected();
+      } else if (selectedIds.length && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
         const step = e.shiftKey ? 10 : 1;
         const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
         const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
@@ -916,28 +953,61 @@ export default function OverlayEditor({
   const onWheel = (e) => {
     if (e.target.closest?.("[data-ovl-panel]")) return; // let floating panels scroll normally
     e.preventDefault();
-    const rect = viewportRef.current.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    const factor = Math.exp(-e.deltaY * 0.0015);
-    const nz = clamp(zoom * factor, 0.1, 5);
-    const cx = (mx - pan.x) / zoom, cy = (my - pan.y) / zoom;
-    setPan({ x: mx - cx * nz, y: my - cy * nz }); setZoom(nz);
+    // Ctrl/Cmd+scroll = zoom (cursor-anchored); Shift+scroll = horizontal pan; plain = pan.
+    if (e.ctrlKey || e.metaKey) {
+      const d = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      const rect = viewportRef.current.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const factor = Math.exp(-d * 0.0015);
+      const nz = clamp(zoom * factor, 0.1, 5);
+      const cx = (mx - pan.x) / zoom, cy = (my - pan.y) / zoom;
+      setPan({ x: mx - cx * nz, y: my - cy * nz }); setZoom(nz);
+    } else if (e.shiftKey) {
+      // Windows already reports Shift+wheel as a horizontal delta; accept whichever axis fired.
+      const d = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+      setPan((p) => ({ x: p.x - d * PAN_SPEED, y: p.y }));
+    } else {
+      setPan((p) => ({ x: p.x - e.deltaX * PAN_SPEED, y: p.y - e.deltaY * PAN_SPEED }));
+    }
   };
+  // Pan the canvas (middle-mouse drag, anywhere).
   const startPan = (e) => {
-    // Only when the empty canvas (not a layer box) is pressed.
+    e.preventDefault();
     const start = { x: e.clientX, y: e.clientY }, p0 = { ...pan };
-    let moved = false;
-    const move = (ev) => {
-      const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
-      if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
-      setPan({ x: p0.x + dx, y: p0.y + dy });
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      if (!moved) setSelectedId(null); // click on empty = deselect
-    };
+    const move = (ev) => setPan({ x: p0.x + (ev.clientX - start.x), y: p0.y + (ev.clientY - start.y) });
+    const up = () => window.removeEventListener("pointermove", move);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });
+  };
+
+  // Left-drag on empty canvas draws a selection box; on release, selects the topmost
+  // visible layer it intersects (single-selection editor), or deselects on an empty click.
+  const startMarquee = (e) => {
+    e.preventDefault();
+    const rect = viewportRef.current.getBoundingClientRect();
+    const toCanvas = (cx, cy) => ({ x: (cx - rect.left - pan.x) / zoom, y: (cy - rect.top - pan.y) / zoom });
+    const p0 = toCanvas(e.clientX, e.clientY);
+    let moved = false;
+    const onMove = (ev) => {
+      const p = toCanvas(ev.clientX, ev.clientY);
+      const w = Math.abs(p.x - p0.x), h = Math.abs(p.y - p0.y);
+      if (w + h > 3) moved = true;
+      setMarquee({ x: Math.min(p0.x, p.x), y: Math.min(p0.y, p.y), w, h });
+    };
+    const onUp = (ev) => {
+      window.removeEventListener("pointermove", onMove);
+      setMarquee(null);
+      if (!moved) { setSelectedId(null); return; }
+      const p = toCanvas(ev.clientX, ev.clientY);
+      const bx = Math.min(p0.x, p.x), by = Math.min(p0.y, p.y), bw = Math.abs(p.x - p0.x), bh = Math.abs(p.y - p0.y);
+      const hits = doc.layers
+        .filter((l) => l.visible !== false && !l.locked)
+        .filter((l) => l.x < bx + bw && l.x + l.w > bx && l.y < by + bh && l.y + l.h > by)
+        .map((l) => l.id);
+      setSelectedIds(hits);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
   };
 
   // ── Draw tools (Figma-style: pick a tool, drag to draw, revert to select) ──────
@@ -995,7 +1065,12 @@ export default function OverlayEditor({
     e.stopPropagation(); e.preventDefault();
     if (layer.locked) return;
     flushLive();
-    setSelectedId(layer.id);
+    // Dragging a member of a multi-selection moves the whole group; otherwise select just it.
+    const multiMove = mode === "move" && selectedIds.length > 1 && selectedIds.includes(layer.id);
+    if (!multiMove) setSelectedId(layer.id);
+    const startPositions = multiMove
+      ? doc.layers.filter((l) => selectedIds.includes(l.id) && !l.locked).map((l) => ({ id: l.id, x: l.x, y: l.y }))
+      : null;
     const rect = viewportRef.current.getBoundingClientRect();
     const z = zoom, p = { ...pan }, L0 = { ...layer };
     const center0 = { x: L0.x + L0.w / 2, y: L0.y + L0.h / 2 };
@@ -1036,6 +1111,17 @@ export default function OverlayEditor({
     const move = (ev) => {
       if (mode === "move") {
         const dx = (ev.clientX - startClient.x) / z, dy = (ev.clientY - startClient.y) / z;
+        if (startPositions) {
+          // Multi-selection: shift every selected layer by the same delta (no snapping).
+          const rdx = Math.round(dx), rdy = Math.round(dy);
+          changed = true;
+          lastDoc = { ...doc, layers: doc.layers.map((l) => {
+            const sp = startPositions.find((s) => s.id === l.id);
+            return sp ? { ...l, x: sp.x + rdx, y: sp.y + rdy } : l;
+          }) };
+          setDoc(lastDoc); liveToIframe(lastDoc); setSnapLines({ x: null, y: null });
+          return;
+        }
         let nx = Math.round(L0.x + dx), ny = Math.round(L0.y + dy), gx = null, gy = null;
         if (!L0.rotation && !ev.altKey) { const s = snapMove(nx, ny, L0.w, L0.h); nx = s.x; ny = s.y; gx = s.gx; gy = s.gy; }
         setSnapLines({ x: gx, y: gy });
@@ -1188,17 +1274,19 @@ export default function OverlayEditor({
       </div>
 
       {/* ── Body (docked panels + canvas) ───────────────────────────────────────── */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
 
         {/* ── Left: layers ──────────────────────────────────────────────────────── */}
-        <div className="w-[184px] shrink-0 flex flex-col border-r border-border">
+        <div className="shrink-0 flex flex-col border-r border-border relative" style={{ width: leftW }}>
+          <div onPointerDown={(e) => startPanelResize("left", e)}
+            className="absolute top-0 right-0 h-full w-1.5 translate-x-1/2 z-20 cursor-col-resize hover:bg-[var(--accent)]/40" />
           <div className="flex items-center justify-between pl-3 pr-1.5 h-10 shrink-0 border-b border-border relative">
             <span className="text-t12 font-medium text-secondary">{t("ovlLayers")}</span>
           </div>
           <div className="flex flex-col gap-0.5 p-1.5 overflow-y-auto min-h-0">
             {orderedDesc.length === 0 && <div className="text-t11 text-muted px-1.5 py-2">{t("ovlEmptyLayers")}</div>}
             {orderedDesc.map((l) => {
-              const M = TYPE_META[l.type] || TYPE_META.shape; const Icon = M.icon; const active = l.id === selectedId;
+              const M = TYPE_META[l.type] || TYPE_META.shape; const Icon = M.icon; const active = selectedIds.includes(l.id);
               const isDragging = dragId === l.id;
               const isDropTarget = dragOverId === l.id && dragId !== l.id;
               return (
@@ -1239,8 +1327,15 @@ export default function OverlayEditor({
       <div
         ref={viewportRef}
         className="relative flex-1 overflow-hidden"
-        style={{ background: "var(--bg-base)", backgroundImage: "radial-gradient(var(--stroke) 1px, transparent 0)", backgroundSize: "22px 22px" }}
+        style={{ background: "color-mix(in srgb, var(--bg-base), #000 30%)" }}
         onWheel={onWheel}
+        onPointerDown={(e) => {
+          // Handles the whole viewport (canvas + surrounding free space). Clicks on a layer
+          // box / handle stopPropagation, so they never reach here.
+          if (e.button === 1) { startPan(e); return; }   // middle mouse → pan anywhere
+          if (e.button !== 0) return;                     // ignore right-click
+          tool ? startDraw(e) : startMarquee(e);          // tool → draw; else selection box
+        }}
       >
       {/* ── Stage (pan + zoom) ───────────────────────────────────────────── */}
       <div
@@ -1253,23 +1348,33 @@ export default function OverlayEditor({
             style={{ border: "none", display: "block", background: "transparent", pointerEvents: "none" }} />
         </div>
 
-        {/* Interaction layer (over the iframe) */}
-        <div className="absolute inset-0" style={{ pointerEvents: "auto", cursor: tool ? "crosshair" : "default" }} onPointerDown={(e) => tool ? startDraw(e) : startPan(e)}>
+        {/* Interaction layer (over the iframe). Empty-area pointerdowns bubble up to the
+            viewport handler, which covers both the canvas and the free space around it. */}
+        <div className="absolute inset-0" style={{ pointerEvents: "auto", cursor: tool ? "crosshair" : "default" }}>
           {orderedAsc.map((l) => {
-            const isSel = l.id === selectedId;
+            const isSel = selectedIds.includes(l.id);       // accent outline for every selected layer
+            const isPrimary = l.id === selectedId;          // handles/badge only for a single selection
             const interactive = !l.locked && l.visible !== false && !tool;
             return (
               <div key={l.id}
-                onPointerDown={interactive ? (e) => startGesture(e, "move", null, l) : undefined}
+                onPointerDown={interactive ? (e) => {
+                  if (e.button === 1) { startPan(e); return; }  // middle mouse pans even over a layer
+                  if (e.button !== 0) return;
+                  startGesture(e, "move", null, l);
+                } : undefined}
+                onPointerEnter={interactive ? () => setHoveredId(l.id) : undefined}
+                onPointerLeave={interactive ? () => setHoveredId((h) => (h === l.id ? null : h)) : undefined}
                 style={{
                   position: "absolute", left: l.x, top: l.y, width: l.w, height: l.h,
                   transform: `rotate(${l.rotation || 0}deg)`, transformOrigin: "center center",
-                  cursor: interactive ? "move" : "default",
+                  cursor: "default",
                   pointerEvents: interactive ? "auto" : "none",
-                  outline: isSel ? `${BW}px solid var(--accent)` : `${BW}px solid rgba(255,255,255,0.18)`,
+                  outline: isSel
+                    ? `${BW}px solid var(--accent)`
+                    : (hoveredId === l.id ? `${BW}px solid rgba(255,255,255,0.4)` : "none"),
                 }}
               >
-                {isSel && interactive && (
+                {isPrimary && interactive && (
                   <>
                     {/* rotate knob */}
                     <div
@@ -1312,6 +1417,18 @@ export default function OverlayEditor({
                         }}
                       />
                     ))}
+                    {/* size badge (W × H) below the element, Figma-style */}
+                    <div style={{
+                      position: "absolute", left: "50%", top: "100%",
+                      transform: `translate(-50%, ${8 / zoom}px)`,
+                      background: "var(--accent)", color: "#fff",
+                      padding: `${2 / zoom}px ${7 / zoom}px`,
+                      borderRadius: 4 / zoom, fontSize: 11 / zoom, lineHeight: 1.4, fontWeight: 600,
+                      fontFamily: "var(--font)", whiteSpace: "nowrap",
+                      pointerEvents: "none", userSelect: "none", fontVariantNumeric: "tabular-nums",
+                    }}>
+                      {Math.round(l.w)} × {Math.round(l.h)}
+                    </div>
                   </>
                 )}
               </div>
@@ -1322,6 +1439,14 @@ export default function OverlayEditor({
             <div style={{
               position: "absolute", left: drawRect.x, top: drawRect.y, width: drawRect.w, height: drawRect.h,
               border: `${1 / zoom}px dashed var(--accent)`, background: "rgba(224,64,251,0.10)", pointerEvents: "none",
+            }} />
+          )}
+          {/* Selection marquee (left-drag on empty canvas) */}
+          {marquee && (
+            <div style={{
+              position: "absolute", left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h,
+              border: `${1 / zoom}px solid var(--accent)`, background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+              pointerEvents: "none",
             }} />
           )}
         </div>
@@ -1348,8 +1473,11 @@ export default function OverlayEditor({
         <Button variant="ghost" size="sm" isIconOnly onPress={() => fit()} aria-label="Fit"><ArrowsOut size={14} /></Button>
       </div>
 
-      {/* ── Floating element toolbar (Figma-style, bottom-center) ─────────────── */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-2xl px-2.5 py-1.5 border border-border shadow-xl" style={{ background: "var(--bg-elevated)" }}>
+      </div>{/* end canvas viewport */}
+
+      {/* ── Floating element toolbar (Figma-style, bottom-center) — anchored to the body
+             (constant width) so it stays put when the side panels are resized ────────── */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-2xl px-2.5 py-1.5 border border-border shadow-xl" style={{ background: "var(--bg-elevated)" }}>
         {/* Select / cursor */}
         <Button variant="ghost" size="md" isIconOnly onPress={() => setTool(null)} aria-label={t("ovlSelect") || "Select"} className={`w-10! h-10! ${!tool ? "bg-accent! text-white!" : ""}`}>
           <CursorArrow size={15} />
@@ -1381,12 +1509,20 @@ export default function OverlayEditor({
         <Button variant="ghost" size="md" isIconOnly onPress={() => setTool({ type: "image" })} aria-label={TYPE_META.image.label} className={`w-10! h-10! ${tool?.type === "image" ? "bg-accent! text-white!" : ""}`}><ImageSquare size={16} /></Button>
       </div>
 
-      </div>{/* end canvas viewport */}
-
       {/* ── Right: inspector (docked) ──────────────────────────────────────────── */}
-      <div className="w-[248px] shrink-0 flex flex-col border-l border-border">
+      <div className="shrink-0 flex flex-col border-l border-border relative" style={{ width: rightW }}>
+        <div onPointerDown={(e) => startPanelResize("right", e)}
+          className="absolute top-0 left-0 h-full w-1.5 -translate-x-1/2 z-20 cursor-col-resize hover:bg-[var(--accent)]/40" />
         <div className="overflow-y-auto flex-1 min-h-0 p-3">
-          {!selected ? (
+          {selectedIds.length > 1 ? (
+            <>
+              <div className="text-t12 font-semibold text-primary mb-1">{selectedIds.length} {t("ovlSelectedCount") || "selected"}</div>
+              <div className="text-t11 text-muted mb-3 leading-snug">{t("ovlMultiHint") || "Drag any of them to move the group. Delete removes all."}</div>
+              <Button variant="secondary" size="sm" className="gap-1.5 text-[#ff7070]!" onPress={deleteSelected}>
+                <Trash size={13} /> {t("ovlMenuDelete")}
+              </Button>
+            </>
+          ) : !selected ? (
             <>
               <div className="text-t12 font-semibold text-primary mb-1">{t("ovlCanvas")}</div>
               <div className="text-t11 text-muted mb-3 leading-snug">{t("ovlNoSelection")}</div>

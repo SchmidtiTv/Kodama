@@ -569,6 +569,8 @@
   "ovlProperties": "Properties",
   "ovlCanvas": "Canvas",
   "ovlNoSelection": "Select a layer to edit it, or adjust the canvas below.",
+  "ovlSelectedCount": "selected",
+  "ovlMultiHint": "Drag any of them to move the group. Delete removes all.",
   "ovlWidth": "Width",
   "ovlHeight": "Height",
   "ovlBackground": "Background",
