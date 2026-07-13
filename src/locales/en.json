@@ -354,6 +354,7 @@
   "ytdlpUpdated": "yt-dlp updated",
   "ffmpegUpdateFailed": "Update failed",
   "switchProfileTitle": "Switch Profile",
+  "switchingTo": "Switching to %name…",
   "addAccount": "Add Account",
   "reauthSession": "Renew Session",
   "removeAccountTitle": "Remove Account?",

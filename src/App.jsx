@@ -9716,6 +9716,7 @@ export default function App() {
   const [view, setView] = useState("home");
   const [navHistory, setNavHistory] = useState([]); // navigation history stack for back button
   const [appKey, setAppKey] = useState(0); // increment to force full re-render
+  const [switchingTo, setSwitchingTo] = useState(null); // profile being switched to → loading overlay
   const [viewRefreshKey, setViewRefreshKey] = useState(0); // increment to refresh current view
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -11144,11 +11145,20 @@ export default function App() {
   //    and the Account settings tab. Single source of truth for the app-wide
   //    side effects (reset view/queue, show login, etc.). ──────────────────────
   const handleAccountSwitch = useCallback(async (name) => {
-    await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-    await fetchProfiles();
-    setView("home"); setCurrentTrack(null); setQueue([]); setCollection(null); setOverlayOpen(false); setQueueOpen(false); setSearchQuery(""); setAppKey(k => k + 1);
-    window.__activeProfile = name; window.dispatchEvent(new CustomEvent("profile-switched"));
-  }, [fetchProfiles]);
+    setSwitchingTo(profiles.find(p => p.name === name) || { name });
+    const started = Date.now();
+    try {
+      await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      await fetchProfiles();
+      setView("home"); setCurrentTrack(null); setQueue([]); setCollection(null); setOverlayOpen(false); setQueueOpen(false); setSearchQuery(""); setAppKey(k => k + 1);
+      window.__activeProfile = name; window.dispatchEvent(new CustomEvent("profile-switched"));
+    } finally {
+      // Keep the overlay up for a moment even on a fast switch so it doesn't just flash.
+      const rest = 450 - (Date.now() - started);
+      if (rest > 0) await new Promise(r => setTimeout(r, rest));
+      setSwitchingTo(null);
+    }
+  }, [fetchProfiles, profiles]);
 
   const handleAccountAdd = useCallback(async () => {
     try { await fetch(`${API}/auth/begin-add`, { method: "POST" }); } catch {}
@@ -11681,12 +11691,7 @@ export default function App() {
           position: "relative",
         }}>
           <Sidebar view={view} setView={navigateTo} onSearch={handleSearch} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(c => !c)} onOpenSettings={() => setSettingsOpen(true)} onOpenAccountTab={() => { setSettingsTab("account"); setSettingsOpen(true); }} onOpenUpdateTab={() => { setSettingsTab("update"); setSettingsOpen(true); }} onCloseOverlay={() => setOverlayOpen(false)} onOpenPlaylist={(pl) => openPlaylist(pl, view)} onOpenAlbum={(item) => openAlbum(item, view)} onOpenArtist={(item) => openArtist(item, view)} onAddRecent={addRecentPlaylist} onContextMenu={openContextMenu} currentProfileData={demoMode ? DEMO_PROFILE : profiles.find(p => p.active)} onOpenProfileSwitcher={() => setShowProfileSwitcher(true)} profiles={profiles}
-            onSwitchProfile={async (name) => {
-              await fetch(`${API}/profiles/switch`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
-              await fetchProfiles();
-              setView("home"); setCurrentTrack(null); setQueue([]); setCollection(null); setOverlayOpen(false); setQueueOpen(false); setSearchQuery(""); setAppKey(k => k + 1);
-              window.__activeProfile = name; window.dispatchEvent(new CustomEvent("profile-switched"));
-            }}
+            onSwitchProfile={handleAccountSwitch}
             onAddProfile={async () => {
               try { await fetch(`${API}/auth/begin-add`, { method: "POST" }); } catch {}
               setAddingProfile(true); setShowLogin(true);
@@ -12254,6 +12259,22 @@ export default function App() {
           onSwitch={handleAccountSwitch}
           onAdd={handleAccountAdd}
         />
+        {/* Account-switch loading overlay — sits outside the appKey-remounted content so it
+            survives the forced re-render while the new profile loads. */}
+        {switchingTo && (
+          <div className="fixed inset-0 z-[400] flex flex-col items-center justify-center gap-4"
+            style={{ background: "rgba(13,13,13,0.72)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", animation: "fadeIn 0.15s ease" }}>
+            <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center bg-accent text-white font-semibold text-xl shadow-lg">
+              {switchingTo.avatar
+                ? <img src={thumb(switchingTo.avatar)} alt="" className="w-full h-full object-cover" />
+                : (switchingTo.displayName || switchingTo.name || "?")[0].toUpperCase()}
+            </div>
+            <Spinner size="lg" />
+            <div className="text-t14 text-secondary">
+              {translate(language, "switchingTo", { name: switchingTo.displayName || switchingTo.name })}
+            </div>
+          </div>
+        )}
         {newsOpen && (
           <NewsModal
             news={newsItems}
