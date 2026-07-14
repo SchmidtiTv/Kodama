@@ -78,6 +78,7 @@ header nav a:hover { color:var(--t1); }
 .hstats { color:var(--t3); font-size:13px; align-items:center; gap:8px; }
 .hstats:not([hidden]) { display:inline-flex; }
 .hstats b { color:var(--t1); font-weight:600; font-variant-numeric:tabular-nums; }
+#statMauBox, #statDlBox { white-space:nowrap; }
 @media (max-width:640px){ .hstats:not([hidden]) { display:none; } }
 
 .below { text-align:center; margin-top:40px; }
@@ -108,6 +109,17 @@ footer a:hover { color:var(--t1); }
   .feat-grid { grid-template-columns:1fr; }
 }
 
+/* Stacked header (mobile + tablet-portrait): logo above nav, instead of squeezing the
+   live stats + nav links + AI-notice pill into one row, which reflows like inline text
+   next to the logo and breaks stat phrases mid-sentence once things get tight. */
+@media (max-width:900px) {
+  header { flex-direction:column; align-items:flex-start; gap:14px; padding:18px 0; }
+  .hdr-right { width:100%; flex-direction:column; align-items:flex-start; gap:12px; }
+  header nav { display:flex; flex-wrap:wrap; align-items:center; gap:14px 18px; width:100%; }
+  header nav a { margin-left:0; }
+  .ai-notice { margin-left:0; }
+}
+
 /* ── Versions / changelog page ─────────────────────────────── */
 .vhead { text-align:center; padding:26px 0 30px; }
 .vhead h1 { font-size:clamp(26px,4vw,38px); font-weight:600; margin:0 0 8px; }
@@ -134,8 +146,8 @@ footer a:hover { color:var(--t1); }
   background:rgba(255,255,255,0.06); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); transition:background .15s; }
 .rel-dl a:hover { background:rgba(255,255,255,0.12); }
 .rel.latest .rel-dl a.win { background:var(--accent); color:#000; }
-.mac-install { display:flex; flex-direction:column; gap:6px; }
-.mac-install code { font-size:12.5px; color:var(--t1); background:rgba(255,255,255,0.06);
+.mac-install { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.mac-install code { display:block; font-size:12.5px; color:var(--t1); background:rgba(255,255,255,0.06);
   border-radius:9px; padding:8px 14px; -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
-  white-space:nowrap; overflow-x:auto; max-width:100%; }
+  white-space:nowrap; overflow-x:auto; max-width:100%; box-sizing:border-box; }
 .mac-install .mac-note { margin:0; font-size:12px; color:var(--t3); max-width:440px; }
