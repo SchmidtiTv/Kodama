@@ -16,6 +16,7 @@ import {
   SelectRoot, SelectTrigger, SelectValue, SelectIndicator, SelectPopover,
   ListBox, ListBoxItem,
   SeparatorRoot,
+  Dropdown, DropdownTrigger, DropdownPopover, DropdownMenu, DropdownItem, DropdownSection,
 } from "@heroui/react";
 import {
   ImageSquare, VinylRecord, TextSize, WaveformLines, PaintBrushBroad,
@@ -241,7 +242,7 @@ function OvlTextField({ label, value, onChange, placeholder }) {
 function ColorField({ label, value, onChange, opacity, onOpacity }) {
   const hex = typeof value === "string" && value[0] === "#" ? value.slice(0, 7) : "#000000";
   return (
-    <div className="flex items-center gap-2 h-8 px-1.5 rounded-md bg-[var(--surface-2)] border border-border">
+    <div className="flex items-center gap-2 h-8 px-1.5 rounded-md bg-[var(--surface-2)] border border-border transition-colors hover:border-[#555] focus-within:border-accent">
       <ColorPicker value={hex} onChange={onChange} swatch={{ width: 16, height: 16, borderRadius: 4, border: "1px solid var(--border)" }} />
       <input value={(value ?? "").replace(/^#/, "")} onChange={(e) => onChange("#" + e.target.value.replace(/[^0-9a-fA-F]/g, "").slice(0, 6))}
         className="flex-1 min-w-0 bg-transparent outline-none text-t12 font-mono text-primary uppercase" aria-label={(label || "") + " hex"} />
@@ -428,32 +429,6 @@ function EffectList({ t, effects, onChange }) {
   );
 }
 
-// ── Menu bar helpers ──────────────────────────────────────────────────────────
-function MenuSep() {
-  return <div className="mx-2 my-0.5 h-px bg-border" />;
-}
-function MenuItem({ icon, label, shortcut, onAction, disabled, checked }) {
-  return (
-    <button
-      type="button"
-      onClick={disabled ? undefined : onAction}
-      className={[
-        "flex items-center gap-2 w-full text-left px-3 py-1.5 text-t12 transition-colors",
-        disabled
-          ? "text-muted cursor-default pointer-events-none"
-          : "text-primary hover:bg-[var(--bg-hover)] cursor-pointer",
-      ].join(" ")}
-      style={{ background: "none", border: "none" }}
-    >
-      <span className="w-4 shrink-0 flex items-center justify-center text-muted">
-        {checked ? <Check size={12} className="text-accent" /> : icon || null}
-      </span>
-      <span className="flex-1">{label}</span>
-      {shortcut && <span className="text-t11 text-muted ml-2 shrink-0">{shortcut}</span>}
-    </button>
-  );
-}
-
 // ── Font Picker trigger (panel is lifted to OverlayEditor level) ──────────────
 function FontPicker({ t, value, onOpen }) {
   // Resolve a human-readable label even for locally-installed fonts not in FONT_LIST
@@ -628,7 +603,6 @@ export default function OverlayEditor({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [addOpen, setAddOpen] = useState(false);
-  const [shapeMenu, setShapeMenu] = useState(false);
   const [tool, setTool] = useState(null);     // null = select; { type, shape? } = draw mode
   const [drawRect, setDrawRect] = useState(null); // live preview while drawing
   const [marquee, setMarquee] = useState(null);   // left-drag selection box (canvas coords)
@@ -679,7 +653,6 @@ export default function OverlayEditor({
   const [fontPickerSearch, setFontPickerSearch] = useState("");
   const [fontPickerCategory, setFontPickerCategory] = useState("all");
   const [localFonts, setLocalFonts] = useState(null); // null = not yet fetched
-  const [menuOpen, setMenuOpen] = useState(null); // { name: "file"|"edit"|"view", x, y }
 
   const [viewportRef, viewportSize] = useElementSize();
   const iframeRef = useRef(null);
@@ -1239,12 +1212,6 @@ export default function OverlayEditor({
 
   const HS = 9 / zoom, BW = 1.5 / zoom; // handle size / border width in canvas px (visually constant)
 
-  const openMenu = (name, e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    setMenuOpen((prev) => prev?.name === name ? null : { name, x: r.left, y: r.bottom });
-  };
-  const closeMenu = () => setMenuOpen(null);
-
   return (
     <div
       data-overlay-editor
@@ -1253,13 +1220,38 @@ export default function OverlayEditor({
     >
       {/* ── Top bar (doubles as the custom title bar in standalone) ──────────────── */}
       <div className="shrink-0 flex items-center gap-2 h-12 px-3 border-b border-border" {...(standalone ? { "data-tauri-drag-region": true } : {})}>
-        <button type="button" onClick={(e) => openMenu("main", e)}
-          className="flex items-center gap-1.5 h-8 pl-1.5 pr-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-          style={{ border: "none", background: menuOpen?.name === "main" ? "var(--bg-hover)" : "none", cursor: "pointer" }}>
-          <img src="/Kodama%20Logo.png" alt="" width="18" height="18" />
-          <span className="text-t13 font-semibold text-primary">Overlay</span>
-          <CaretDown size={10} className="text-muted" />
-        </button>
+        <Dropdown>
+          <DropdownTrigger className="flex items-center gap-1.5 h-8 pl-1.5 pr-2 rounded-lg border-0 bg-transparent hover:bg-hover transition-colors cursor-pointer">
+            <img src="/Kodama%20Logo.png" alt="" width="18" height="18" />
+            <span className="text-t13 font-semibold text-primary">Overlay</span>
+            <CaretDown size={10} className="text-muted" />
+          </DropdownTrigger>
+          <DropdownPopover placement="bottom start" className="min-w-[210px]">
+            <DropdownMenu aria-label="Overlay menu" onAction={(key) => {
+              if (key === "new") { commit(defaultOverlayDoc()); setSelectedId(null); }
+              else if (key === "save") { setSaveOpen(true); setBrowserOpen(false); }
+              else if (key === "browse") { setBrowserOpen(true); setSaveOpen(false); }
+              else if (key === "import") { importFileRef.current?.click(); }
+              else if (key === "export") { exportProfile({ id: "current", name: t("ovlMenuExportCurrent"), doc, savedAt: new Date().toISOString() }); }
+              else if (key === "reload") { setIframeKey((k) => k + 1); }
+            }}>
+              <DropdownSection>
+                <DropdownItem id="new" textValue={t("ovlMenuNew")}><Plus size={13} />{t("ovlMenuNew")}</DropdownItem>
+              </DropdownSection>
+              <DropdownSection className="border-t border-border mt-1 pt-1">
+                <DropdownItem id="save" textValue={t("ovlProfileSave")}><FloppyDisk size={13} />{t("ovlProfileSave")}</DropdownItem>
+                <DropdownItem id="browse" textValue={t("ovlProfileBrowse")}><Swatches size={13} />{t("ovlProfileBrowse")}</DropdownItem>
+              </DropdownSection>
+              <DropdownSection className="border-t border-border mt-1 pt-1">
+                <DropdownItem id="import" textValue={t("ovlProfileImport")}><UploadSimple size={13} />{t("ovlProfileImport")}</DropdownItem>
+                <DropdownItem id="export" textValue={t("ovlMenuExportCurrent")}><DownloadSimple size={13} />{t("ovlMenuExportCurrent")}</DropdownItem>
+              </DropdownSection>
+              <DropdownSection className="border-t border-border mt-1 pt-1">
+                <DropdownItem id="reload" textValue={t("ovlReloadPreview")}><ArrowsClockwise size={13} />{t("ovlReloadPreview")}</DropdownItem>
+              </DropdownSection>
+            </DropdownMenu>
+          </DropdownPopover>
+        </Dropdown>
         <TextFieldRoot value={doc.canvas.name ?? ""} onChange={(v) => updateCanvas({ name: v })} aria-label={t("ovlProfileName")} className="w-[184px]">
           <InputRoot className="text-t12! h-8! bg-[var(--surface-2)]! border-border!" placeholder={t("ovlProfileDefaultName")} />
         </TextFieldRoot>
@@ -1486,21 +1478,19 @@ export default function OverlayEditor({
         {/* Shape group with variant dropdown */}
         <div className="relative flex items-center">
           <Button variant="ghost" size="md" isIconOnly onPress={() => setTool({ type: "shape", shape: "rect" })} aria-label={TYPE_META.shape.label} className={`w-10! h-10! ${tool?.type === "shape" ? "bg-accent! text-white!" : ""}`}><PaintBrushBroad size={16} /></Button>
-          <button type="button" onClick={() => setShapeMenu((o) => !o)} aria-label={t("ovlShape")}
-            className="w-4 h-9 flex items-center justify-center text-muted hover:text-primary rounded transition-colors" style={{ background: "none", border: "none" }}>
-            <CaretDown size={11} />
-          </button>
-          {shapeMenu && (<>
-            <div className="fixed inset-0 z-[60]" onClick={() => setShapeMenu(false)} />
-            <div className="absolute bottom-full left-0 mb-2 z-[61] w-44 rounded-lg shadow-xl border border-border p-1" style={{ background: "var(--bg-elevated)" }}>
-              {["rect", "ellipse", "line", "triangle", "polygon", "star"].map((v) => (
-                <button key={v} type="button" onClick={() => { setTool({ type: "shape", shape: v }); setShapeMenu(false); }}
-                  className="flex items-center w-full text-left px-3 py-2 rounded text-t13 text-primary hover:bg-[var(--bg-hover)] transition-colors" style={{ background: "none", border: "none" }}>
-                  {t("ovlShape_" + v)}
-                </button>
-              ))}
-            </div>
-          </>)}
+          <Dropdown>
+            <DropdownTrigger aria-label={t("ovlShape")}
+              className="w-4 h-9 flex items-center justify-center text-muted hover:text-primary rounded transition-colors border-0 bg-transparent cursor-pointer">
+              <CaretDown size={11} />
+            </DropdownTrigger>
+            <DropdownPopover placement="top start" className="min-w-44">
+              <DropdownMenu aria-label={t("ovlShape")} onAction={(key) => setTool({ type: "shape", shape: String(key) })}>
+                {["rect", "ellipse", "line", "triangle", "polygon", "star"].map((v) => (
+                  <DropdownItem key={v} id={v} textValue={t("ovlShape_" + v)}>{t("ovlShape_" + v)}</DropdownItem>
+                ))}
+              </DropdownMenu>
+            </DropdownPopover>
+          </Dropdown>
         </div>
         <div className="w-px h-6 bg-border mx-0.5" />
         <Button variant="ghost" size="md" isIconOnly onPress={() => setTool({ type: "text" })} aria-label={TYPE_META.text.label} className={`w-10! h-10! ${tool?.type === "text" ? "bg-accent! text-white!" : ""}`}><TextSize size={16} /></Button>
@@ -1640,8 +1630,7 @@ export default function OverlayEditor({
                   <PillNum prefix="H" value={selected.h} min={1} onChange={(v) => setLayer(selected.id, aspectLock ? { h: v, w: Math.max(1, Math.round(v * ratio)) } : { h: v })} />
                 </div>
                 <button type="button" onClick={() => setAspectLock((a) => !a)}
-                  className={`flex items-center justify-center gap-1.5 h-8 rounded-md border text-t12 transition-colors ${aspectLock ? "text-white border-transparent" : "border-border text-secondary hover:bg-[var(--bg-hover)]"}`}
-                  style={{ background: aspectLock ? "var(--accent)" : "var(--surface-2)" }}>
+                  className={`flex items-center justify-center gap-1.5 h-8 rounded-md border text-t12 transition-colors ${aspectLock ? "text-white border-transparent bg-accent" : "border-border text-secondary bg-[var(--surface-2)] hover:bg-[var(--bg-hover)]"}`}>
                   {aspectLock ? <Lock size={12} /> : <LockOpen size={12} />}{t("ovlLockAspect") || "Lock aspect ratio"}
                 </button>
               </Section>
@@ -1756,8 +1745,9 @@ export default function OverlayEditor({
               {/* Header */}
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
                 <span className="text-t13 font-semibold text-primary">{t("ovlFont")}</span>
-                <button type="button" onClick={closePicker} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}>
-                  <X size={13} className="text-muted" />
+                <button type="button" onClick={closePicker}
+                  className="w-6 h-6 flex items-center justify-center rounded-md border-0 bg-transparent text-muted hover:text-primary hover:bg-hover transition-colors cursor-pointer">
+                  <X size={13} />
                 </button>
               </div>
 
@@ -1773,8 +1763,9 @@ export default function OverlayEditor({
                     className="flex-1 min-w-0 bg-transparent text-t12 text-primary outline-none placeholder:text-muted"
                   />
                   {fontPickerSearch && (
-                    <button type="button" onClick={() => setFontPickerSearch("")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}>
-                      <X size={11} className="text-muted" />
+                    <button type="button" onClick={() => setFontPickerSearch("")}
+                      className="w-5 h-5 flex items-center justify-center rounded border-0 bg-transparent text-muted hover:text-primary hover:bg-hover transition-colors cursor-pointer">
+                      <X size={11} />
                     </button>
                   )}
                 </div>
@@ -1905,30 +1896,6 @@ export default function OverlayEditor({
       )}
 
       </div>{/* end canvas viewport */}
-
-      {/* ── Menu bar dropdowns (fixed, outside canvas overflow) ──────────────── */}
-      {menuOpen && (
-        <>
-          <div className="fixed inset-0 z-[70]" onClick={closeMenu} />
-          <div
-            className="fixed z-[71] min-w-[210px] rounded-xl shadow-2xl border border-border flex flex-col py-1 overflow-hidden"
-            style={{ left: menuOpen.x, top: menuOpen.y + 2, background: "var(--bg-elevated)" }}
-            onKeyDown={(e) => { if (e.key === "Escape") closeMenu(); }}
-          >
-            {menuOpen.name === "main" && (<>
-              <MenuItem icon={<Plus size={13} />} label={t("ovlMenuNew")} onAction={() => { commit(defaultOverlayDoc()); setSelectedId(null); closeMenu(); }} />
-              <MenuSep />
-              <MenuItem icon={<FloppyDisk size={13} />} label={t("ovlProfileSave")}  onAction={() => { setSaveOpen(true); setBrowserOpen(false); closeMenu(); }} />
-              <MenuItem icon={<Swatches size={13} />}   label={t("ovlProfileBrowse")} onAction={() => { setBrowserOpen(true); setSaveOpen(false); closeMenu(); }} />
-              <MenuSep />
-              <MenuItem icon={<UploadSimple size={13} />}  label={t("ovlProfileImport")}  onAction={() => { importFileRef.current?.click(); closeMenu(); }} />
-              <MenuItem icon={<DownloadSimple size={13} />} label={t("ovlMenuExportCurrent")} onAction={() => { exportProfile({ id: "current", name: t("ovlMenuExportCurrent"), doc, savedAt: new Date().toISOString() }); closeMenu(); }} />
-              <MenuSep />
-              <MenuItem icon={<ArrowsClockwise size={13} />} label={t("ovlReloadPreview")} onAction={() => { setIframeKey((k) => k + 1); closeMenu(); }} />
-            </>)}
-          </div>
-        </>
-      )}
     </div>
   );
 }
