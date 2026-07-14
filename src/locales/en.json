@@ -368,6 +368,7 @@
   "noLyricsHint": "Create your own lyrics with one of these tools:",
   "createLyrics": "Create Lyrics",
   "noSuggestions": "No suggestions available.",
+  "noSuggestionsHint": "This can happen right after starting the app. Give it a moment, then try again.",
   "moodsGenres": "Moods & Genres",
   "speedDial": "Speed Dial",
   "loadingLikedSongs": "Loading Liked Songs…",

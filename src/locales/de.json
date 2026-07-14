@@ -368,6 +368,7 @@
   "noLyricsHint": "Erstelle eigene Songtexte mit einem dieser Tools:",
   "createLyrics": "Songtext erstellen",
   "noSuggestions": "Keine Vorschläge verfügbar.",
+  "noSuggestionsHint": "Das kann direkt nach dem Start der App passieren. Gib ihr einen Moment und versuch's erneut.",
   "moodsGenres": "Stimmungen & Genres",
   "speedDial": "Speed Dial",
   "loadingLikedSongs": "Lädt Liked Songs…",

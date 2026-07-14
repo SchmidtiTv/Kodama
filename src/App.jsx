@@ -7981,11 +7981,34 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
   const [speedDialPage, setSpeedDialPage] = useState(0);
   const t = useLang();
 
+  const homeCancelledRef = useRef(false);
+  // The Python sidecar can still be starting up (spawned in parallel with the webview; the
+  // splash screen dismisses on a fixed timer, not backend readiness) when this first fires,
+  // especially on a slow cold start — the fetch then fails outright and the view was stuck
+  // on "No suggestions available." forever. Retry a few times before giving up; also exposed
+  // so the empty-state's retry button can trigger the same loader directly.
+  const loadHome = useCallback(async (attempt = 0) => {
+    if (attempt === 0) setLoading(true);
+    try {
+      const r = await fetch(`${API}/home`);
+      const d = await r.json();
+      if (homeCancelledRef.current) return;
+      const secs = d.sections || [];
+      if (secs.length === 0 && attempt < 6) {
+        setTimeout(() => loadHome(attempt + 1), 600);
+        return;
+      }
+      setSections(secs); setLoading(false);
+    } catch {
+      if (homeCancelledRef.current) return;
+      if (attempt < 6) { setTimeout(() => loadHome(attempt + 1), 600); return; }
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    fetch(`${API}/home`)
-      .then(r => r.json())
-      .then(d => { setSections(d.sections || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    homeCancelledRef.current = false;
+    loadHome();
     fetch(`${API}/mood/categories`)
       .then(r => r.json())
       .then(d => {
@@ -7995,7 +8018,8 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
         if (firstKey) setActiveMoodTab(firstKey);
       })
       .catch(() => {});
-  }, []);
+    return () => { homeCancelledRef.current = true; };
+  }, [loadHome]);
 
   const handleMoodChipClick = (chip) => {
     if (activeMoodChip?.params === chip.params) {
@@ -8197,7 +8221,18 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
   );
 
   if (!allSections.length) return (
-    <div style={{ padding: 28, color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("noSuggestions")}</div>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 14, height: "100%", minHeight: 360, padding: 28 }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-elevated)" }}>
+        <MusicNote size={24} className="text-muted" />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 360 }}>
+        <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>{t("noSuggestions")}</div>
+        <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)" }}>{t("noSuggestionsHint")}</div>
+      </div>
+      <Button variant="secondary" size="sm" onPress={() => loadHome(0)} className="gap-1.5 mt-1">
+        <ArrowsClockwise size={14} />{t("refresh")}
+      </Button>
+    </div>
   );
 
   const { greeting, GreetingIcon } = (() => {
