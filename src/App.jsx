@@ -419,6 +419,10 @@ const GLOBAL_KEYFRAMES = `
     from { opacity: 1; transform: translateX(0); }
     to   { opacity: 0; transform: translateX(-18px); }
   }
+  @keyframes unfoldDown {
+    from { opacity: 0; transform: scaleY(0.4); }
+    to   { opacity: 1; transform: scaleY(1); }
+  }
   @keyframes toastOut {
     from { opacity: 1; transform: translateX(0) scale(1); }
     to   { opacity: 0; transform: translateX(16px) scale(0.96); }
@@ -2999,7 +3003,7 @@ function SettingsSidebarContent({ tab, setTab, onSectionSelect, updateInfo, onCl
             // Discord-style sub-nav: when this page is active, list its sections as indented
             // children with a vertical tree line; the active one (scroll-spy) is highlighted.
             if (collapsed || tab !== item.id || !item.sections) return [parent];
-            const children = item.sections.map(sec => (
+            const children = item.sections.map((sec, i) => (
               <ListBoxItem
                 key={"sec:" + sec.id}
                 id={"sec:" + sec.id}
@@ -3008,6 +3012,7 @@ function SettingsSidebarContent({ tab, setTab, onSectionSelect, updateInfo, onCl
                   "text-t12 min-h-8 rounded-lg pl-9 relative",
                   activeSection === sec.id ? "text-accent font-medium" : "text-secondary"
                 )}
+                style={anim ? { animation: `unfoldDown 0.22s cubic-bezier(0.4,0,0.2,1) both`, animationDelay: `${i * 30}ms`, transformOrigin: "top" } : undefined}
               >
                 <span aria-hidden className="absolute left-[17px] top-0 bottom-0 w-px"
                   style={{ background: activeSection === sec.id ? "var(--accent)" : "var(--stroke)" }} />
