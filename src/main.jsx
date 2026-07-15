@@ -12,6 +12,13 @@ import "./index.css";
 
 installErrorCapture(); // capture frontend errors for the bug-report tool
 
+// Suppress WebView2/WebKit's native right-click menu (Back/Refresh/Save as/Print) in
+// packaged builds — it's a browser artifact that doesn't belong in a desktop app and has
+// no use for end users. Left enabled in dev so right-click → Inspect still works there.
+if (!import.meta.env.DEV) {
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
 console.log("[boot] main.jsx executing at +" + (Date.now() - (window.__bootStart || Date.now())) + "ms");
 
 const isOverlayEditor = new URLSearchParams(window.location.search).get("overlayEditor") === "1";
