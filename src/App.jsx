@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, createContext, useContext, useSyncExternalStore } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
-import { cn, Button, ListBox, ListBoxItem, Disclosure, DisclosureHeading, DisclosureTrigger, DisclosureContent, DisclosureBody, DisclosureIndicator, Dropdown, DropdownTrigger, DropdownPopover, DropdownMenu, DropdownItem, DropdownSection, DropdownSubmenuTrigger, DropdownSubmenuIndicator, ModalRoot, ModalBackdrop, ModalContainer, ModalDialog, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, SliderRoot, SliderTrack, SliderFill, SliderThumb, toast, ToastProvider, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill, SearchFieldRoot, SearchFieldGroup, SearchFieldSearchIcon, SearchFieldInput, SearchFieldClearButton, TextFieldRoot, InputRoot, TextArea, SwitchRoot, SwitchControl, SwitchThumb, CardRoot,
+import { cn, Button, ListBox, ListBoxItem, Disclosure, DisclosureHeading, DisclosureTrigger, DisclosureContent, DisclosureBody, DisclosureIndicator, Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, DropdownSection, DropdownSubmenuTrigger, DropdownSubmenuIndicator, ModalRoot, ModalBackdrop, ModalContainer, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, SliderRoot, SliderTrack, SliderFill, SliderThumb, toast, ToastProvider, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill, SearchFieldRoot, SearchFieldGroup, SearchFieldSearchIcon, SearchFieldInput, SearchFieldClearButton, TextFieldRoot, InputRoot, TextArea, SwitchRoot, SwitchControl, SwitchThumb, CardRoot,
  ColorAreaRoot, ColorAreaThumb, ColorSliderRoot, ColorSliderTrack, ColorSliderThumb, ColorSwatchRoot, KbdRoot, KbdContent,
  Skeleton, ToggleButton, ToggleButtonGroupRoot, ScrollShadowRoot, ChipRoot, ChipLabel } from "@heroui/react";
+import { DropdownMenu, ModalDialog } from "./ui/zoomed-heroui.jsx";
 import { parseColor } from "react-aria-components";
-import { UNSAFE_PortalProvider } from "react-aria";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -103,7 +103,7 @@ import {
   PaperPlaneTilt,
 } from "./icons.jsx";
 
-import { API, thumb, LangContext, useLang, AnimationContext, useAnimations, ZoomContext, useZoom, FontScaleContext, useFontScale, TrackNumberContext, PortalRootContext } from "./context.jsx";
+import { API, thumb, LangContext, useLang, AnimationContext, useAnimations, ZoomContext, useZoom, FontScaleContext, useFontScale, TrackNumberContext } from "./context.jsx";
 import { CreatePlaylistModal, RenamePlaylistModal, DeletePlaylistModal } from "./modals/playlist-modals.jsx";
 import { NewsModal, renderNewsBody } from "./modals/news-modal.jsx";
 import { BugReportModal } from "./modals/bug-report-modal.jsx";
@@ -383,14 +383,6 @@ function spring(prop, opts = {}) {
 
 // Global keyframes injected once
 const GLOBAL_KEYFRAMES = `
-  /* The portal root itself is pointer-events:none (an empty full-viewport div must never
-     block clicks meant for whatever's underneath) — but that's an inherited CSS property,
-     so anything portalled into it (Dropdown/Modal popovers) would silently inherit "none"
-     too and become unclickable unless something resets it back. React-aria-components'
-     overlay wrappers don't do this themselves (they normally portal straight to <body>,
-     which never has pointer-events:none, so they've never needed to). Reset it on the
-     portal root's direct children instead. */
-  .kodama-portal-root > * { pointer-events: auto; }
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
   @keyframes skipLeft {
     0%   { transform: translateX(0); }
@@ -827,9 +819,8 @@ function ContextMenu({ x, y, zoom = 1, onClose, ariaLabel, minWidth = 200, child
         style={{ left: x / zoom, top: y / zoom }}
       />
       <DropdownPopover triggerRef={anchorRef} placement="bottom start" className={CTX_POPOVER_ANIM}>
-        {/* The popover now portals inside the zoomed app root (see the UNSAFE_PortalProvider
-            wrapping the app), so it inherits `zoom` from its ancestor automatically — no
-            manual re-application needed here anymore (that would double it). */}
+        {/* DropdownMenu here is the zoom-aware wrapper (src/ui/zoomed-heroui.jsx) — it applies
+            the app zoom to itself automatically, so no zoom prop needed here. */}
         <DropdownMenu aria-label={ariaLabel} style={{ minWidth }}>
           {children}
         </DropdownMenu>
@@ -9539,9 +9530,6 @@ function AmbientBackdrop({ thumbnail }) {
 }
 
 export default function App() {
-  // Dedicated portal target for react-aria-components overlays (Dropdown/Modal popovers,
-  // Toasts) — see the UNSAFE_PortalProvider wrapping below for why this exists.
-  const portalRootRef = useRef(null);
   const [showSplash, setShowSplash] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
   // Skip FFmpeg screen if we already confirmed it available in a previous run.
@@ -11518,15 +11506,6 @@ export default function App() {
     <AnimationContext.Provider value={animations}>
     <FontScaleContext.Provider value={appFontScale}>
     <ZoomContext.Provider value={uiZoom}>
-    {/* react-aria-components' Popover/Modal/Toast overlays portal straight to document.body
-        by default, which sits outside the CSS `zoom`-scaled app root below — so at any UI
-        zoom other than 100% they render at the wrong (unscaled) size while everything else
-        in the app is bigger/smaller. Redirecting their portal target to a dedicated node
-        *inside* the zoomed root (via UNSAFE_PortalProvider) makes them real DOM descendants
-        of the zoomed element again, so they inherit the same zoom naturally — same fix
-        applied manually to Tooltip (src/ui/tooltip.jsx) since it portals itself. */}
-    <UNSAFE_PortalProvider getContainer={() => portalRootRef.current}>
-    <PortalRootContext.Provider value={portalRootRef}>
       <style>{GLOBAL_KEYFRAMES}</style>
       {!animations && (
         <style>{`*, *::before, *::after { transition: none !important; animation: none !important; }`}</style>
@@ -12565,15 +12544,7 @@ export default function App() {
             }}
           />
         )}
-
-        {/* Portal target for UNSAFE_PortalProvider above — stays inside the zoomed root so
-            portalled overlays inherit `zoom`. No size/background of its own (pointer-events:
-            none) so it never intercepts clicks meant for whatever's underneath; overlay
-            libraries set pointer-events back to auto on their own content. */}
-        <div ref={portalRootRef} className="kodama-portal-root" style={{ position: "fixed", inset: 0, overflow: "visible", pointerEvents: "none", zIndex: 9999 }} />
       </div>
-    </PortalRootContext.Provider>
-    </UNSAFE_PortalProvider>
     </ZoomContext.Provider>
     </FontScaleContext.Provider>
     </AnimationContext.Provider>

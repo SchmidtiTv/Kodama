@@ -1,5 +1,6 @@
 // Profile switcher modal — pick an account or add a new one. Extracted from App.jsx.
-import { cn, Button, ModalRoot, ModalBackdrop, ModalContainer, ModalDialog, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger } from "@heroui/react";
+import { cn, Button, ModalRoot, ModalBackdrop, ModalContainer, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger } from "@heroui/react";
+import { ModalDialog } from "../ui/zoomed-heroui.jsx";
 import { Users, Check, UserPlus } from "../icons.jsx";
 import { thumb, useLang } from "../context.jsx";
 

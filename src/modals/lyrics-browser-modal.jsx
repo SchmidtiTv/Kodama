@@ -2,7 +2,8 @@
 // + every Unison community submission), preview + sync type, vote/report, and apply one.
 // Extracted from App.jsx.
 import { useState, useEffect } from "react";
-import { cn, Button, Spinner, toast, ModalRoot, ModalBackdrop, ModalContainer, ModalDialog, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, Dropdown, DropdownTrigger, DropdownPopover, DropdownMenu, DropdownItem } from "@heroui/react";
+import { cn, Button, Spinner, toast, ModalRoot, ModalBackdrop, ModalContainer, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, Dropdown, DropdownTrigger, DropdownPopover, DropdownItem } from "@heroui/react";
+import { DropdownMenu, ModalDialog } from "../ui/zoomed-heroui.jsx";
 import { Microphone, Flag, Check, CaretUp, CaretDown } from "../icons.jsx";
 import { API, useLang } from "../context.jsx";
 import { PROVIDER_SYNC } from "../lyrics/providers.js";

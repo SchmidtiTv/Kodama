@@ -16,8 +16,9 @@ import {
   SelectRoot, SelectTrigger, SelectValue, SelectIndicator, SelectPopover,
   ListBox, ListBoxItem,
   SeparatorRoot,
-  Dropdown, DropdownTrigger, DropdownPopover, DropdownMenu, DropdownItem, DropdownSection,
+  Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, DropdownSection,
 } from "@heroui/react";
+import { DropdownMenu } from "../ui/zoomed-heroui.jsx";
 import {
   ImageSquare, VinylRecord, TextSize, WaveformLines, PaintBrushBroad,
   Eye, EyeSlash, Lock, LockOpen, Plus, Trash, Copy, Check, ArrowsClockwise,

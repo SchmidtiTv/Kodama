@@ -1,7 +1,7 @@
-// Hover tooltip (delayed show, portalled). Extracted from App.jsx.
+// Hover tooltip (delayed show, portalled to <body>). Extracted from App.jsx.
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useZoom, usePortalRoot } from "../context.jsx";
+import { useZoom } from "../context.jsx";
 
 export function Tooltip({ text, children }) {
   const [visible, setVisible] = useState(false);
@@ -10,7 +10,6 @@ export function Tooltip({ text, children }) {
   const showTimer = useRef(null);
   const hideTimer = useRef(null);
   const zoom = useZoom();
-  const portalRootRef = usePortalRoot();
   if (!text) return children;
 
   const hide = () => {
@@ -36,24 +35,30 @@ export function Tooltip({ text, children }) {
     >
       {children}
       {visible && createPortal(
+        // Positioned in real (already-zoomed) screen pixels from getBoundingClientRect, portalled
+        // to plain <body> — matches react-aria's own assumption that overlays live in an unzoomed
+        // context, so position math here stays untouched by the app's UI zoom. `zoom` goes on the
+        // INNER content div only: putting it on this outer positioned element too would scale its
+        // own left/top a second time (verified — an element's own `zoom` multiplies its own
+        // offset, not just its content), throwing the tooltip off far from its anchor at any zoom
+        // other than 100%.
         <div style={{
-          position: "fixed",
-          // getBoundingClientRect() above returns real (already-zoomed) screen pixels, but this
-          // portals into the zoomed app root (see App.jsx's PortalRootContext), so its own
-          // local coordinate system is scaled by `zoom` again — divide back down to local
-          // units, same convention as ContextMenu's anchor positioning.
-          left: pos.x / zoom, top: (pos.y - 6) / zoom,
+          position: "fixed", left: pos.x, top: pos.y - 6,
           transform: "translate(-50%, -100%)",
-          background: "var(--bg-elevated)", color: "var(--text-primary)",
-          padding: "5px 9px", borderRadius: 6,
-          fontSize: "var(--t11)", fontWeight: 500,
           pointerEvents: "none", zIndex: 99999,
-          border: "0.5px solid var(--border)",
-          whiteSpace: "nowrap",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
           animation: `${leaving ? "tooltipOut" : "tooltipIn"} 0.12s ease forwards`,
-        }}>{text}</div>,
-        portalRootRef?.current || document.body
+        }}>
+          <div style={{
+            zoom,
+            background: "var(--bg-elevated)", color: "var(--text-primary)",
+            padding: "5px 9px", borderRadius: 6,
+            fontSize: "var(--t11)", fontWeight: 500,
+            border: "0.5px solid var(--border)",
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          }}>{text}</div>
+        </div>,
+        document.body
       )}
     </span>
   );
