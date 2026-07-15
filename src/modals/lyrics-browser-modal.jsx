@@ -164,15 +164,20 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
   return (
     <ModalRoot isOpen onOpenChange={(open) => { if (!open) onClose(); }}>
       <ModalBackdrop className="z-[300]!">
-        <ModalContainer placement="center" size="lg" className="w-[820px] max-w-[94vw]">
-          <ModalDialog className="p-0! flex-row! w-full max-w-none! h-[620px] max-h-[85vh] overflow-hidden">
+        <ModalContainer placement="center" className="max-w-[94vw]">
+          {/* w-[...]! directly on the dialog, not w-full on an ambiguous parent: HeroUI's
+              own .modal__container is `sm:w-fit` at desktop widths (sized to the dialog),
+              so giving the CONTAINER a fixed width while the dialog says "w-full" (100% of
+              that container) is circular — it resolved to the full backdrop width instead
+              (way too wide). The dialog owns its own explicit size here. */}
+          <ModalDialog className="p-3! gap-3! flex-row! w-[760px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
             {/* Left pane — source list */}
-            <div className="flex flex-col w-[300px] shrink-0 border-r border-border min-h-0">
-              <div className="flex items-center gap-2.5 px-4 pt-4 pb-3 shrink-0">
+            <div className="flex flex-col w-[260px] shrink-0 min-h-0">
+              <div className="flex items-center gap-2 px-1 pb-3 shrink-0">
                 <PencilSimple size={17} />
                 <span className="text-t14 font-bold">{t("browseLyrics")}</span>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2.5 pb-2">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 flex flex-col gap-1.5">
                 {results === null ? (
                   <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                 ) : results.length === 0 ? (
@@ -186,17 +191,12 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                     const vState = votes[r.id];
                     const count = vState ? vState.count : (r.voteCount ?? 0);
                     const my = vState ? vState.my : 0;
-                    // Skip the hairline divider next to a selected row — its own border
-                    // already separates it, a divider right against it looks redundant.
-                    const showDividerBefore = i > 0 && i - 1 !== selectedIdx && i !== selectedIdx;
                     return (
-                      <div key={`${r.providerId}-${i}`}>
-                        {showDividerBefore && <div className="h-px bg-border mx-1 my-1.5" />}
-                        <div role="button" tabIndex={0}
-                          onClick={() => setSelectedIdx(i)}
-                          onKeyDown={e => { if (e.key === "Enter") setSelectedIdx(i); }}
-                          className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150 mb-0.5",
-                            isSelected ? "border-accent bg-accent-dim" : "border-transparent bg-transparent hover:bg-hover")}>
+                      <div key={`${r.providerId}-${i}`} role="button" tabIndex={0}
+                        onClick={() => setSelectedIdx(i)}
+                        onKeyDown={e => { if (e.key === "Enter") setSelectedIdx(i); }}
+                        className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
+                          isSelected ? "border-accent bg-accent-dim" : "border-transparent bg-transparent hover:bg-hover")}>
                           <div className="flex items-center gap-2 w-full min-w-0">
                             <span className={cn("text-t13 font-semibold shrink-0", isSelected && "text-accent")}>{r.source}</span>
                             {r.submitterName ? <span className="text-t11 text-muted truncate min-w-0">· {r.submitterName}</span> : null}
@@ -231,13 +231,12 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                               </Dropdown>
                             </div>
                           ) : null}
-                        </div>
                       </div>
                     );
                   })
                 )}
               </div>
-              <div className="p-2.5 border-t border-border shrink-0">
+              <div className="pt-2.5 border-t border-border shrink-0">
                 <Button variant="ghost" fullWidth className="justify-center gap-2"
                   onPress={() => { openComposer(track?.videoId).catch(console.error); onClose(); }}>
                   <img src="/Boidu Composer Icon.svg" style={{ width: 16, height: 16 }} alt="" />{t("openComposerBtn")}
@@ -245,28 +244,29 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
               </div>
             </div>
 
-            {/* Right pane — full preview of the selected version */}
-            <div className="flex flex-col flex-1 min-w-0 min-h-0 bg-elevated">
-              <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
+            {/* Right pane — its own inset, distinctly darker card (not just the same tone as
+                the dialog frame) so it actually reads as a separate preview panel. */}
+            <div className="flex flex-col flex-1 min-w-0 min-h-0 rounded-2xl overflow-hidden" style={{ background: "var(--bg-base)" }}>
+              <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 shrink-0">
                 <span className="text-t14 font-bold">{t("lyricsPreview")}</span>
                 <button onClick={onClose} title={t("close") || "Close"}
                   className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors">
                   <X size={13} weight="bold" />
                 </button>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 text-t13 text-secondary leading-relaxed">
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3 text-t13 text-secondary leading-relaxed">
                 {results === null ? (
                   <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                 ) : !selected ? (
                   <div className="h-full flex items-center justify-center text-muted text-t12">{t("noLyricsFound")}</div>
                 ) : (
                   previewLines.map(l => l.gap
-                    ? <div key={l.key} className="h-4" />
+                    ? <div key={l.key} className="h-3.5" />
                     : <div key={l.key}>{l.text}</div>
                   )
                 )}
               </div>
-              <div className="flex items-center justify-end gap-2 p-2.5 border-t border-border shrink-0">
+              <div className="flex items-center justify-end gap-2 px-3 py-2.5 border-t border-border shrink-0">
                 <Button variant="ghost" size="sm" className="gap-1.5" isDisabled={!selected} onPress={handleCopy}>
                   <Copy size={14} />{t("copyLyrics")}
                 </Button>
