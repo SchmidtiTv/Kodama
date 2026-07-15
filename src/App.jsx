@@ -7235,11 +7235,14 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
 
       // Staggered positional drift ("rubber-band" chain): each line is shifted to the scroll
       // position from (distance × STAGGER) ago → it lags behind and catches up elastically.
+      // Only while the spring is actually auto-scrolling — while the user is manually
+      // scrolling, the lines should track the cursor 1:1 with no lag, so skip it (and clear
+      // any drift already applied) rather than dragging under their own input.
       const ai = activeIdxRef.current;
       const cur = scrollPosRef.current;
       for (let n = 0; n < wraps.length; n++) {
         const dist = Math.abs(n - ai);
-        if (dist === 0) { if (wraps[n].style.transform) wraps[n].style.transform = ""; continue; }
+        if (userScrollingRef.current || dist === 0) { if (wraps[n].style.transform) wraps[n].style.transform = ""; continue; }
         const drift = Math.max(-34, Math.min(34, cur - histAt(hist, now - Math.min(dist, 8) * STAGGER * 1000)));
         wraps[n].style.transform = Math.abs(drift) > 0.1 ? `translateY(${drift.toFixed(2)}px)` : "";
       }
