@@ -3504,6 +3504,29 @@ def song_meta(video_id):
         return jsonify({"error": str(e)}), 502
 
 
+@app.route("/ytmusic/history", methods=["POST"])
+def ytmusic_add_history():
+    """Register a play in the account's actual YT Music watch history — opt-in (frontend's
+    kiyoshi-ytmusic-history-sync setting), so plays through Kodama count toward YT Music's
+    own Recap/stats. ytmusicapi's add_history_item() pings the same playbackTracking URL
+    the official web client uses when a track is watched; requires an authenticated
+    (non-local) profile, same as the rest of the account-scoped endpoints."""
+    data = request.get_json(silent=True) or {}
+    video_id = data.get("videoId")
+    if not video_id:
+        return jsonify({"error": "videoId required"}), 400
+    try:
+        ytm = get_ytmusic()
+        song = ytm.get_song(video_id)
+        if not song or not (song.get("playbackTracking") or {}).get("videostatsPlaybackUrl"):
+            return jsonify({"error": "no_playback_tracking"}), 502
+        resp = ytm.add_history_item(song)
+        status = getattr(resp, "status_code", None)
+        return jsonify({"ok": status == 204, "status": status})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @app.route("/song/credits/<video_id>")
 def get_song_credits(video_id):
     # Serve from cache if available

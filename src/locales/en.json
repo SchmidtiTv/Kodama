@@ -274,6 +274,8 @@
   "closeTrayDesc": "Minimize to system tray instead of quitting when closing the window",
   "discordRpc": "Discord Rich Presence",
   "discordRpcDesc": "Show current song in your Discord profile",
+  "ytmusicHistorySync": "YT Music History Sync",
+  "ytmusicHistorySyncDesc": "Register plays in your actual YouTube Music watch history, so they count toward Recap/stats there. Requires being logged in.",
   "fontSize": "Font Size",
   "fontSizeDesc": "Current size",
   "translationFontSize": "Translation Font Size",

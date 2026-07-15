@@ -274,6 +274,8 @@
   "closeTrayDesc": "Fenster schließen minimiert in den System-Tray statt die App zu beenden",
   "discordRpc": "Discord Rich Presence",
   "discordRpcDesc": "Zeigt den aktuellen Song in deinem Discord-Profil an",
+  "ytmusicHistorySync": "YT-Music-Verlauf-Sync",
+  "ytmusicHistorySyncDesc": "Trägt abgespielte Songs in deinen echten YouTube-Music-Wiedergabeverlauf ein, damit sie dort in Recap/Statistiken zählen. Erfordert eine angemeldete Sitzung.",
   "fontSize": "Schriftgröße",
   "fontSizeDesc": "Aktuelle Größe",
   "translationFontSize": "Übersetzungs-Schriftgröße",

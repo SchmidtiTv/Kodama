@@ -3337,7 +3337,7 @@ function AccountSettingsTab({ accounts, activeAccount, onSwitch, onAdd, onReauth
 
 function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accentDynamic, onAccentDynamicChange, accentSat, onAccentSatChange, accentLight, onAccentLightChange, appIcon = APP_ICON_DEFAULT, onAppIconChange,
   remoteEnabled = false, remoteDevices = [], remoteTrustedIds = new Set(), onToggleRemote, onRemoteDevice, onRememberDevice, onPairDevice,
-  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
+  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, ytmusicHistorySync, onYtmusicHistorySyncChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, onObsPortSave,
   customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut,
   accounts, activeAccount, onAccountSwitch, onAccountAdd, onAccountReauth, onAccountRemove, onAccountRename, onAccountLogout, onAccountAvatarChange,
@@ -4196,6 +4196,9 @@ function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accen
                   <Toggle value={discordRpc} onChange={onDiscordRpcChange} />
                 </SettingRow>
                 <LastfmRow />
+                <SettingRow label={t("ytmusicHistorySync")} description={t("ytmusicHistorySyncDesc")} icon={<ClockCounterClockwise />}>
+                  <Toggle value={ytmusicHistorySync} onChange={onYtmusicHistorySyncChange} />
+                </SettingRow>
                 <SettingRow label={<span style={{ display: "flex", alignItems: "center", gap: 6 }}>{t("remoteControl")}<span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em", background: "var(--accent)", color: "#fff", padding: "2px 5px", borderRadius: 4, lineHeight: 1.4 }}>Beta</span></span>} description={t("remoteControlDesc")} icon={<DeviceMobile />}>
                   <Toggle value={remoteEnabled} onChange={onToggleRemote} />
                 </SettingRow>
@@ -10002,6 +10005,10 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [discordRpc, setDiscordRpc] = useState(() => localStorage.getItem("kiyoshi-discord-rpc") !== "false");
+  // Opt-in (default off): register plays in the account's actual YT Music watch history
+  // (via ytmusicapi's playbackTracking ping) so they count toward YT Music's own Recap/stats
+  // — separate from Kodama's own local History list, which always works regardless of this.
+  const [ytmusicHistorySync, setYtmusicHistorySync] = useState(() => localStorage.getItem("kiyoshi-ytmusic-history-sync") === "true");
 
   // Dynamic accent: when enabled, derive --accent live from the current cover; otherwise
   // fall back to the fixed accent. Re-runs whenever the track or the mode changes.
@@ -10095,6 +10102,36 @@ export default function App() {
     }, 1000);
     return () => clearInterval(id);
   }, [isPlaying, currentTrack?.videoId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── YT Music history sync (opt-in) ──────────────────────────────────────────
+  // Registers the play in the account's real YT Music watch history (backend pings the
+  // playbackTracking URL from ytmusicapi's get_song), so it counts toward YT Music's own
+  // Recap/stats — separate from, and independent of, Kodama's own local History list.
+  // Same accumulate-then-fire-once threshold as Last.fm scrobbling above, reusing the same
+  // "counts as played" definition rather than inventing a second one.
+  const ytHistoryRef = useRef({ videoId: null, played: 0, sent: false });
+  useEffect(() => {
+    ytHistoryRef.current = { videoId: currentTrack?.videoId || null, played: 0, sent: false };
+  }, [currentTrack?.videoId]);
+  useEffect(() => {
+    if (!ytmusicHistorySync || !isPlaying) return;
+    const id = setInterval(() => {
+      const st = ytHistoryRef.current;
+      if (!st.videoId || st.sent) return;
+      st.played += 1;
+      const duration = parseDurationToSeconds(currentTrack?.duration) || 0;
+      if (duration < 30) return;
+      const threshold = Math.min(duration / 2, 240); // >50% or >4min
+      if (st.played >= threshold) {
+        st.sent = true;
+        fetch(`${API}/ytmusic/history`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoId: st.videoId }),
+        }).catch(() => {});
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [ytmusicHistorySync, isPlaying, currentTrack?.videoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [closeTray, setCloseTray] = useState(() => localStorage.getItem("kiyoshi-close-tray") !== "false");
   useEffect(() => {
@@ -12076,6 +12113,8 @@ export default function App() {
             onCloseTrayChange={v => { setCloseTray(v); localStorage.setItem("kiyoshi-close-tray", String(v)); import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_close_to_tray", { enabled: v }).catch(() => {})); }}
             discordRpc={discordRpc}
             onDiscordRpcChange={(v) => { setDiscordRpc(v); localStorage.setItem("kiyoshi-discord-rpc", v); if (!v) import("@tauri-apps/api/core").then(({ invoke }) => invoke("clear_discord_rpc").catch(() => {})); }}
+            ytmusicHistorySync={ytmusicHistorySync}
+            onYtmusicHistorySyncChange={(v) => { setYtmusicHistorySync(v); localStorage.setItem("kiyoshi-ytmusic-history-sync", String(v)); }}
             language={language}
             onLanguageChange={handleLanguageChange}
             updateInfo={updateInfo}
