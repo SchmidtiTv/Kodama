@@ -383,6 +383,14 @@ function spring(prop, opts = {}) {
 
 // Global keyframes injected once
 const GLOBAL_KEYFRAMES = `
+  /* The portal root itself is pointer-events:none (an empty full-viewport div must never
+     block clicks meant for whatever's underneath) — but that's an inherited CSS property,
+     so anything portalled into it (Dropdown/Modal popovers) would silently inherit "none"
+     too and become unclickable unless something resets it back. React-aria-components'
+     overlay wrappers don't do this themselves (they normally portal straight to <body>,
+     which never has pointer-events:none, so they've never needed to). Reset it on the
+     portal root's direct children instead. */
+  .kodama-portal-root > * { pointer-events: auto; }
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
   @keyframes skipLeft {
     0%   { transform: translateX(0); }
@@ -12562,7 +12570,7 @@ export default function App() {
             portalled overlays inherit `zoom`. No size/background of its own (pointer-events:
             none) so it never intercepts clicks meant for whatever's underneath; overlay
             libraries set pointer-events back to auto on their own content. */}
-        <div ref={portalRootRef} style={{ position: "fixed", inset: 0, overflow: "visible", pointerEvents: "none" }} />
+        <div ref={portalRootRef} className="kodama-portal-root" style={{ position: "fixed", inset: 0, overflow: "visible", pointerEvents: "none", zIndex: 9999 }} />
       </div>
     </PortalRootContext.Provider>
     </UNSAFE_PortalProvider>
