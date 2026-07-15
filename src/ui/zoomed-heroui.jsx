@@ -22,5 +22,13 @@ export function DropdownMenu({ style, ...props }) {
 
 export function ModalDialog({ style, ...props }) {
   const zoom = useZoom();
-  return <HeroModalDialog style={{ ...style, zoom }} {...props} />;
+  // HeroUI's .modal__dialog has no max-height of its own — it's a flex item inside
+  // .modal__container (which IS capped to the real, unzoomed viewport height) and relies on
+  // shrinking to fit, with .modal__body--scroll-inside scrolling any overflow. Flex items
+  // default to min-height:auto (shrink-resistant), so once `zoom` inflates the dialog's
+  // intrinsic content size past what the container allows, it pokes out past the container's
+  // edges (no bottom margin, clipped) instead of capping and letting the body scroll
+  // internally. maxHeight:100% (of the container's real fixed height) + minHeight:0 lets it
+  // actually shrink to fit, handing overflow back to the body's own scroll.
+  return <HeroModalDialog style={{ ...style, zoom, maxHeight: "100%", minHeight: 0 }} {...props} />;
 }
