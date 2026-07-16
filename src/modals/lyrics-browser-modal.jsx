@@ -175,13 +175,13 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
             <div className="flex flex-col w-[320px] shrink-0 min-h-0">
               <div className="flex items-center gap-2 px-4 pt-4 pb-3 shrink-0">
                 <PencilSimple size={17} />
-                <span className="text-t14 font-bold">{t("browseLyrics")}</span>
+                <span className="font-bold" style={{ fontSize: "var(--t14)" }}>{t("browseLyrics")}</span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 flex flex-col gap-1.5">
                 {results === null ? (
                   <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                 ) : results.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted text-t12 text-center px-3">{t("noLyricsFound")}</div>
+                  <div className="h-full flex items-center justify-center text-muted text-center px-3" style={{ fontSize: "var(--t12)" }}>{t("noLyricsFound")}</div>
                 ) : (
                   results.map((r, i) => {
                     const sync = syncFor(r);
@@ -198,20 +198,20 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                         className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
                           isSelected ? "border-accent bg-accent-dim" : "border-transparent bg-transparent hover:bg-hover")}>
                           <div className="flex items-center gap-2 w-full min-w-0">
-                            <span className={cn("text-t11 font-semibold shrink-0", isSelected && "text-accent")}>{r.source}</span>
-                            {r.submitterName ? <span className="text-t11 text-muted truncate min-w-0">· {r.submitterName}</span> : null}
+                            <span className={cn("font-semibold shrink-0", isSelected && "text-accent")} style={{ fontSize: "var(--t11)" }}>{r.source}</span>
+                            {r.submitterName ? <span className="text-muted truncate min-w-0" style={{ fontSize: "var(--t11)" }}>· {r.submitterName}</span> : null}
                             {sync ? (
-                              <span className="ml-auto text-t10 px-1.5 py-0.5 rounded shrink-0" style={{ color: sync.color, background: sync.bg }}>{sync.label}</span>
+                              <span className="ml-auto px-1.5 py-0.5 rounded shrink-0" style={{ color: sync.color, background: sync.bg, fontSize: "var(--t10)" }}>{sync.label}</span>
                             ) : <span className="ml-auto" />}
                           </div>
-                          {preview ? <div className="text-t10 text-muted leading-relaxed line-clamp-2 break-words w-full">{preview}</div> : null}
+                          {preview ? <div className="text-muted leading-relaxed line-clamp-2 break-words w-full" style={{ fontSize: "var(--t10)" }}>{preview}</div> : null}
                           {isUnison ? (
                             <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
                               <button onClick={() => doVote(r, 1)} title={t("upvote")}
                                 className={cn("flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors", my === 1 ? "text-accent" : "text-muted")}>
                                 <CaretUp size={13} weight="bold" />
                               </button>
-                              <span className="text-t11 tabular-nums min-w-[18px] text-center text-secondary">{count}</span>
+                              <span className="tabular-nums min-w-[18px] text-center text-secondary" style={{ fontSize: "var(--t11)" }}>{count}</span>
                               <button onClick={() => doVote(r, -1)} title={t("downvote")}
                                 className={cn("flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors", my === -1 ? "text-[#e05252]" : "text-muted")}>
                                 <CaretDown size={13} weight="bold" />
@@ -250,17 +250,17 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
             <div className="flex flex-col flex-1 min-w-0 min-h-0">
               <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden" style={{ background: "var(--bg-base)" }}>
                 <div className="flex items-center justify-between px-4 pt-4 pb-2.5 shrink-0">
-                  <span className="text-t14 font-bold">{t("lyricsPreview")}</span>
+                  <span className="font-bold" style={{ fontSize: "var(--t14)" }}>{t("lyricsPreview")}</span>
                   <button onClick={onClose} title={t("close") || "Close"}
                     className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors">
                     <X size={13} weight="bold" />
                   </button>
                 </div>
-                <ScrollShadowRoot size={24} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-t13 text-secondary leading-relaxed">
+                <ScrollShadowRoot size={24} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-secondary leading-relaxed" style={{ fontSize: "var(--t13)" }}>
                   {results === null ? (
                     <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                   ) : !selected ? (
-                    <div className="h-full flex items-center justify-center text-muted text-t12">{t("noLyricsFound")}</div>
+                    <div className="h-full flex items-center justify-center text-muted" style={{ fontSize: "var(--t12)" }}>{t("noLyricsFound")}</div>
                   ) : (
                     previewLines.map(l => l.gap
                       ? <div key={l.key} className="h-3.5" />
