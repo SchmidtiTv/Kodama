@@ -5176,7 +5176,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, crossfadeOverrides = {}, remoteEnabled = false, playbackProgressive = true, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, lyricsProviders = DEFAULT_LYRICS_PROVIDERS, currentLyricsSource = "", onSwitchLyricsProvider, failedLyricsProviders = new Set(), language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onPremiumDetected, onCreatePlaylist, onAddToPlaylist }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, crossfadeOverrides = {}, remoteEnabled = false, playbackProgressive = true, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onOpenLyricsBrowser, onPremiumDetected, onCreatePlaylist, onAddToPlaylist }) {
   const [progress, setProgress] = useState(0);
   // Stable ref so fetchUrl can read the current playback mode without re-subscribing.
   const playbackProgressiveRef = useRef(playbackProgressive);
@@ -6035,27 +6035,13 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
                       ) : null}
                     </DropdownSection>
 
-                    {/* Lyrics provider switcher */}
+                    {/* Lyrics Browser — replaces the old per-provider quick-switch list with
+                        the dedicated two-pane browser/preview modal. */}
                     <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                      {lyricsProviders.filter(p => p.enabled).map(p => {
-                        const sync = PROVIDER_SYNC[p.id];
-                        const isActive = currentLyricsSource === p.label;
-                        const isFailed = failedLyricsProviders.has(p.id);
-                        return (
-                          <DropdownItem key={p.id} textValue={p.label} isDisabled={isFailed}
-                            onAction={() => { if (!isFailed) onSwitchLyricsProvider?.(p.id); }}
-                            className={cn("text-t12", isActive ? "text-primary" : "text-secondary")}>
-                            <span className="flex-1">{p.label}</span>
-                            {sync && (
-                              <span className="flex items-center gap-1.5 text-t10 px-1.5 py-0.5 rounded whitespace-nowrap" style={{ color: sync.color, background: sync.bg }}>
-                                {sync.icon && <span className="inline-block w-4 h-4 shrink-0" style={{ backgroundColor: "currentColor", maskImage: `url(${sync.icon})`, WebkitMaskImage: `url(${sync.icon})`, maskSize: "contain", WebkitMaskSize: "contain", maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat", maskPosition: "center", WebkitMaskPosition: "center" }} />}
-                                {sync.label}
-                              </span>
-                            )}
-                            {isActive && <Check size={12} className="text-accent shrink-0" />}
-                          </DropdownItem>
-                        );
-                      })}
+                      <DropdownItem textValue={translate(language, "browseLyrics")} onAction={() => onOpenLyricsBrowser?.()}>
+                        <Microphone size={14} />
+                        {translate(language, "browseLyrics")}
+                      </DropdownItem>
                     </DropdownSection>
 
                     {/* Download / Export */}
@@ -6567,7 +6553,7 @@ function paintLineWords(line, els, wordIdxRef, t, zoomMaxRef = null, glow = fals
   paintWordSeq(bgWords,   bgEls,   wordIdxRef, "bgCurrent", t, null, glow, wordGroupIndices(line.bgWords));
 }
 
-export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de", forcedProvider = null, onSourceChange, onProviderFailed, showTranslation = false, translationLang = "DE", translationFontSize = 20, showRomaji = false, romajiFontSize = 18, onCustomLyricsStatusChange, importLyricsRef, removeCustomLyricsRef, showAgentTags = true, ambientVisualizer = true, syllableZoom = false, fluidLyrics = false, ambientBackground = false, fullscreen = false, playerBarVisible = false, onInstrumentalChange }) {
+export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, providers = DEFAULT_LYRICS_PROVIDERS, refetchKey = 0, onAddToast, language = "de", forcedProvider = null, onSourceChange, onProviderFailed, showTranslation = false, translationLang = "DE", translationFontSize = 20, showRomaji = false, romajiFontSize = 18, onCustomLyricsStatusChange, importLyricsRef, removeCustomLyricsRef, openLyricsBrowserRef, showAgentTags = true, ambientVisualizer = true, syllableZoom = false, fluidLyrics = false, ambientBackground = false, fullscreen = false, playerBarVisible = false, onInstrumentalChange }) {
   // In fullscreen the player bar overlays the bottom of the lyrics view; lift the
   // bottom-anchored chips above it while it's visible so they aren't covered.
   const chipBottomLift = (fullscreen && playerBarVisible) ? 104 : 0;
@@ -6932,6 +6918,7 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
   useEffect(() => {
     if (importLyricsRef) importLyricsRef.current = importCustomLyrics;
     if (removeCustomLyricsRef) removeCustomLyricsRef.current = removeCustomLyrics;
+    if (openLyricsBrowserRef) openLyricsBrowserRef.current = () => setBrowserOpen(true);
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -10158,6 +10145,7 @@ export default function App() {
   const [showAgentTags, setShowAgentTags] = useState(() => localStorage.getItem("kiyoshi-lyrics-agent-tags") !== "false");
   const importLyricsRef = useRef(null);
   const removeCustomLyricsRef = useRef(null);
+  const openLyricsBrowserRef = useRef(null);
 
   // Reset lyrics state on every track change (incl. auto-advance / prev-next)
   useEffect(() => {
@@ -11839,10 +11827,6 @@ export default function App() {
             cachedSongIds={cachedSongIds}
             downloadingIds={downloadingIds}
             onRefetchLyrics={() => { setForcedLyricsProvider(null); setLyricsRefetchKey(k => k + 1); }}
-            lyricsProviders={lyricsProviders}
-            currentLyricsSource={currentLyricsSource}
-            onSwitchLyricsProvider={(id) => setForcedLyricsProvider(id)}
-            failedLyricsProviders={failedLyricsProviders}
             language={language}
             showLyricsTranslation={showLyricsTranslation}
             onToggleLyricsTranslation={() => {
@@ -11863,6 +11847,7 @@ export default function App() {
             }}
             isCustomLyrics={isCustomLyrics}
             onImportLyrics={() => importLyricsRef.current?.()}
+            onOpenLyricsBrowser={() => openLyricsBrowserRef.current?.()}
             onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
             onPremiumDetected={(videoId) => setPremiumSongIds(prev => new Set(prev).add(videoId))}
             onCreatePlaylist={() => setCreatePlaylistOpen(true)}
@@ -11912,7 +11897,7 @@ export default function App() {
                 transition: paneTransition,
                 pointerEvents: (splitActive || showLyrics) ? "all" : "none",
               }}>
-                <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} syllableZoom={syllableZoom} fluidLyrics={fluidLyrics} ambientBackground={ambientBackground} fullscreen={fullscreen} playerBarVisible={playerVisible} onInstrumentalChange={handleInstrumentalChange} />
+                <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} openLyricsBrowserRef={openLyricsBrowserRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} syllableZoom={syllableZoom} fluidLyrics={fluidLyrics} ambientBackground={ambientBackground} fullscreen={fullscreen} playerBarVisible={playerVisible} onInstrumentalChange={handleInstrumentalChange} />
               </div>
               <div style={{
                 position: "absolute", top: 0, bottom: 0, left: 0,
