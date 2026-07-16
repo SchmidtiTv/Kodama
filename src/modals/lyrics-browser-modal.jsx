@@ -198,13 +198,13 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                         className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
                           isSelected ? "border-accent bg-accent-dim" : "border-transparent bg-transparent hover:bg-hover")}>
                           <div className="flex items-center gap-2 w-full min-w-0">
-                            <span className={cn("text-t13 font-semibold shrink-0", isSelected && "text-accent")}>{r.source}</span>
+                            <span className={cn("text-t12 font-semibold shrink-0", isSelected && "text-accent")}>{r.source}</span>
                             {r.submitterName ? <span className="text-t11 text-muted truncate min-w-0">· {r.submitterName}</span> : null}
                             {sync ? (
                               <span className="ml-auto text-t10 px-1.5 py-0.5 rounded shrink-0" style={{ color: sync.color, background: sync.bg }}>{sync.label}</span>
                             ) : <span className="ml-auto" />}
                           </div>
-                          {preview ? <div className="text-t11 text-muted leading-relaxed line-clamp-2 break-words w-full">{preview}</div> : null}
+                          {preview ? <div className="text-t10 text-muted leading-relaxed line-clamp-2 break-words w-full">{preview}</div> : null}
                           {isUnison ? (
                             <div className="flex items-center gap-1 pt-0.5" onClick={e => e.stopPropagation()}>
                               <button onClick={() => doVote(r, 1)} title={t("upvote")}
