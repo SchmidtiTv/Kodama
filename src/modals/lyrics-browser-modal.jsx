@@ -170,14 +170,14 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
               so giving the CONTAINER a fixed width while the dialog says "w-full" (100% of
               that container) is circular — it resolved to the full backdrop width instead
               (way too wide). The dialog owns its own explicit size here. */}
-          <ModalDialog className="p-3! gap-3! flex-row! w-[760px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
+          <ModalDialog className="p-3! gap-3! flex-row! w-[700px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
             {/* Left pane — source list */}
             <div className="flex flex-col w-[260px] shrink-0 min-h-0">
-              <div className="flex items-center gap-2 px-1 pb-3 shrink-0">
+              <div className="flex items-center gap-2 px-4 pt-4 pb-3 shrink-0">
                 <PencilSimple size={17} />
                 <span className="text-t14 font-bold">{t("browseLyrics")}</span>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 flex flex-col gap-1.5">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 flex flex-col gap-1.5">
                 {results === null ? (
                   <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                 ) : results.length === 0 ? (
@@ -236,7 +236,7 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                   })
                 )}
               </div>
-              <div className="pt-2.5 border-t border-border shrink-0">
+              <div className="px-4 pt-3 shrink-0">
                 <Button variant="ghost" fullWidth className="justify-center gap-2"
                   onPress={() => { openComposer(track?.videoId).catch(console.error); onClose(); }}>
                   <img src="/Boidu Composer Icon.svg" style={{ width: 16, height: 16 }} alt="" />{t("openComposerBtn")}
@@ -244,29 +244,32 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
               </div>
             </div>
 
-            {/* Right pane — its own inset, distinctly darker card (not just the same tone as
-                the dialog frame) so it actually reads as a separate preview panel. */}
-            <div className="flex flex-col flex-1 min-w-0 min-h-0 rounded-2xl overflow-hidden" style={{ background: "var(--bg-base)" }}>
-              <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 shrink-0">
-                <span className="text-t14 font-bold">{t("lyricsPreview")}</span>
-                <button onClick={onClose} title={t("close") || "Close"}
-                  className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors">
-                  <X size={13} weight="bold" />
-                </button>
+            {/* Right pane — the preview itself is a distinctly darker inset card (not just the
+                same tone as the dialog frame, so it actually reads as a separate panel); the
+                action buttons sit below it, outside the box, matching its width. */}
+            <div className="flex flex-col flex-1 min-w-0 min-h-0">
+              <div className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden" style={{ background: "var(--bg-base)" }}>
+                <div className="flex items-center justify-between px-4 pt-4 pb-2.5 shrink-0">
+                  <span className="text-t14 font-bold">{t("lyricsPreview")}</span>
+                  <button onClick={onClose} title={t("close") || "Close"}
+                    className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors">
+                    <X size={13} weight="bold" />
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-t13 text-secondary leading-relaxed">
+                  {results === null ? (
+                    <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
+                  ) : !selected ? (
+                    <div className="h-full flex items-center justify-center text-muted text-t12">{t("noLyricsFound")}</div>
+                  ) : (
+                    previewLines.map(l => l.gap
+                      ? <div key={l.key} className="h-3.5" />
+                      : <div key={l.key}>{l.text}</div>
+                    )
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3 text-t13 text-secondary leading-relaxed">
-                {results === null ? (
-                  <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
-                ) : !selected ? (
-                  <div className="h-full flex items-center justify-center text-muted text-t12">{t("noLyricsFound")}</div>
-                ) : (
-                  previewLines.map(l => l.gap
-                    ? <div key={l.key} className="h-3.5" />
-                    : <div key={l.key}>{l.text}</div>
-                  )
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-2 px-3 py-2.5 border-t border-border shrink-0">
+              <div className="flex items-center justify-end gap-2 pt-3 shrink-0">
                 <Button variant="ghost" size="sm" className="gap-1.5" isDisabled={!selected} onPress={handleCopy}>
                   <Copy size={14} />{t("copyLyrics")}
                 </Button>
