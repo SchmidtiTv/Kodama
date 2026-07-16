@@ -170,9 +170,9 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
               so giving the CONTAINER a fixed width while the dialog says "w-full" (100% of
               that container) is circular — it resolved to the full backdrop width instead
               (way too wide). The dialog owns its own explicit size here. */}
-          <ModalDialog className="p-3! gap-3! flex-row! w-[700px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
+          <ModalDialog className="p-3! gap-3! flex-row! w-[720px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
             {/* Left pane — source list */}
-            <div className="flex flex-col w-[260px] shrink-0 min-h-0">
+            <div className="flex flex-col w-[320px] shrink-0 min-h-0">
               <div className="flex items-center gap-2 px-4 pt-4 pb-3 shrink-0">
                 <PencilSimple size={17} />
                 <span className="text-t14 font-bold">{t("browseLyrics")}</span>
@@ -269,11 +269,15 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                   )}
                 </div>
               </div>
-              <div className="flex items-center justify-end gap-2 pt-3 shrink-0">
-                <Button variant="ghost" size="sm" className="gap-1.5" isDisabled={!selected} onPress={handleCopy}>
+              <div className="flex items-center gap-2 pt-3 shrink-0">
+                <Button variant="ghost" size="sm" className="flex-1 gap-1.5" isDisabled={!selected} onPress={handleCopy}>
                   <Copy size={14} />{t("copyLyrics")}
                 </Button>
-                <Button variant="primary" size="sm" className="gap-1.5" isDisabled={!selected} onPress={handleSelect}>
+                {/* Accent background kept, just the icon/text recoloured to grey instead of
+                    the variant's default white (--button-fg is what the button's own CSS
+                    reads for its foreground colour). */}
+                <Button variant="primary" size="sm" className="flex-1 gap-1.5" style={{ "--button-fg": "var(--text-secondary)" }}
+                  isDisabled={!selected} onPress={handleSelect}>
                   <Check size={14} weight="bold" />{t("selectLyricsVersion")}
                 </Button>
               </div>
