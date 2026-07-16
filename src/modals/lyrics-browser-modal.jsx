@@ -173,7 +173,7 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
           <ModalDialog className="p-3! gap-3! flex-row! w-[720px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
             {/* Left pane — source list */}
             <div className="flex flex-col w-[320px] shrink-0 min-h-0">
-              <div className="flex items-center gap-2 px-4 pt-4 pb-3 shrink-0">
+              <div className="flex items-center gap-2 px-4 pt-4 pb-4 shrink-0">
                 <MicrophoneStand size={17} weight="fill" />
                 <span className="font-bold" style={{ fontSize: "var(--t14)" }}>{t("browseLyrics")}</span>
               </div>
@@ -195,7 +195,7 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                       <div key={`${r.providerId}-${i}`} role="button" tabIndex={0}
                         onClick={() => setSelectedIdx(i)}
                         onKeyDown={e => { if (e.key === "Enter") setSelectedIdx(i); }}
-                        className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
+                        className={cn("flex flex-col gap-1.5 p-2.5 rounded-xl text-left border-2 w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
                           isSelected ? "border-accent bg-accent-dim" : "border-transparent bg-transparent hover:bg-hover")}>
                           <div className="flex items-center gap-2 w-full min-w-0">
                             <span className={cn("font-semibold shrink-0", isSelected && "text-accent")} style={{ fontSize: "var(--t12)" }}>{r.source}</span>
