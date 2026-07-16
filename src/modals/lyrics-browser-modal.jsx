@@ -4,7 +4,7 @@
 // the full text of whichever version is currently previewed; Select applies it and closes.
 // Extracted from App.jsx.
 import { useState, useEffect, useMemo } from "react";
-import { cn, Button, Spinner, toast, ModalRoot, ModalBackdrop, ModalContainer, Dropdown, DropdownTrigger, DropdownPopover, DropdownItem } from "@heroui/react";
+import { cn, Button, Spinner, toast, ModalRoot, ModalBackdrop, ModalContainer, Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, ScrollShadowRoot } from "@heroui/react";
 import { DropdownMenu, ModalDialog } from "../ui/zoomed-heroui.jsx";
 import { PencilSimple, Flag, Check, CaretUp, CaretDown, X, Copy } from "../icons.jsx";
 import { API, useLang, openComposer } from "../context.jsx";
@@ -256,7 +256,7 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                     <X size={13} weight="bold" />
                   </button>
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-t13 text-secondary leading-relaxed">
+                <ScrollShadowRoot size={24} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-t13 text-secondary leading-relaxed">
                   {results === null ? (
                     <div className="h-full flex items-center justify-center"><Spinner size="sm" /></div>
                   ) : !selected ? (
@@ -267,7 +267,7 @@ function LyricsBrowserModal({ track, providers, currentSource, currentSubmitter,
                       : <div key={l.key}>{l.text}</div>
                     )
                   )}
-                </div>
+                </ScrollShadowRoot>
               </div>
               <div className="flex items-center gap-2 pt-3 shrink-0">
                 <Button variant="ghost" size="sm" className="flex-1 gap-1.5" isDisabled={!selected} onPress={handleCopy}>
