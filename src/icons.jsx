@@ -97,6 +97,7 @@ export const Microphone         = fa("microphone");
 export const MicrophoneStand    = fa("microphone-stand");
 export const Headphones         = fa("headphones");
 export const PodcastIcon        = fa("podcast");
+export const Gamepad            = fa("gamepad");
 export const Heart              = fa("heart");
 export const Crown              = fa("crown");
 export const UserPlus           = fa("user-plus");

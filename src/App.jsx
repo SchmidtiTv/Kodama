@@ -85,6 +85,7 @@ import {
   Robot,
   Headphones,
   PodcastIcon,
+  Gamepad,
   Eyedropper,
   Info,
   WarningCircle,
@@ -4545,11 +4546,11 @@ function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accen
             {tab === "experimental" && (
               <div className="flex flex-col gap-4">
                 <SettingsSectionDesc style={{ marginTop: 0 }}>{t("experimentalDesc")}</SettingsSectionDesc>
-                <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-                  <Flask size={40} className="text-muted" />
-                  <span className="text-t14 font-semibold text-secondary">{t("experimentalEmptyTitle")}</span>
-                  <span className="text-t12 text-muted max-w-sm leading-relaxed">{t("experimentalEmptyHint")}</span>
-                </div>
+                <SettingRow label={t("bigPictureMode")} description={t("bigPictureModeDesc")} icon={<Gamepad />}>
+                  <Button variant="secondary" size="sm" onPress={() => window.dispatchEvent(new Event("kodama-open-bigpicture"))}>
+                    {t("bigPictureLaunch")}
+                  </Button>
+                </SettingRow>
               </div>
             )}
 

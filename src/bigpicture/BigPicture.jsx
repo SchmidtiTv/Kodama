@@ -73,6 +73,14 @@ export function BigPicture() {
     return () => window.removeEventListener("keydown", onKey);
   }, [openMenu, cycleTab]);
 
+  // Same entry point as F10, for the "Launch" button in Settings > Experimental — always opens
+  // (rather than toggling) since that button only makes sense as an "enter" action.
+  useEffect(() => {
+    const onLaunch = () => setOpen(o => { if (!o) initSounds(); return true; });
+    window.addEventListener("kodama-open-bigpicture", onLaunch);
+    return () => window.removeEventListener("kodama-open-bigpicture", onLaunch);
+  }, []);
+
   // UI sounds for main-screen navigation. This single listener catches BOTH real keyboard keys
   // and the synthetic key events the controller path dispatches, so one sound fires per input
   // (never both). The menu drives its own sounds, so skip while it's open.

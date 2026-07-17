@@ -2,11 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import OverlayEditorApp from "./OverlayEditorApp.jsx";
-// Big Picture mode + its gamepad spike are intentionally NOT mounted yet — the
-// feature is still WIP and kept out of releases (no F9/F10 entry point). The code
-// lives in ./bigpicture/; re-enable the import + render below once it's ready.
-// import { GamepadTest } from "./bigpicture/GamepadTest.jsx";
-// import { BigPicture } from "./bigpicture/BigPicture.jsx";
+// Big Picture mode — still early/WIP (see src/bigpicture/), reachable via F10 or the
+// "Launch" button in Settings > Experimental. The gamepad test spike (GamepadTest.jsx)
+// stays out — it was only ever a throwaway harness for verifying the Gamepad API, not
+// a real entry point.
+import { BigPicture } from "./bigpicture/BigPicture.jsx";
 import { installErrorCapture } from "./bug-diagnostics.js";
 import "./index.css";
 
@@ -26,6 +26,7 @@ const isOverlayEditor = new URLSearchParams(window.location.search).get("overlay
 ReactDOM.createRoot(document.getElementById("root")).render(
   <>
     {isOverlayEditor ? <OverlayEditorApp /> : <App />}
+    <BigPicture />
   </>
 );
 
