@@ -5900,7 +5900,14 @@ _REMOTE_HTML = """<!DOCTYPE html>
   var esc = function (s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
   var lastDuration = 0;
   var volDragging = false;
+  var lastQueueSig = null;
   function renderQueue(q) {
+    // Up to 100 rows now (was 20) — skip the rebuild entirely when the list hasn't actually
+    // changed since the last poll, so open-queue scrolling and image loads aren't disrupted
+    // every 1.5s for no reason.
+    var sig = (q || []).map(function (t) { return t.videoId; }).join(",");
+    if (sig === lastQueueSig) return;
+    lastQueueSig = sig;
     var list = document.getElementById("qlist");
     if (!q || !q.length) { list.innerHTML = '<div class="qempty">Queue is empty</div>'; return; }
     list.innerHTML = q.map(function (t) {

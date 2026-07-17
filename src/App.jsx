@@ -5643,24 +5643,37 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     if (!remoteEnabled) return;
     // One combined request per tick (push state + receive pending commands) instead of two
     // separate polling loops — keeps background activity (and its GC churn) low.
+    // Small square thumbnail for queue-list rows — hiResThumb() (below) is 800px, fine for
+    // the one big cover but wasteful for up to 100 tiny list icons pushed every second.
+    const queueThumb = (url) => {
+      if (!url) return "";
+      if (url.includes("googleusercontent.com") || url.includes("ggpht.com")) {
+        return /=[ws]\d+/.test(url) ? url.replace(/=[ws]\d+[^/]*$/, "=w120-h120-l90-rj") : url + "=w120-h120-l90-rj";
+      }
+      return url;
+    };
     const sync = () => {
       const { track: t, isPlaying: p, progress: pos, duration: dur, shuffle: sh, repeat: rp, volume: vol, isLiked: liked, queue: q } = remoteNpRef.current;
       const artists = Array.isArray(t?.artists)
         ? t.artists.map(a => (a && a.name) || a).filter(Boolean).join(", ")
         : (t?.artists || "");
-      // Trimmed to the essentials + capped at 20 upcoming tracks so the payload stays small
-      // for a request that fires every second.
-      const queueSlice = (q || []).slice(0, 20).map(qt => ({
+      // "Up next" — from just after the currently playing track, same as the Queue panel's own
+      // upNext derivation — not the raw array's first N, which stayed stuck on whatever was
+      // upcoming when remote was first enabled and never advanced as tracks were skipped.
+      const list = q || [];
+      const curIdx = list.findIndex(qt => qt.videoId === t?.videoId);
+      const upNext = curIdx >= 0 ? list.slice(curIdx + 1) : list;
+      const queueSlice = upNext.slice(0, 100).map(qt => ({
         videoId: qt.videoId,
         title: qt.title || "",
         artists: Array.isArray(qt.artists) ? qt.artists.map(a => (a && a.name) || a).filter(Boolean).join(", ") : (qt.artists || ""),
-        thumbnail: qt.thumbnail || "",
+        thumbnail: queueThumb(qt.thumbnail),
       }));
       fetch(`${API}/remote/_sync`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           state: {
-            title: t?.title || "", artists, thumbnail: t?.thumbnail || "",
+            title: t?.title || "", artists, thumbnail: hiResThumb(t?.thumbnail) || "",
             isPlaying: !!p, position: Math.floor(pos || 0), duration: Math.floor(dur || 0), hasTrack: !!t,
             shuffle: !!sh, repeat: rp || "none",
             volume: Math.round((vol ?? 1) * 100), isLiked: !!liked, queue: queueSlice,
