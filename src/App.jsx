@@ -259,6 +259,7 @@ import { ArtistView } from "./features/music/views/artist-view.jsx";
 import { LyricsOverlay } from "./features/lyrics/LyricsOverlay.jsx";
 import { CoverView, Player, QueuePanel, VIZ_DEFAULTS } from "./features/player/player-ui.jsx";
 import { hiResThumb } from "./features/player/cover-art.js";
+import { usePlayerController } from "./features/player/use-player-controller.js";
 import { SettingsPanel } from "./features/settings/settings-panel.jsx";
 import { SettingsSidebarContent } from "./features/settings/settings-sidebar.jsx";
 import { DebugFloatingWindow } from "./features/settings/settings-support.jsx";
@@ -272,7 +273,6 @@ import {
 } from "./features/settings/section-store.js";
 import { AddToPlaylistModal } from "./modals/add-to-playlist-modal.jsx";
 import { particleBurst, dissolve } from "./effects/particle-burst.js";
-import { registerPlayerCommands as bpRegisterCommands } from "./bigpicture/playerBridge.js";
 import {
   Slider,
   Toggle,
@@ -627,230 +627,7 @@ if (typeof document !== "undefined" && !document.getElementById("kiyoshi-tooltip
   document.head.appendChild(s);
 }
 
-// ── IpcAudio ─────────────────────────────────────────────────────────────────
-// Drop-in replacement for `new Audio()` that routes playback through the Rust
-// host process (kiyoshi-music.exe) instead of WebView2 / msedgewebview2.exe.
-// This makes the audio session visible to OBS Application Audio Capture as
-// "Kodama".  The API surface mirrors the parts of HTMLAudioElement that
-// the Player component uses, so no other code changes are required.
-class IpcAudio {
-  constructor() {
-    this._src = "";
-    this._srcDirty = false; // true when src was set but play() not called yet
-    this._pendingSeekTo = 0; // seek target to use on the next play() call
-    this._currentTime = 0;
-    this._duration = 0;
-    this._paused = true;
-    this._volume = 0.16; // same default as Rust thread (0.4² quadratic)
-    this._listeners = {};
-    this._invoke = null; // resolved lazily on first use
-
-    // Fallback: if Rust commands don't exist (binary not recompiled),
-    // _fallback is set to a plain HTMLAudioElement and all calls route there.
-    this._fallback = null; // null = not decided, false = Rust works, Audio = fallback
-    this._probePromise = null; // dedup the one-time probe
-
-    // Resolve Tauri invoke/listen modules asynchronously on construction.
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      this._invoke = invoke;
-      // Probe immediately: try a harmless command to see if Rust audio exists.
-      this._probe(invoke);
-    });
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      listen("audio-progress", ({ payload }) => {
-        if (this._fallback) return; // ignore Rust events when in fallback mode
-        this._currentTime = payload.position;
-        if (payload.duration > 0) this._duration = payload.duration;
-        if (payload.paused !== this._paused) this._paused = payload.paused;
-        this._fire("timeupdate");
-      });
-      listen("audio-ended", () => {
-        if (this._fallback) return;
-        this._paused = true;
-        this._fire("ended");
-      });
-      listen("audio-loaded", ({ payload }) => {
-        if (this._fallback) return;
-        if (payload.duration > 0) this._duration = payload.duration;
-        this._fire("loadedmetadata");
-        this._fire("canplay");
-      });
-      listen("audio-error", ({ payload }) => {
-        if (this._fallback) return;
-        console.error("[IpcAudio] Rust decode error:", payload);
-        this._fire("error");
-      });
-    });
-  }
-
-  // ── Fallback probe ──────────────────────────────────────────────────────────
-  // Calls audio_set_volume (side-effect-free) to check if the Rust command
-  // exists.  If it fails with "unknown command", switch to HTML5 Audio.
-  _probe(invoke) {
-    if (this._probePromise) return this._probePromise;
-    // Use audio_pause as a harmless no-op probe — it does nothing when no song
-    // is playing, and importantly does NOT touch volume state.
-    this._probePromise = invoke("audio_pause")
-      .then(() => {
-        this._fallback = false;
-        console.log("[IpcAudio] Rust audio commands available ✓");
-        // Now sync the stored volume to Rust so it's ready for first play
-        invoke("audio_set_volume", { volume: this._volume });
-      })
-      .catch(() => {
-        console.warn("[IpcAudio] Rust audio commands not found — falling back to HTML5 Audio");
-        this._fallback = this._createFallbackAudio();
-        if (this._src) this._fallback.src = this._src;
-        this._fallback.volume = this._volume;
-      });
-    return this._probePromise;
-  }
-
-  _createFallbackAudio() {
-    const a = new Audio();
-    // Wire native events → our listener system
-    for (const evt of [
-      "timeupdate",
-      "ended",
-      "loadedmetadata",
-      "canplay",
-      "error",
-      "volumechange",
-    ]) {
-      a.addEventListener(evt, () => this._fire(evt));
-    }
-    return a;
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-  _cmd(name, args) {
-    if (this._fallback) return Promise.resolve(); // Rust path disabled
-    console.log("[IpcAudio] →", name, args?.url ? args.url.substring(0, 80) + "…" : "");
-    const go = (invoke) =>
-      invoke(name, args || {}).catch((e) => console.error("[IpcAudio] ERROR", name, e));
-    if (this._invoke) {
-      go(this._invoke);
-    } else {
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        this._invoke = invoke;
-        go(invoke);
-      });
-    }
-    return Promise.resolve();
-  }
-
-  _fire(type) {
-    (this._listeners[type] || []).forEach((h) => {
-      try {
-        h({ type });
-      } catch (e) {
-        console.error(e);
-      }
-    });
-  }
-
-  // ── HTMLAudioElement-compatible API ────────────────────────────────────────
-  // _fb() returns the fallback Audio if active, or false/null.
-  // null = probe still running (undecided), false = Rust is active, Audio = fallback
-  get _fb() {
-    return this._fallback;
-  }
-
-  get src() {
-    return this._fb ? this._fb.src : this._src;
-  }
-  set src(url) {
-    // Always store locally so we can replay onto fallback if probe hasn't finished
-    this._src = url;
-    this._srcDirty = true;
-    this._pendingSeekTo = 0;
-    if (this._fb) {
-      this._fb.src = url;
-    } else if (this._fb === null && this._probePromise) {
-      // Probe still running — queue replay
-      this._probePromise.then(() => {
-        if (this._fb) this._fb.src = url;
-      });
-    }
-  }
-
-  get currentTime() {
-    return this._fb ? this._fb.currentTime : this._currentTime;
-  }
-  set currentTime(t) {
-    if (this._fb) {
-      this._fb.currentTime = t;
-      return;
-    }
-    this._currentTime = t;
-    if (this._srcDirty) {
-      this._pendingSeekTo = t;
-    } else {
-      this._cmd("audio_seek", { position: t });
-    }
-  }
-
-  get duration() {
-    return this._fb ? this._fb.duration : this._duration;
-  }
-  get paused() {
-    return this._fb ? this._fb.paused : this._paused;
-  }
-
-  get volume() {
-    return this._fb ? this._fb.volume : this._volume;
-  }
-  set volume(v) {
-    this._volume = v; // always store for probe replay
-    if (this._fb) {
-      this._fb.volume = v;
-      this._fire("volumechange");
-      return;
-    }
-    this._cmd("audio_set_volume", { volume: v });
-    this._fire("volumechange");
-  }
-
-  play() {
-    // If probe hasn't resolved yet, wait for it then play
-    if (this._fallback === null && this._probePromise) {
-      return this._probePromise.then(() => this.play());
-    }
-    if (this._fb) return this._fb.play();
-    if (this._srcDirty && this._src) {
-      this._srcDirty = false;
-      const seekTo = this._pendingSeekTo;
-      this._pendingSeekTo = 0;
-      this._paused = false;
-      console.log("[IpcAudio] play() → audio_play (new src)");
-      this._cmd("audio_play", { url: this._src, seekTo });
-    } else {
-      this._paused = false;
-      console.log("[IpcAudio] play() → audio_resume");
-      this._cmd("audio_resume");
-    }
-    return Promise.resolve();
-  }
-
-  pause() {
-    if (this._fb) {
-      this._fb.pause();
-      return;
-    }
-    this._paused = true;
-    this._cmd("audio_pause");
-  }
-
-  addEventListener(type, handler) {
-    if (!this._listeners[type]) this._listeners[type] = [];
-    this._listeners[type].push(handler);
-  }
-
-  removeEventListener(type, handler) {
-    if (!this._listeners[type]) return;
-    this._listeners[type] = this._listeners[type].filter((h) => h !== handler);
-  }
-}
+// IpcAudio moved to src/features/player/ipc-audio.js (Step 11).
 
 // TitleBar moved to src/shared/ui/title-bar.jsx.
 
@@ -3134,8 +2911,23 @@ export default function App() {
     document.documentElement.setAttribute("data-theme", theme);
   }, []);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Player controller owns the audio, track, queue, playing state, and playback commands.
+  // Consumed here via destructure so existing JSX/prop chains are unchanged (Step 11).
+  // resetLyricsSessionRef is populated further down, once the lyrics-session state exists.
+  const resetLyricsSessionRef = useRef(null);
+  const {
+    audioRef,
+    currentTrack,
+    setCurrentTrack,
+    isPlaying,
+    setIsPlaying,
+    queue,
+    setQueue,
+    queueRef,
+    handlePlay,
+    enqueue,
+    startSongRadio,
+  } = usePlayerController({ addToast, resetLyricsSessionRef });
   const [discordRpc, setDiscordRpc] = useState(
     () => localStorage.getItem("kiyoshi-discord-rpc") !== "false"
   );
@@ -3287,16 +3079,18 @@ export default function App() {
   // ── OBS overlay server (see features/overlay/hooks/use-obs-overlay.js) ──
   const { obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, saveObsPort } =
     useObsOverlay();
-  const [queue, setQueue] = useState([]);
-  const queueRef = useRef([]);
-  useEffect(() => {
-    queueRef.current = queue;
-  }, [queue]);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
   const [forcedLyricsProvider, setForcedLyricsProvider] = useState(null);
   const [currentLyricsSource, setCurrentLyricsSource] = useState("");
   const [failedLyricsProviders, setFailedLyricsProviders] = useState(new Set());
+  // Wire the player controller's per-track lyrics-session reset (see usePlayerController). Assigned
+  // every render; the setters it closes over are stable, so identity does not matter.
+  resetLyricsSessionRef.current = () => {
+    setForcedLyricsProvider(null);
+    setCurrentLyricsSource("");
+    setFailedLyricsProviders(new Set());
+  };
   const [showLyricsTranslation, setShowLyricsTranslation] = useState(
     () => localStorage.getItem("kiyoshi-lyrics-translation") === "true"
   );
@@ -3429,8 +3223,6 @@ export default function App() {
   }, [fullscreen]);
 
   const [collection, setCollection] = useState(null); // { title, thumbnail, tracks }
-  const audioRef = useRef(null);
-  if (!audioRef.current) audioRef.current = new IpcAudio();
 
   // Pause Kodama's own playback when the Composer window opens, so the user isn't
   // hearing the main player and the Composer's editor audio at the same time.
@@ -3580,117 +3372,8 @@ export default function App() {
     return () => clearInterval(id);
   }, [currentTrack, isPlaying, obsEnabled]);
 
-  const handlePlay = useCallback((track, trackList) => {
-    setCurrentTrack(track);
-    setForcedLyricsProvider(null);
-    setCurrentLyricsSource("");
-    setFailedLyricsProviders(new Set());
-    if (trackList) {
-      const seen = new Set();
-      const deduped = trackList.filter((t) => {
-        if (!t.videoId || seen.has(t.videoId)) return false;
-        seen.add(t.videoId);
-        return true;
-      });
-      setQueue(deduped);
-    }
-    // Save to play history
-    if (track?.videoId) {
-      try {
-        const key = `kiyoshi-history-${window.__activeProfile || "default"}`;
-        const stored = JSON.parse(localStorage.getItem(key) || "[]");
-        const entry = { ...track, playedAt: Date.now() };
-        // Don't add duplicate of the very last played track
-        const filtered = stored.filter((t, i) => !(i === 0 && t.videoId === track.videoId));
-        localStorage.setItem(key, JSON.stringify([entry, ...filtered].slice(0, 200)));
-        window.dispatchEvent(new Event("kiyoshi-history-updated"));
-      } catch {}
-    }
-  }, []);
-
-  // Enqueue a track for Big Picture's context menu: "next" inserts it right after the current
-  // track, "end" appends it. The queue is the source of truth for next/prev (getAdjacentTrack),
-  // so a plain splice is enough. With nothing playing yet, just start it.
-  const enqueue = useCallback(
-    (track, mode) => {
-      if (!track?.videoId) return;
-      if (!currentTrack) {
-        handlePlay(track, [track]);
-        return;
-      }
-      if (track.videoId === currentTrack.videoId) return;
-      setQueue((q) => {
-        const n = q.filter((x) => x.videoId !== track.videoId); // move if already queued
-        const i = n.findIndex((x) => x.videoId === currentTrack.videoId);
-        const at = mode === "next" ? (i < 0 ? n.length : i + 1) : n.length;
-        n.splice(at, 0, track);
-        return n;
-      });
-    },
-    [currentTrack, handlePlay]
-  );
-
-  // Big Picture bridge: expose "play this track" + enqueue (the Player already owns transport/seek).
-  useEffect(() => {
-    bpRegisterCommands({ play: handlePlay, enqueue });
-  }, [handlePlay, enqueue]);
-
-  // Start an autoplay radio/mix seeded from a single track. Reads the language from localStorage
-  // (not the `language` state, which is declared further down → would be a TDZ ref here).
-  const startSongRadio = useCallback(
-    async (track) => {
-      if (!track?.videoId) return;
-      const fail = () =>
-        addToast(translate(localStorage.getItem("kiyoshi-lang") || "de", "radioFailed"), "error");
-      try {
-        const r = await fetch(`${API}/radio/_?videoId=${encodeURIComponent(track.videoId)}`);
-        const d = await r.json();
-        if (d.tracks?.length) handlePlay(d.tracks[0], d.tracks);
-        else fail();
-      } catch {
-        fail();
-      }
-    },
-    [handlePlay, addToast]
-  );
-
-  // Play a song from just a videoId (shared kodama://song/<id> deep link): fetch minimal
-  // metadata so the player has a title/cover, then play. Falls back to a bare track.
-  const playByVideoId = useCallback(
-    async (videoId) => {
-      try {
-        const d = await fetch(`${API}/song/meta/${videoId}`).then((r) => r.json());
-        if (d && d.videoId && !d.error) handlePlay(d);
-        else handlePlay({ videoId, title: videoId, artists: "" });
-      } catch {
-        handlePlay({ videoId, title: videoId, artists: "" });
-      }
-    },
-    [handlePlay]
-  );
-
-  // Deep links: kodama://song/<videoId>. Handles both cold start (getCurrent) and while
-  // the app is already running (onOpenUrl, routed via the single-instance plugin).
-  useEffect(() => {
-    let unlisten;
-    const handle = (url) => {
-      const m = String(url || "").match(/^kodama:\/\/song\/([A-Za-z0-9_-]{6,})/i);
-      if (m) playByVideoId(m[1]);
-    };
-    (async () => {
-      try {
-        const { getCurrent, onOpenUrl } = await import("@tauri-apps/plugin-deep-link");
-        const start = await getCurrent();
-        if (start && start.length) start.forEach(handle);
-        unlisten = await onOpenUrl((urls) => urls.forEach(handle));
-      } catch (e) {
-        console.error("[DeepLink]", e);
-      }
-    })();
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [playByVideoId]);
+  // Playback commands (handlePlay/enqueue/startSongRadio/playByVideoId), the Big Picture
+  // bridge, and deep-link handling moved to features/player/use-player-controller.js (Step 11).
 
   const [language, setLanguage] = useState(() => getInitialLang());
 
