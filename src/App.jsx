@@ -262,7 +262,7 @@ import { hiResThumb } from "./features/player/cover-art.js";
 import { SettingsPanel } from "./features/settings/settings-panel.jsx";
 import { SettingsSidebarContent } from "./features/settings/settings-sidebar.jsx";
 import { DebugFloatingWindow } from "./features/settings/settings-support.jsx";
-import { AppearanceSettingsProvider } from "./features/settings/settings-context.jsx";
+import { SettingsProviders } from "./features/settings/settings-context.jsx";
 import {
   lockSettingsSection,
   isSettingsSectionLocked,
@@ -4506,6 +4506,10 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom, splitView, openFeedback]);
 
+  // Settings domain slices — each is an independent, memoized value/actions object so a change in
+  // one domain (e.g. a lyric toggle) does not invalidate consumers of another (e.g. appearance).
+  // App remains the temporary owner of the underlying state/persistence; these objects only carry
+  // it into the settings feature via SettingsProviders. See features/settings/settings-context.jsx.
   const appearanceSettings = useMemo(
     () => ({
       accent,
@@ -4518,6 +4522,62 @@ export default function App() {
       onAccentLightChange: handleAccentLightChange,
       appIcon,
       onAppIconChange: handleAppIconChange,
+      theme,
+      onThemeChange: handleThemeChange,
+      animations,
+      onAnimationsChange: (v) => {
+        setAnimations(v);
+        localStorage.setItem("kiyoshi-animations", v);
+      },
+      highContrast,
+      onToggleHighContrast: () => {
+        const next = !highContrast;
+        setHighContrast(next);
+        document.documentElement.setAttribute("data-highcontrast", String(next));
+        localStorage.setItem("kiyoshi-high-contrast", String(next));
+      },
+      appFont,
+      onAppFontChange: handleAppFontChange,
+      appFontScale,
+      onFontScaleChange: (v) => {
+        setAppFontScale(v);
+      },
+      uiZoom,
+      onUiZoomChange: (v) => {
+        setUiZoom(v);
+      },
+      showTrackNumbers,
+      onTrackNumbersChange: handleTrackNumbersChange,
+      hideExplicit,
+      onHideExplicitChange: (v) => {
+        setHideExplicit(v);
+        localStorage.setItem("kiyoshi-hide-explicit", v);
+      },
+      ambientBackground,
+      onToggleAmbientBackground: () => {
+        const next = !ambientBackground;
+        setAmbientBackground(next);
+        localStorage.setItem("kiyoshi-ambient-bg", String(next));
+      },
+      ambientVisualizer,
+      onToggleAmbientVisualizer: () => {
+        const next = !ambientVisualizer;
+        setAmbientVisualizer(next);
+        localStorage.setItem("kiyoshi-ambient-visualizer", String(next));
+      },
+      instrumentalViz,
+      onToggleInstrumentalViz: (v) => {
+        setInstrumentalViz(v);
+        localStorage.setItem("kiyoshi-instrumental-viz", v ? "true" : "false");
+        if (!v && autoCoverRef.current) {
+          autoCoverRef.current = false;
+          setShowLyrics(true);
+        }
+      },
+      vizConfig,
+      onUpdateViz: updateViz,
+      vizPreviewTrack: currentTrack,
+      vizPreviewPlaying: isPlaying,
     }),
     [
       accent,
@@ -4530,6 +4590,180 @@ export default function App() {
       handleAccentLightChange,
       appIcon,
       handleAppIconChange,
+      theme,
+      handleThemeChange,
+      animations,
+      highContrast,
+      appFont,
+      handleAppFontChange,
+      appFontScale,
+      uiZoom,
+      showTrackNumbers,
+      handleTrackNumbersChange,
+      hideExplicit,
+      ambientBackground,
+      ambientVisualizer,
+      instrumentalViz,
+      vizConfig,
+      updateViz,
+      currentTrack,
+      isPlaying,
+    ]
+  );
+
+  const playbackSettings = useMemo(
+    () => ({
+      autoplay,
+      onAutoplayChange: (v) => {
+        setAutoplay(v);
+        localStorage.setItem("kiyoshi-autoplay", v);
+      },
+      crossfade,
+      onCrossfadeChange: (v) => {
+        setCrossfade(v);
+        localStorage.setItem("kiyoshi-crossfade", v);
+      },
+      crossfadeOverrides,
+      onRemoveCrossfadeOverride: removeCrossfadeOverride,
+      playbackProgressive,
+      onPlaybackProgressiveChange: (v) => {
+        setPlaybackProgressive(v);
+        localStorage.setItem("kodama-playback-mode", v ? "progressive" : "classic");
+      },
+    }),
+    [autoplay, crossfade, crossfadeOverrides, removeCrossfadeOverride, playbackProgressive]
+  );
+
+  const lyricsSettings = useMemo(
+    () => ({
+      lyricsFontSize,
+      onLyricsFontSizeChange: (v) => {
+        setLyricsFontSize(v);
+        localStorage.setItem("kiyoshi-lyrics-font-size", v);
+      },
+      lyricsTranslationFontSize,
+      onLyricsTranslationFontSizeChange: (v) => {
+        setLyricsTranslationFontSize(v);
+        localStorage.setItem("kiyoshi-lyrics-translation-font-size", v);
+      },
+      lyricsRomajiFontSize,
+      onLyricsRomajiFontSizeChange: (v) => {
+        setLyricsRomajiFontSize(v);
+        localStorage.setItem("kiyoshi-lyrics-romaji-font-size", v);
+      },
+      lyricsProviders,
+      onLyricsProvidersChange: (v) => {
+        setLyricsProviders(v);
+        localStorage.setItem("kiyoshi-lyrics-providers", JSON.stringify(v));
+      },
+      showRomaji,
+      onToggleRomaji: () => {
+        const next = !showRomaji;
+        setShowRomaji(next);
+        localStorage.setItem("kiyoshi-lyrics-romaji", String(next));
+      },
+      showAgentTags,
+      onToggleAgentTags: () => {
+        const next = !showAgentTags;
+        setShowAgentTags(next);
+        localStorage.setItem("kiyoshi-lyrics-agent-tags", String(next));
+      },
+      syllableZoom,
+      onToggleSyllableZoom: () => {
+        const next = !syllableZoom;
+        setSyllableZoom(next);
+        localStorage.setItem("kiyoshi-lyrics-syllable-zoom", String(next));
+      },
+      fluidLyrics,
+      onToggleFluidLyrics: () => {
+        const next = !fluidLyrics;
+        setFluidLyrics(next);
+        localStorage.setItem("kiyoshi-lyrics-fluid", String(next));
+      },
+    }),
+    [
+      lyricsFontSize,
+      lyricsTranslationFontSize,
+      lyricsRomajiFontSize,
+      lyricsProviders,
+      showRomaji,
+      showAgentTags,
+      syllableZoom,
+      fluidLyrics,
+    ]
+  );
+
+  const integrationSettings = useMemo(
+    () => ({
+      closeTray,
+      onCloseTrayChange: (v) => {
+        setCloseTray(v);
+        localStorage.setItem("kiyoshi-close-tray", String(v));
+        import("@tauri-apps/api/core").then(({ invoke }) =>
+          invoke("set_close_to_tray", { enabled: v }).catch(() => {})
+        );
+      },
+      discordRpc,
+      onDiscordRpcChange: (v) => {
+        setDiscordRpc(v);
+        localStorage.setItem("kiyoshi-discord-rpc", v);
+        if (!v)
+          import("@tauri-apps/api/core").then(({ invoke }) =>
+            invoke("clear_discord_rpc").catch(() => {})
+          );
+      },
+      ipv4First,
+      onIpv4FirstChange: toggleIpv4First,
+      obsEnabled,
+      obsPort,
+      obsPortInput,
+      setObsPortInput,
+      toggleObs,
+      onObsPortSave: saveObsPort,
+      remoteEnabled,
+      remoteDevices,
+      remoteTrustedIds,
+      onToggleRemote: toggleRemote,
+      onRemoteDevice: remoteDeviceAction,
+      onRememberDevice: remoteRememberDevice,
+      onPairDevice: () => setPairModalOpen(true),
+    }),
+    [
+      closeTray,
+      discordRpc,
+      ipv4First,
+      toggleIpv4First,
+      obsEnabled,
+      obsPort,
+      obsPortInput,
+      setObsPortInput,
+      toggleObs,
+      saveObsPort,
+      remoteEnabled,
+      remoteDevices,
+      remoteTrustedIds,
+      toggleRemote,
+      remoteDeviceAction,
+      remoteRememberDevice,
+    ]
+  );
+
+  const shortcutSettings = useMemo(
+    () => ({
+      customShortcuts,
+      shortcutLabels,
+      recordingShortcut,
+      setRecordingShortcut,
+      getShortcutLabel,
+      resetShortcut,
+    }),
+    [
+      customShortcuts,
+      shortcutLabels,
+      recordingShortcut,
+      setRecordingShortcut,
+      getShortcutLabel,
+      resetShortcut,
     ]
   );
 
@@ -5461,200 +5695,48 @@ export default function App() {
                           : undefined,
                       }}
                     >
-                      <AppearanceSettingsProvider value={appearanceSettings}>
+                      <SettingsProviders
+                        appearance={appearanceSettings}
+                        playback={playbackSettings}
+                        lyrics={lyricsSettings}
+                        integrations={integrationSettings}
+                        shortcuts={shortcutSettings}
+                      >
                         <SettingsPanel
-                        onClose={closeSettings}
-                        onOpenOverlayEditor={openOverlayEditor}
-                        onResetShortcuts={setCustomShortcuts}
-                        onSectionChange={setSettingsSectionStore}
-                        accounts={profiles}
-                        activeAccount={profiles.find((p) => p.active)}
-                        onAccountSwitch={handleAccountSwitch}
-                        onAccountAdd={handleAccountAdd}
-                        onAccountReauth={handleAccountReauth}
-                        onAccountRemove={handleAccountRemove}
-                        onAccountRename={handleAccountRename}
-                        onAccountLogout={handleAccountLogout}
-                        onAccountAvatarChange={handleAccountAvatarChange}
-                        theme={theme}
-                        onThemeChange={handleThemeChange}
-                        animations={animations}
-                        onAnimationsChange={(v) => {
-                          setAnimations(v);
-                          localStorage.setItem("kiyoshi-animations", v);
-                        }}
-                        lyricsFontSize={lyricsFontSize}
-                        onLyricsFontSizeChange={(v) => {
-                          setLyricsFontSize(v);
-                          localStorage.setItem("kiyoshi-lyrics-font-size", v);
-                        }}
-                        lyricsTranslationFontSize={lyricsTranslationFontSize}
-                        onLyricsTranslationFontSizeChange={(v) => {
-                          setLyricsTranslationFontSize(v);
-                          localStorage.setItem("kiyoshi-lyrics-translation-font-size", v);
-                        }}
-                        lyricsRomajiFontSize={lyricsRomajiFontSize}
-                        onLyricsRomajiFontSizeChange={(v) => {
-                          setLyricsRomajiFontSize(v);
-                          localStorage.setItem("kiyoshi-lyrics-romaji-font-size", v);
-                        }}
-                        lyricsProviders={lyricsProviders}
-                        onLyricsProvidersChange={(v) => {
-                          setLyricsProviders(v);
-                          localStorage.setItem("kiyoshi-lyrics-providers", JSON.stringify(v));
-                        }}
-                        autoplay={autoplay}
-                        onAutoplayChange={(v) => {
-                          setAutoplay(v);
-                          localStorage.setItem("kiyoshi-autoplay", v);
-                        }}
-                        remoteEnabled={remoteEnabled}
-                        remoteDevices={remoteDevices}
-                        remoteTrustedIds={remoteTrustedIds}
-                        onToggleRemote={toggleRemote}
-                        onRemoteDevice={remoteDeviceAction}
-                        onRememberDevice={remoteRememberDevice}
-                        onPairDevice={() => setPairModalOpen(true)}
-                        crossfade={crossfade}
-                        onCrossfadeChange={(v) => {
-                          setCrossfade(v);
-                          localStorage.setItem("kiyoshi-crossfade", v);
-                        }}
-                        crossfadeOverrides={crossfadeOverrides}
-                        onRemoveCrossfadeOverride={removeCrossfadeOverride}
-                        playbackProgressive={playbackProgressive}
-                        onPlaybackProgressiveChange={(v) => {
-                          setPlaybackProgressive(v);
-                          localStorage.setItem(
-                            "kodama-playback-mode",
-                            v ? "progressive" : "classic"
-                          );
-                        }}
-                        closeTray={closeTray}
-                        onCloseTrayChange={(v) => {
-                          setCloseTray(v);
-                          localStorage.setItem("kiyoshi-close-tray", String(v));
-                          import("@tauri-apps/api/core").then(({ invoke }) =>
-                            invoke("set_close_to_tray", { enabled: v }).catch(() => {})
-                          );
-                        }}
-                        discordRpc={discordRpc}
-                        onDiscordRpcChange={(v) => {
-                          setDiscordRpc(v);
-                          localStorage.setItem("kiyoshi-discord-rpc", v);
-                          if (!v)
-                            import("@tauri-apps/api/core").then(({ invoke }) =>
-                              invoke("clear_discord_rpc").catch(() => {})
-                            );
-                        }}
-                        ipv4First={ipv4First}
-                        onIpv4FirstChange={toggleIpv4First}
-                        language={language}
-                        onLanguageChange={handleLanguageChange}
-                        updateInfo={updateInfo}
-                        onCheckUpdate={checkForUpdates}
-                        updateDownloading={updateDownloading}
-                        updateDownloadProgress={updateDownloadProgress}
-                        updateDownloaded={updateDownloaded}
-                        onDownloadUpdate={downloadUpdate}
-                        onInstallUpdate={installUpdate}
-                        onCancelDownload={cancelUpdateDownload}
-                        tab={settingsTab}
-                        setTab={setSettingsTab}
-                        hideExplicit={hideExplicit}
-                        onHideExplicitChange={(v) => {
-                          setHideExplicit(v);
-                          localStorage.setItem("kiyoshi-hide-explicit", v);
-                        }}
-                        showTrackNumbers={showTrackNumbers}
-                        onTrackNumbersChange={handleTrackNumbersChange}
-                        anonStats={anonStats}
-                        onAnonStatsChange={handleAnonStatsChange}
-                        hideUserHandle={hideUserHandle}
-                        onToggleHideUserHandle={(v) => {
-                          setHideUserHandle(v);
-                          localStorage.setItem("kiyoshi-hide-handle", String(v));
-                        }}
-                        uiZoom={uiZoom}
-                        onUiZoomChange={(v) => {
-                          setUiZoom(v);
-                        }}
-                        appFontScale={appFontScale}
-                        onFontScaleChange={(v) => {
-                          setAppFontScale(v);
-                        }}
-                        showRomaji={showRomaji}
-                        onToggleRomaji={() => {
-                          const next = !showRomaji;
-                          setShowRomaji(next);
-                          localStorage.setItem("kiyoshi-lyrics-romaji", String(next));
-                        }}
-                        showAgentTags={showAgentTags}
-                        onToggleAgentTags={() => {
-                          const next = !showAgentTags;
-                          setShowAgentTags(next);
-                          localStorage.setItem("kiyoshi-lyrics-agent-tags", String(next));
-                        }}
-                        syllableZoom={syllableZoom}
-                        onToggleSyllableZoom={() => {
-                          const next = !syllableZoom;
-                          setSyllableZoom(next);
-                          localStorage.setItem("kiyoshi-lyrics-syllable-zoom", String(next));
-                        }}
-                        fluidLyrics={fluidLyrics}
-                        onToggleFluidLyrics={() => {
-                          const next = !fluidLyrics;
-                          setFluidLyrics(next);
-                          localStorage.setItem("kiyoshi-lyrics-fluid", String(next));
-                        }}
-                        highContrast={highContrast}
-                        onToggleHighContrast={() => {
-                          const next = !highContrast;
-                          setHighContrast(next);
-                          document.documentElement.setAttribute("data-highcontrast", String(next));
-                          localStorage.setItem("kiyoshi-high-contrast", String(next));
-                        }}
-                        appFont={appFont}
-                        onAppFontChange={handleAppFontChange}
-                        ambientVisualizer={ambientVisualizer}
-                        onToggleAmbientVisualizer={() => {
-                          const next = !ambientVisualizer;
-                          setAmbientVisualizer(next);
-                          localStorage.setItem("kiyoshi-ambient-visualizer", String(next));
-                        }}
-                        vizConfig={vizConfig}
-                        onUpdateViz={updateViz}
-                        instrumentalViz={instrumentalViz}
-                        onToggleInstrumentalViz={(v) => {
-                          setInstrumentalViz(v);
-                          localStorage.setItem("kiyoshi-instrumental-viz", v ? "true" : "false");
-                          if (!v && autoCoverRef.current) {
-                            autoCoverRef.current = false;
-                            setShowLyrics(true);
-                          }
-                        }}
-                        vizPreviewTrack={currentTrack}
-                        vizPreviewPlaying={isPlaying}
-                        ambientBackground={ambientBackground}
-                        onToggleAmbientBackground={() => {
-                          const next = !ambientBackground;
-                          setAmbientBackground(next);
-                          localStorage.setItem("kiyoshi-ambient-bg", String(next));
-                        }}
-                        obsEnabled={obsEnabled}
-                        obsPort={obsPort}
-                        obsPortInput={obsPortInput}
-                        setObsPortInput={setObsPortInput}
-                        toggleObs={toggleObs}
-                        onObsPortSave={saveObsPort}
-                        customShortcuts={customShortcuts}
-                        shortcutLabels={shortcutLabels}
-                        recordingShortcut={recordingShortcut}
-                        setRecordingShortcut={setRecordingShortcut}
-                        getShortcutLabel={getShortcutLabel}
-                        resetShortcut={resetShortcut}
+                          onClose={closeSettings}
+                          onOpenOverlayEditor={openOverlayEditor}
+                          onResetShortcuts={setCustomShortcuts}
+                          onSectionChange={setSettingsSectionStore}
+                          accounts={profiles}
+                          activeAccount={profiles.find((p) => p.active)}
+                          onAccountSwitch={handleAccountSwitch}
+                          onAccountAdd={handleAccountAdd}
+                          onAccountReauth={handleAccountReauth}
+                          onAccountRemove={handleAccountRemove}
+                          onAccountRename={handleAccountRename}
+                          onAccountLogout={handleAccountLogout}
+                          onAccountAvatarChange={handleAccountAvatarChange}
+                          language={language}
+                          onLanguageChange={handleLanguageChange}
+                          updateInfo={updateInfo}
+                          onCheckUpdate={checkForUpdates}
+                          updateDownloading={updateDownloading}
+                          updateDownloadProgress={updateDownloadProgress}
+                          updateDownloaded={updateDownloaded}
+                          onDownloadUpdate={downloadUpdate}
+                          onInstallUpdate={installUpdate}
+                          onCancelDownload={cancelUpdateDownload}
+                          tab={settingsTab}
+                          setTab={setSettingsTab}
+                          anonStats={anonStats}
+                          onAnonStatsChange={handleAnonStatsChange}
+                          hideUserHandle={hideUserHandle}
+                          onToggleHideUserHandle={(v) => {
+                            setHideUserHandle(v);
+                            localStorage.setItem("kiyoshi-hide-handle", String(v));
+                          }}
                         />
-                      </AppearanceSettingsProvider>
+                      </SettingsProviders>
                     </div>
                   )}
 
