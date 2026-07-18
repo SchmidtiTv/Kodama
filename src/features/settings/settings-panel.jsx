@@ -120,6 +120,7 @@ import {
   ZOOM_LABELS,
   ZOOM_STEPS,
 } from "./settings-constants.js";
+import { useAppearanceSettings } from "./settings-context.jsx";
 
 async function hashPin(pin) {
   const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pin));
@@ -133,16 +134,6 @@ export function SettingsPanel({
   onOpenOverlayEditor,
   onResetShortcuts,
   onSectionChange,
-  accent,
-  onAccentChange,
-  accentDynamic,
-  onAccentDynamicChange,
-  accentSat,
-  onAccentSatChange,
-  accentLight,
-  onAccentLightChange,
-  appIcon = APP_ICON_DEFAULT,
-  onAppIconChange,
   remoteEnabled = false,
   remoteDevices = [],
   remoteTrustedIds = new Set(),
@@ -246,6 +237,18 @@ export function SettingsPanel({
 }) {
   const anim = useAnimations();
   const t = useLang();
+  const {
+    accent,
+    onAccentChange,
+    accentDynamic,
+    onAccentDynamicChange,
+    accentSat,
+    onAccentSatChange,
+    accentLight,
+    onAccentLightChange,
+    appIcon = APP_ICON_DEFAULT,
+    onAppIconChange,
+  } = useAppearanceSettings();
   // Scroll-spy for the Discord-style sub-nav: watch the [data-settings-section] blocks in the
   // scroll container and report which one sits in the top band as the active section.
   const contentScrollRef = useRef(null);

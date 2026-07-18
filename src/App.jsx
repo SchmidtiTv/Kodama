@@ -262,6 +262,7 @@ import { hiResThumb } from "./features/player/cover-art.js";
 import { SettingsPanel } from "./features/settings/settings-panel.jsx";
 import { SettingsSidebarContent } from "./features/settings/settings-sidebar.jsx";
 import { DebugFloatingWindow } from "./features/settings/settings-support.jsx";
+import { AppearanceSettingsProvider } from "./features/settings/settings-context.jsx";
 import {
   lockSettingsSection,
   isSettingsSectionLocked,
@@ -4505,6 +4506,33 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [isPlaying, audioRef, overlayOpen, currentTrack, setUiZoom, splitView, openFeedback]);
 
+  const appearanceSettings = useMemo(
+    () => ({
+      accent,
+      onAccentChange: handleAccentChange,
+      accentDynamic,
+      onAccentDynamicChange: handleAccentDynamicChange,
+      accentSat,
+      onAccentSatChange: handleAccentSatChange,
+      accentLight,
+      onAccentLightChange: handleAccentLightChange,
+      appIcon,
+      onAppIconChange: handleAppIconChange,
+    }),
+    [
+      accent,
+      handleAccentChange,
+      accentDynamic,
+      handleAccentDynamicChange,
+      accentSat,
+      handleAccentSatChange,
+      accentLight,
+      handleAccentLightChange,
+      appIcon,
+      handleAppIconChange,
+    ]
+  );
+
   // Animated view wrapper
   const AnimatedView = useCallback(
     ({ children }) => (
@@ -5433,7 +5461,8 @@ export default function App() {
                           : undefined,
                       }}
                     >
-                      <SettingsPanel
+                      <AppearanceSettingsProvider value={appearanceSettings}>
+                        <SettingsPanel
                         onClose={closeSettings}
                         onOpenOverlayEditor={openOverlayEditor}
                         onResetShortcuts={setCustomShortcuts}
@@ -5447,14 +5476,6 @@ export default function App() {
                         onAccountRename={handleAccountRename}
                         onAccountLogout={handleAccountLogout}
                         onAccountAvatarChange={handleAccountAvatarChange}
-                        accent={accent}
-                        onAccentChange={handleAccentChange}
-                        accentDynamic={accentDynamic}
-                        onAccentDynamicChange={handleAccentDynamicChange}
-                        accentSat={accentSat}
-                        onAccentSatChange={handleAccentSatChange}
-                        accentLight={accentLight}
-                        onAccentLightChange={handleAccentLightChange}
                         theme={theme}
                         onThemeChange={handleThemeChange}
                         animations={animations}
@@ -5487,8 +5508,6 @@ export default function App() {
                           setAutoplay(v);
                           localStorage.setItem("kiyoshi-autoplay", v);
                         }}
-                        appIcon={appIcon}
-                        onAppIconChange={handleAppIconChange}
                         remoteEnabled={remoteEnabled}
                         remoteDevices={remoteDevices}
                         remoteTrustedIds={remoteTrustedIds}
@@ -5634,7 +5653,8 @@ export default function App() {
                         setRecordingShortcut={setRecordingShortcut}
                         getShortcutLabel={getShortcutLabel}
                         resetShortcut={resetShortcut}
-                      />
+                        />
+                      </AppearanceSettingsProvider>
                     </div>
                   )}
 
