@@ -78,8 +78,10 @@ export function Player({
   const [likePulsing, setLikePulsing] = useState(false);
   const [prevBouncing, setPrevBouncing] = useState(false);
   const [nextBouncing, setNextBouncing] = useState(false);
-  const { sleepTimerEnd, setSleepTimerEnd, sleepRemaining, formatSleepRemaining } =
-    useSleepTimer({ audioRef, setIsPlaying });
+  const { sleepTimerEnd, setSleepTimerEnd, sleepRemaining, formatSleepRemaining } = useSleepTimer({
+    audioRef,
+    setIsPlaying,
+  });
   const { fetchedBrowseIds, fetchMoreBrowseIds } = useTrackMetadata(track);
 
   const [shuffle, setShuffle] = useState(false);

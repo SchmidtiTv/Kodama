@@ -19,7 +19,12 @@ const original = { log: console.log, warn: console.warn, error: console.error, i
         return String(value);
       })
       .join(" ");
-    frontendLogs.push({ ts: Date.now() / 1000, level: level.toUpperCase(), msg: message, source: "frontend" });
+    frontendLogs.push({
+      ts: Date.now() / 1000,
+      level: level.toUpperCase(),
+      msg: message,
+      source: "frontend",
+    });
     if (frontendLogs.length > MAX_FRONTEND_LOGS) frontendLogs.shift();
   };
 });

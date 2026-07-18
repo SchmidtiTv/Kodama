@@ -1,10 +1,4 @@
-import {
-  Button,
-  Spinner,
-  ProgressBar,
-  ProgressBarTrack,
-  ProgressBarFill,
-} from "@heroui/react";
+import { Button, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill } from "@heroui/react";
 
 import { CheckCircle, CaretUp, CaretDown, X } from "../icons.jsx";
 import { thumb } from "../shared/api/thumbnails.js";
@@ -13,7 +7,13 @@ import { translate } from "../i18n.js";
 // Floating download-progress card: overall progress header (with minimize toggle) plus a
 // per-batch row (thumbnail, title, cancel, progress bar). Behaviour and props preserved
 // from the former inline App render; download state/actions come from useDownloadManager.
-export function DownloadQueueCard({ batches, minimized, onToggleMinimize, onCancelBatch, language }) {
+export function DownloadQueueCard({
+  batches,
+  minimized,
+  onToggleMinimize,
+  onCancelBatch,
+  language,
+}) {
   const overallDone = batches.reduce((s, b) => s + b.completedCount + b.errorCount, 0);
   const overallTotal = batches.reduce((s, b) => s + b.videoIds.length, 0);
   const allFinished = overallDone >= overallTotal;

@@ -94,7 +94,13 @@ import { renderNewsBody } from "../../modals/news-modal.jsx";
 import { RemoteControlPanel } from "../../ui/remote-control.jsx";
 import { DEFAULT_LYRICS_PROVIDERS } from "../../lyrics/providers.js";
 import { CoverView, VIZ_DEFAULTS } from "../player/player-ui.jsx";
-import { Slider, Toggle, SettingRow, SettingsSectionDesc, SettingsSectionLabel } from "../../ui/settings-controls.jsx";
+import {
+  Slider,
+  Toggle,
+  SettingRow,
+  SettingsSectionDesc,
+  SettingsSectionLabel,
+} from "../../ui/settings-controls.jsx";
 import { AccountSettingsTab } from "./account-settings-tab.jsx";
 import {
   AccentColorPicker,

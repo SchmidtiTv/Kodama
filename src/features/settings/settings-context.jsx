@@ -46,7 +46,11 @@ export function SettingsProviders({
 }
 
 export function AppearanceSettingsProvider({ value, children }) {
-  return <AppearanceSettingsContext.Provider value={value}>{children}</AppearanceSettingsContext.Provider>;
+  return (
+    <AppearanceSettingsContext.Provider value={value}>
+      {children}
+    </AppearanceSettingsContext.Provider>
+  );
 }
 
 export const useAppearanceSettings = () =>

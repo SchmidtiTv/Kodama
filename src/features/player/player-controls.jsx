@@ -639,6 +639,5 @@ export function PlayerControls(props) {
         </div>
       </div>
     </div>
-
   );
 }

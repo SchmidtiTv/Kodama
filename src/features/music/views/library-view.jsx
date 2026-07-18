@@ -5,12 +5,7 @@ import { MagnifyingGlass, Microphone, Playlist, Sliders, VinylRecord } from "../
 import { API } from "../../../shared/api/client.js";
 import { useLang } from "../../../context.jsx";
 
-export function LibraryView({
-  onOpenPlaylist,
-  onOpenAlbum,
-  onOpenArtist,
-  onContextMenu,
-}) {
+export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu }) {
   const [tab, setTab] = useState("playlists");
   const [playlists, setPlaylists] = useState([]);
   const [albums, setAlbums] = useState([]);

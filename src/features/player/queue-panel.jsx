@@ -18,7 +18,12 @@ import { ExplicitBadge } from "../../ui/rows.jsx";
 import { dissolve } from "../../effects/particle-burst.js";
 import { useAnimations, useLang } from "../../context.jsx";
 import { FadeEditorModal } from "./fade-editor-modal.jsx";
-import { usePlaybackStatus, useQueueState, usePlaybackConfig, usePlayerActions } from "./player-context.jsx";
+import {
+  usePlaybackStatus,
+  useQueueState,
+  usePlaybackConfig,
+  usePlayerActions,
+} from "./player-context.jsx";
 
 function QueueRow({
   track,
@@ -145,12 +150,7 @@ function QueueRow({
   );
 }
 
-export function QueuePanel({
-  onClose,
-  likedIds,
-  onToggleLike,
-  visible,
-}) {
+export function QueuePanel({ onClose, likedIds, onToggleLike, visible }) {
   // Core playback + crossfade config come from PlayerContext (Step 11) rather than props.
   const { track: currentTrack } = usePlaybackStatus();
   const { queue } = useQueueState();
@@ -608,5 +608,3 @@ export function QueuePanel({
     </div>
   );
 }
-
-

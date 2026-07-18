@@ -52,8 +52,18 @@ import { API } from "../../shared/api/client.js";
 import { useLang } from "../../context.jsx";
 import { generateIdentity, importIdentityFile, exportIdentityFile } from "../../unison/identity.js";
 import { PROVIDER_SYNC } from "../../lyrics/providers.js";
-import { unisonSetNickname, unisonResetNickname, unisonFetchDisplayName } from "../../unison/api.js";
-import { Slider, Toggle, SettingRow, SettingsSectionLabel, SettingsSectionDesc } from "../../ui/settings-controls.jsx";
+import {
+  unisonSetNickname,
+  unisonResetNickname,
+  unisonFetchDisplayName,
+} from "../../unison/api.js";
+import {
+  Slider,
+  Toggle,
+  SettingRow,
+  SettingsSectionLabel,
+  SettingsSectionDesc,
+} from "../../ui/settings-controls.jsx";
 import { frontendLogs } from "./debug-log-store.js";
 import { ACCENT_PRESETS } from "./settings-constants.js";
 

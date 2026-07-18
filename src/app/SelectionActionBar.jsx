@@ -131,8 +131,7 @@ export function SelectionActionBar({
                               tracks: c.tracks.filter(
                                 (t) =>
                                   !(
-                                    t.videoId === track.videoId &&
-                                    t.setVideoId === track.setVideoId
+                                    t.videoId === track.videoId && t.setVideoId === track.setVideoId
                                   )
                               ),
                             }

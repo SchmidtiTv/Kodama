@@ -32,7 +32,8 @@ export function useTrackMetadata(track) {
           setFetchedBrowseIds((previous) => {
             const next = { ...previous, [track.videoId]: metadata };
             const keys = Object.keys(next);
-            if (keys.length > 100) keys.slice(0, keys.length - 100).forEach((key) => delete next[key]);
+            if (keys.length > 100)
+              keys.slice(0, keys.length - 100).forEach((key) => delete next[key]);
             return next;
           });
         }

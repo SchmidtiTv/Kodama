@@ -1,86 +1,40 @@
-import React, {
-  useState,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useCallback,
-  useMemo,
-  createContext,
-  useContext,
-  useSyncExternalStore,
-} from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  cn,
   Button,
+  CardRoot,
+  cn,
+  Disclosure,
+  DisclosureBody,
+  DisclosureContent,
+  DisclosureHeading,
+  DisclosureIndicator,
+  DisclosureTrigger,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownPopover,
+  DropdownSection,
+  DropdownSubmenuIndicator,
+  DropdownSubmenuTrigger,
+  DropdownTrigger,
+  InputRoot,
   ListBox,
   ListBoxItem,
-  Disclosure,
-  DisclosureHeading,
-  DisclosureTrigger,
-  DisclosureContent,
-  DisclosureBody,
-  DisclosureIndicator,
-  Dropdown,
-  DropdownTrigger,
-  DropdownPopover,
-  DropdownMenu,
-  DropdownItem,
-  DropdownSection,
-  DropdownSubmenuTrigger,
-  DropdownSubmenuIndicator,
-  ModalRoot,
-  ModalBackdrop,
-  ModalContainer,
-  ModalDialog,
-  ModalHeader,
-  ModalIcon,
-  ModalHeading,
-  ModalBody,
-  ModalFooter,
-  ModalCloseTrigger,
-  SliderRoot,
-  SliderTrack,
-  SliderFill,
-  SliderThumb,
+  ProgressBar,
+  ProgressBarFill,
+  ProgressBarTrack,
+  SearchFieldClearButton,
+  SearchFieldGroup,
+  SearchFieldInput,
+  SearchFieldRoot,
+  SearchFieldSearchIcon,
+  Spinner,
+  TextFieldRoot,
   toast,
   ToastProvider,
-  Spinner,
-  ProgressBar,
-  ProgressBarTrack,
-  ProgressBarFill,
-  SearchFieldRoot,
-  SearchFieldGroup,
-  SearchFieldSearchIcon,
-  SearchFieldInput,
-  SearchFieldClearButton,
-  TextFieldRoot,
-  InputRoot,
-  TextArea,
-  SwitchRoot,
-  SwitchControl,
-  SwitchThumb,
-  CardRoot,
-  ColorAreaRoot,
-  ColorAreaThumb,
-  ColorSliderRoot,
-  ColorSliderTrack,
-  ColorSliderThumb,
-  ColorSwatchRoot,
-  KbdRoot,
-  KbdContent,
-  Skeleton,
-  ToggleButton,
-  ToggleButtonGroupRoot,
-  ScrollShadowRoot,
-  ChipRoot,
-  ChipLabel,
 } from "@heroui/react";
-import { parseColor } from "react-aria-components";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
-const appWindow = getCurrentWebviewWindow();
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { API } from "./shared/api/client.js";
 import { thumb } from "./shared/api/thumbnails.js";
 import { TitleBar } from "./shared/ui/title-bar.jsx";
@@ -90,7 +44,6 @@ import { DownloadQueueCard } from "./app/DownloadQueueCard.jsx";
 import { SelectionActionBar } from "./app/SelectionActionBar.jsx";
 import { storageCodecs, usePersistedState } from "./shared/hooks/use-persisted-state.js";
 import { matchesShortcut, serializeShortcut } from "./shared/lib/shortcuts.js";
-import { compareVersions } from "./shared/lib/version.js";
 import { useNews } from "./app/hooks/use-news.js";
 import { useNetworkStatus } from "./app/hooks/use-network-status.js";
 import { useAppUpdate } from "./app/hooks/use-app-update.js";
@@ -98,155 +51,68 @@ import { useObsOverlay } from "./features/overlay/hooks/use-obs-overlay.js";
 import { useRemoteControl } from "./features/remote/hooks/use-remote-control.js";
 import { useDownloadManager } from "./features/downloads/hooks/use-download-manager.js";
 import { useProfiles } from "./features/profiles/hooks/use-profiles.js";
-import { LANGUAGES, translate, translationProgress } from "./i18n.js";
-import { normalizeOverlayDoc } from "./overlay/schema.js";
-import OverlayEditor from "./overlay/OverlayEditor.jsx";
+import { LANGUAGES, translate } from "./i18n.js";
 import { startAudioLevels } from "./audioLevels.js";
 import {
-  generateIdentity,
-  importIdentityFile,
-  exportIdentityFile,
-  buildSignedRequest,
-} from "./unison/identity.js";
-import {
-  IconContext,
-  Minus,
-  X,
-  Play,
-  Pause,
-  House,
+  ArrowCircleUp,
+  ArrowClockwise,
+  ArrowLeft,
+  Bell,
   Books,
-  Heart,
+  Bug,
   CaretLineLeft,
   CaretLineRight,
-  CaretLeft,
-  CaretRight,
-  MagnifyingGlass,
-  Gear,
-  Palette,
-  PlayCircle,
-  Microphone,
-  VinylRecord,
-  MusicNote,
-  Playlist,
-  ImageSquare,
-  DotsSixVertical,
-  GripLines,
-  Shuffle,
-  SkipBack,
-  SkipForward,
-  Repeat,
-  RepeatOnce,
-  SpeakerX,
-  SpeakerLow,
-  SpeakerHigh,
-  Queue,
-  ChatText,
-  CaretUp,
-  CaretDown,
-  Flag,
-  ArrowsIn,
-  ArrowsOut,
-  ArrowLeft,
-  ArrowClockwise,
   Check,
-  DotsThreeVertical,
-  PushPin,
-  ClockCounterClockwise,
-  Clock,
-  CaretLineUp,
   CheckCircle,
-  Plus,
-  DownloadSimple,
-  Trash,
-  PencilSimple,
-  ArrowCircleUp,
+  ClockCounterClockwise,
   Copy,
-  ArrowSquareOut,
-  SunHorizon,
-  Sun,
-  CloudSun,
-  Moon,
-  MoonStars,
-  Translate,
-  Link,
-  UploadSimple,
-  PersonArmsSpread,
-  Keyboard,
-  PaintBrushBroad,
-  HardDrives,
-  ArrowsClockwise,
-  Crown,
-  UserPlus,
-  UserCheck,
-  WifiHigh,
-  WifiX,
-  Bug,
-  TextSize,
-  Sliders,
-  Eye,
-  EyeSlash,
-  Tag,
-  CircleHalf,
-  WaveformLines,
+  DotsThreeVertical,
+  DownloadSimple,
+  Gear,
+  Heart,
+  House,
+  IconContext,
+  MagnifyingGlass,
+  Megaphone,
+  Microphone,
+  MusicNote,
+  PencilSimple,
+  Playlist,
+  Plus,
+  Power,
+  PushPin,
+  Queue,
   Radio,
-  Sparkles,
-  Flask,
-  ShareNodes,
-  DeviceMobile,
-  Globe,
-  Lock,
-  LockOpen,
-  Key,
   ScreencastSimple,
-  CircleFill,
-  Robot,
-  Headphones,
-  PodcastIcon,
-  Eyedropper,
-  Info,
-  WarningCircle,
-  Star,
-  BrandTwitch,
-  BrandYoutube,
-  BrandLastfm,
-  BrandBluesky,
-  BrandTiktok,
+  ShareNodes,
+  SignOut,
+  Trash,
   UserCircle,
   Users,
-  SignOut,
-  Power,
-  Bell,
-  Megaphone,
-  PaperPlaneTilt,
+  VinylRecord,
+  WifiX,
+  X,
 } from "./icons.jsx";
 
 import {
-  LangContext,
-  useLang,
   AnimationContext,
-  useAnimations,
-  ZoomContext,
-  useZoom,
   FontScaleContext,
-  useFontScale,
+  LangContext,
   TrackNumberContext,
+  useAnimations,
+  useLang,
+  ZoomContext,
 } from "./context.jsx";
 import {
   CreatePlaylistModal,
-  RenamePlaylistModal,
   DeletePlaylistModal,
+  RenamePlaylistModal,
 } from "./modals/playlist-modals.jsx";
-import { NewsModal, renderNewsBody } from "./modals/news-modal.jsx";
+import { NewsModal } from "./modals/news-modal.jsx";
 import { BugReportModal } from "./modals/bug-report-modal.jsx";
 import { ProfileSwitcherModal } from "./modals/profile-switcher-modal.jsx";
-import { RemotePairModal, RemoteControlPanel } from "./ui/remote-control.jsx";
-import { DEFAULT_LYRICS_PROVIDERS, PROVIDER_SYNC } from "./lyrics/providers.js";
-import { unisonSetNickname, unisonResetNickname, unisonFetchDisplayName } from "./unison/api.js";
-import { ExplicitBadge, ArtistLinks, TrackRow, GridCard, SkeletonRow } from "./ui/rows.jsx";
-import { Tooltip } from "./ui/tooltip.jsx";
-import { useAccentColor } from "./ui/use-accent-color.js";
-import { PlaylistLayout } from "./views/track-table.jsx";
+import { RemotePairModal } from "./ui/remote-control.jsx";
+import { DEFAULT_LYRICS_PROVIDERS } from "./lyrics/providers.js";
 import { CollectionView } from "./views/collection-view.jsx";
 import { DownloadsView } from "./views/downloads-view.jsx";
 import { HistoryView } from "./views/history-view.jsx";
@@ -264,8 +130,8 @@ import { usePlayerController } from "./features/player/use-player-controller.js"
 import { PlayerProvider } from "./features/player/player-context.jsx";
 import {
   ProfileProvider,
-  useProfileState,
   useProfileActions,
+  useProfileState,
 } from "./features/profiles/profile-context.jsx";
 import { DownloadProvider } from "./features/downloads/download-context.jsx";
 import { useLastfmClient } from "./features/integrations/lastfm.js";
@@ -273,22 +139,11 @@ import { SettingsPanel } from "./features/settings/settings-panel.jsx";
 import { SettingsSidebarContent } from "./features/settings/settings-sidebar.jsx";
 import { DebugFloatingWindow } from "./features/settings/settings-support.jsx";
 import { SettingsProviders } from "./features/settings/settings-context.jsx";
-import {
-  lockSettingsSection,
-  isSettingsSectionLocked,
-  setSettingsSectionStore,
-  subscribeSettingsSection,
-  getSettingsSection,
-} from "./features/settings/section-store.js";
+import { lockSettingsSection, setSettingsSectionStore } from "./features/settings/section-store.js";
 import { AddToPlaylistModal } from "./modals/add-to-playlist-modal.jsx";
-import { particleBurst, dissolve } from "./effects/particle-burst.js";
-import {
-  Slider,
-  Toggle,
-  SettingRow,
-  SettingsSectionLabel,
-  SettingsSectionDesc,
-} from "./ui/settings-controls.jsx";
+import { dissolve, particleBurst } from "./effects/particle-burst.js";
+
+const appWindow = getCurrentWebviewWindow();
 
 const IPV4_FIRST_ENDPOINTS = ["/operation/network/ipv4-first", "/network/ipv4-first"];
 
@@ -2618,27 +2473,30 @@ export default function App() {
   const [sidebarResizing, setSidebarResizing] = useState(false);
 
   // Drag-to-resize the expanded sidebar. Width is clamped and persisted.
-  const startSidebarResize = useCallback((e) => {
-    e.preventDefault();
-    setSidebarResizing(true);
-    document.body.style.cursor = "ew-resize";
-    document.body.style.userSelect = "none";
-    const onMove = (ev) => {
-      // Sidebar starts at the window's left edge; width ≈ cursor X (account for 8px left padding)
-      const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, ev.clientX - 4));
-      setSidebarWidthTransient(w);
-    };
-    const onUp = () => {
-      setSidebarResizing(false);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      setSidebarWidth((width) => width);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [setSidebarWidth, setSidebarWidthTransient]);
+  const startSidebarResize = useCallback(
+    (e) => {
+      e.preventDefault();
+      setSidebarResizing(true);
+      document.body.style.cursor = "ew-resize";
+      document.body.style.userSelect = "none";
+      const onMove = (ev) => {
+        // Sidebar starts at the window's left edge; width ≈ cursor X (account for 8px left padding)
+        const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, ev.clientX - 4));
+        setSidebarWidthTransient(w);
+      };
+      const onUp = () => {
+        setSidebarResizing(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        setSidebarWidth((width) => width);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [setSidebarWidth, setSidebarWidthTransient]
+  );
 
   // Drag-to-resize the queue panel (docked right; handle sits on its left edge).
   const [queueWidth, setQueueWidth, { setTransient: setQueueWidthTransient }] = usePersistedState(
@@ -2647,27 +2505,30 @@ export default function App() {
     QUEUE_WIDTH_STORAGE
   );
   const [queueResizing, setQueueResizing] = useState(false);
-  const startQueueResize = useCallback((e) => {
-    e.preventDefault();
-    setQueueResizing(true);
-    document.body.style.cursor = "ew-resize";
-    document.body.style.userSelect = "none";
-    const onMove = (ev) => {
-      // Panel's right edge sits 8px from the window's right; width ≈ (rightEdge - cursorX).
-      const w = Math.min(QUEUE_MAX, Math.max(QUEUE_MIN, window.innerWidth - 8 - ev.clientX));
-      setQueueWidthTransient(w);
-    };
-    const onUp = () => {
-      setQueueResizing(false);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      setQueueWidth((width) => width);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, [setQueueWidth, setQueueWidthTransient]);
+  const startQueueResize = useCallback(
+    (e) => {
+      e.preventDefault();
+      setQueueResizing(true);
+      document.body.style.cursor = "ew-resize";
+      document.body.style.userSelect = "none";
+      const onMove = (ev) => {
+        // Panel's right edge sits 8px from the window's right; width ≈ (rightEdge - cursorX).
+        const w = Math.min(QUEUE_MAX, Math.max(QUEUE_MIN, window.innerWidth - 8 - ev.clientX));
+        setQueueWidthTransient(w);
+      };
+      const onUp = () => {
+        setQueueResizing(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        setQueueWidth((width) => width);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [setQueueWidth, setQueueWidthTransient]
+  );
   const [globalContextMenu, setGlobalContextMenu] = useState(null); // { x, y, playlist }
   const [pinnedIds, setPinnedIds] = useState([]);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
@@ -2754,8 +2615,15 @@ export default function App() {
   const [settingsClosing, setSettingsClosing] = useState(false);
 
   // ── News feed (see app/hooks/use-news.js) + bug report ──────────────────────
-  const { newsItems, newsOpen, setNewsOpen, newsUnreadSnapshot, newsUnreadCount, loadNews, openNews } =
-    useNews();
+  const {
+    newsItems,
+    newsOpen,
+    setNewsOpen,
+    newsUnreadSnapshot,
+    newsUnreadCount,
+    loadNews,
+    openNews,
+  } = useNews();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackShot, setFeedbackShot] = useState(null);
   // Capture the app window first (so the screenshot shows the app, not the report form),
@@ -4069,667 +3937,165 @@ export default function App() {
             <FontScaleContext.Provider value={appFontScale}>
               <ZoomContext.Provider value={uiZoom}>
                 <ProfileProvider controller={profile}>
-                <DownloadProvider controller={downloads}>
-                <PlayerProvider controller={player}>
-                <SettingsProviders
-                  appearance={appearanceSettings}
-                  playback={playbackSettings}
-                  lyrics={lyricsSettings}
-                  integrations={integrationSettings}
-                  shortcuts={shortcutSettings}
-                >
-                <style>{GLOBAL_KEYFRAMES}</style>
-                {!animations && (
-                  <style>{`*, *::before, *::after { transition: none !important; animation: none !important; }`}</style>
-                )}
-                {showSplash && <SplashScreen fading={splashFading} />}
-                {/* Language picker first on very first launch, before FFmpeg setup */}
-                {showLangPicker && !showLogin && (
-                  <LanguagePickerScreen
-                    currentLanguage={language}
-                    onConfirm={(lang) => {
-                      localStorage.setItem("kiyoshi-lang", lang);
-                      setLanguage(lang);
-                      setShowLangPicker(false);
-                    }}
-                  />
-                )}
-                {!ffmpegSetupDone && !showLangPicker && (
-                  <FfmpegSetupScreen onDone={() => setFfmpegSetupDone(true)} />
-                )}
-                {ffmpegUpdate && (
-                  <FfmpegUpdateBanner
-                    installed={ffmpegUpdate.installed}
-                    latest={ffmpegUpdate.latest}
-                    onClose={() => setFfmpegUpdate(null)}
-                  />
-                )}
+                  <DownloadProvider controller={downloads}>
+                    <PlayerProvider controller={player}>
+                      <SettingsProviders
+                        appearance={appearanceSettings}
+                        playback={playbackSettings}
+                        lyrics={lyricsSettings}
+                        integrations={integrationSettings}
+                        shortcuts={shortcutSettings}
+                      >
+                        <style>{GLOBAL_KEYFRAMES}</style>
+                        {!animations && (
+                          <style>{`*, *::before, *::after { transition: none !important; animation: none !important; }`}</style>
+                        )}
+                        {showSplash && <SplashScreen fading={splashFading} />}
+                        {/* Language picker first on very first launch, before FFmpeg setup */}
+                        {showLangPicker && !showLogin && (
+                          <LanguagePickerScreen
+                            currentLanguage={language}
+                            onConfirm={(lang) => {
+                              localStorage.setItem("kiyoshi-lang", lang);
+                              setLanguage(lang);
+                              setShowLangPicker(false);
+                            }}
+                          />
+                        )}
+                        {!ffmpegSetupDone && !showLangPicker && (
+                          <FfmpegSetupScreen onDone={() => setFfmpegSetupDone(true)} />
+                        )}
+                        {ffmpegUpdate && (
+                          <FfmpegUpdateBanner
+                            installed={ffmpegUpdate.installed}
+                            latest={ffmpegUpdate.latest}
+                            onClose={() => setFfmpegUpdate(null)}
+                          />
+                        )}
 
-                {/* Toast Notifications */}
-                <ToastProvider placement="bottom end" className="bottom-[120px]! z-[100000]!" />
+                        {/* Toast Notifications */}
+                        <ToastProvider
+                          placement="bottom end"
+                          className="bottom-[120px]! z-[100000]!"
+                        />
 
-                {flashbang && (
-                  <div
-                    onAnimationEnd={() => setFlashbang(false)}
-                    style={{
-                      position: "fixed",
-                      inset: 0,
-                      zIndex: 999999,
-                      pointerEvents: "none",
-                      background: "white",
-                      animation: "flashbangFade 3s ease-out forwards",
-                    }}
-                  />
-                )}
-                <div
-                  data-ambient={ambientBackground && currentTrack?.thumbnail ? "true" : undefined}
-                  style={{
-                    display: "flex",
-                    height: `${100 / uiZoom}vh`,
-                    background: "var(--bg-base)",
-                    position: "relative",
-                    isolation: "isolate",
-                    cursor: fullscreen && !cursorVisible ? "none" : "default",
-                    zoom: uiZoom,
-                  }}
-                >
-                  {/* Experimental: the playing track's cover as a heavily-blurred, theme-tinted ambient
+                        {flashbang && (
+                          <div
+                            onAnimationEnd={() => setFlashbang(false)}
+                            style={{
+                              position: "fixed",
+                              inset: 0,
+                              zIndex: 999999,
+                              pointerEvents: "none",
+                              background: "white",
+                              animation: "flashbangFade 3s ease-out forwards",
+                            }}
+                          />
+                        )}
+                        <div
+                          data-ambient={
+                            ambientBackground && currentTrack?.thumbnail ? "true" : undefined
+                          }
+                          style={{
+                            display: "flex",
+                            height: `${100 / uiZoom}vh`,
+                            background: "var(--bg-base)",
+                            position: "relative",
+                            isolation: "isolate",
+                            cursor: fullscreen && !cursorVisible ? "none" : "default",
+                            zoom: uiZoom,
+                          }}
+                        >
+                          {/* Experimental: the playing track's cover as a heavily-blurred, theme-tinted ambient
             backdrop for the WHOLE app (z-index:-1 → paints over bg-base but under all content,
             so it shows through the transparent sidebar/canvas while cards keep their own bg). */}
-                  <AmbientBackdrop thumbnail={ambientBackground ? currentTrack?.thumbnail : null} />
-                  {!fullscreen && !IS_MAC && <TitleBar />}
-                  <div
-                    style={{
-                      width: fullscreen ? 0 : sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth,
-                      minWidth: fullscreen
-                        ? 0
-                        : sidebarCollapsed
-                          ? SIDEBAR_COLLAPSED
-                          : sidebarWidth,
-                      flexShrink: 0,
-                      overflow: "hidden",
-                      transition: sidebarResizing
-                        ? "none"
-                        : "width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1)",
-                      padding: fullscreen ? 0 : "8px 4px 8px 8px",
-                      position: "relative",
-                    }}
-                  >
-                    <Sidebar
-                      view={view}
-                      setView={navigateTo}
-                      onSearch={handleSearch}
-                      collapsed={sidebarCollapsed}
-                      onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-                      onOpenSettings={() => setSettingsOpen(true)}
-                      onOpenAccountTab={() => {
-                        setSettingsTab("account");
-                        setSettingsOpen(true);
-                      }}
-                      onOpenUpdateTab={() => {
-                        setSettingsTab("update");
-                        setSettingsOpen(true);
-                      }}
-                      onCloseOverlay={() => setOverlayOpen(false)}
-                      onOpenPlaylist={(pl) => openPlaylist(pl, view)}
-                      onOpenAlbum={(item) => openAlbum(item, view)}
-                      onOpenArtist={(item) => openArtist(item, view)}
-                      onAddRecent={addRecentPlaylist}
-                      onContextMenu={openContextMenu}
-                      onOpenProfileSwitcher={() => setShowProfileSwitcher(true)}
-                      onCreatePlaylist={() => setCreatePlaylistOpen(true)}
-                      updateInfo={updateInfo}
-                      offlineMode={offlineMode}
-                      isActuallyOffline={isActuallyOffline}
-                      onToggleOffline={handleToggleOffline}
-                      onRefreshView={() => setViewRefreshKey((k) => k + 1)}
-                      obsEnabled={obsEnabled}
-                      onOpenOverlaySettings={() => {
-                        setSettingsTab("overlay");
-                        setSettingsOpen(true);
-                      }}
-                      onOpenNews={openNews}
-                      onOpenFeedback={openFeedback}
-                      newsUnread={newsUnreadCount}
-                      settingsOpen={settingsOpen}
-                      hideUserHandle={hideUserHandle}
-                    />
-                    {(settingsOpen || settingsClosing) && !fullscreen && (
-                      <SettingsSidebarContent
-                        tab={settingsTab}
-                        setTab={setSettingsTab}
-                        onSectionSelect={selectSettingsSection}
-                        updateInfo={updateInfo}
-                        onClose={closeSettings}
-                        collapsed={sidebarCollapsed}
-                        closing={settingsClosing}
-                      />
-                    )}
-                    {/* Drag handle to resize the expanded sidebar */}
-                    {!fullscreen && !sidebarCollapsed && (
-                      <div
-                        onMouseDown={startSidebarResize}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          right: 0,
-                          bottom: 0,
-                          width: 8,
-                          cursor: "ew-resize",
-                          zIndex: 50,
-                        }}
-                        onMouseEnter={(e) => {
-                          const bar = e.currentTarget.firstChild;
-                          if (bar) bar.style.opacity = "1";
-                        }}
-                        onMouseLeave={(e) => {
-                          const bar = e.currentTarget.firstChild;
-                          if (bar) bar.style.opacity = sidebarResizing ? "1" : "0";
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "50%",
-                            right: 1,
-                            transform: "translateY(-50%)",
-                            width: 3,
-                            height: 44,
-                            borderRadius: 2,
-                            background: "var(--accent)",
-                            opacity: sidebarResizing ? 1 : 0,
-                            transition: "opacity 0.15s",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      position: "relative",
-                    }}
-                  >
-                    {/* macOS: the gap above the content card (this column's exposed top margin) is a
-              drag region, so the window can be moved from the top of the main area too — the
-              card and everything inside it stay clickable (they're children, not the region). */}
-                    <div
-                      style={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflow: "hidden",
-                        borderRadius: "var(--r-xl)",
-                        margin: queueOpen
-                          ? `${IS_MAC ? 16 : 8}px ${queueWidth + 16}px 4px 4px`
-                          : `${IS_MAC ? 16 : 8}px 8px 4px 4px`,
-                        transition: queueResizing
-                          ? "none"
-                          : animations
-                            ? "margin 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease"
-                            : "none",
-                        opacity: overlayOpen || settingsOpen || settingsClosing ? 0 : 1,
-                        pointerEvents:
-                          overlayOpen || settingsOpen || settingsClosing ? "none" : "auto",
-                      }}
-                    >
-                      <div
-                        key={appKey}
-                        className="scrollable"
-                        style={{ height: "100%", overflowY: "auto" }}
-                      >
-                        {view === "home" && (
-                          <AnimatedView key={`home-${viewRefreshKey}`}>
-                            <HomeView
-                              displayName={profiles.find((p) => p.active)?.displayName}
-                              onOpenPlaylist={(item) => openPlaylist(item, "home")}
-                              onOpenAlbum={(item) => openAlbum(item, "home")}
-                              onOpenArtist={(item) => openArtist(item, "home")}
-                              onContextMenu={openContextMenu}
-                              onTrackContextMenu={(e, track) =>
-                                setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
-                              }
-                              hideExplicit={hideExplicit}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "search" && (
-                          <AnimatedView key={`search-${viewRefreshKey}`}>
-                            <SearchView
-                              query={searchQuery}
-                              onOpenArtist={openArtist}
-                              onOpenAlbum={(item) => openAlbum(item, "search")}
-                              onOpenPlaylist={(item) => openPlaylist(item, "search")}
-                              onContextMenu={openContextMenu}
-                              onTrackContextMenu={(e, track) =>
-                                setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
-                              }
-                              hideExplicit={hideExplicit}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "liked" && (
-                          <AnimatedView key={`liked-${viewRefreshKey}`}>
-                            <LikedView
-                              onOpenArtist={openArtist}
-                              onOpenAlbum={(item) => openAlbum(item, "liked")}
-                              onTrackContextMenu={(e, track) =>
-                                setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
-                              }
-                              hideExplicit={hideExplicit}
-                              onToggleLike={handleToggleLike}
-                              likedIds={likedIds}
-                              selectedTracks={selectedTracks}
-                              onToggleSelect={toggleTrackSelection}
-                              onSelectAll={selectAllTracks}
-                              onBack={goBack}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "history" && (
-                          <AnimatedView key={`history-${viewRefreshKey}`}>
-                            <HistoryView
-                              onOpenArtist={openArtist}
-                              onOpenAlbum={(item) => openAlbum(item, "history")}
-                              onTrackContextMenu={(e, track, extra) =>
-                                setTrackContextMenu({ x: e.clientX, y: e.clientY, track, ...extra })
-                              }
-                              hideExplicit={hideExplicit}
-                              onBack={goBack}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "library" && (
-                          <AnimatedView key={`library-${viewRefreshKey}`}>
-                            <LibraryView
-                              onOpenPlaylist={openPlaylist}
-                              onOpenAlbum={openAlbum}
-                              onOpenArtist={openArtist}
-                              onContextMenu={openContextMenu}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "collection" && collection && (
-                          <AnimatedView key={`collection-${viewRefreshKey}`}>
-                            <CollectionView
-                              title={collection.title}
-                              thumbnail={collection.thumbnail}
-                              tracks={collection.tracks}
-                              total={collection.total}
-                              loading={collection.loading}
-                              progress={collection.progress || 0}
-                              cached={collection.cached}
-                              onBack={goBack}
-                              onOpenArtist={openArtist}
-                              onOpenAlbum={(item) => openAlbum(item, "collection")}
-                              isAlbum={collection.isAlbum}
-                              albumArtists={collection.albumArtists}
-                              albumArtistBrowseId={collection.albumArtistBrowseId}
-                              year={collection.year}
-                              onRefresh={() => {
-                                if (collection.isAlbum)
-                                  openAlbum(
-                                    {
-                                      browseId: collection.browseId,
-                                      title: collection.title,
-                                      thumbnail: collection.thumbnail,
-                                    },
-                                    collection.fromView,
-                                    true
-                                  );
-                                else
-                                  openPlaylist(
-                                    {
-                                      playlistId: collection.playlistId,
-                                      title: collection.title,
-                                      thumbnail: collection.thumbnail,
-                                      forcedTitle: collection.forcedTitle,
-                                    },
-                                    collection.fromView,
-                                    true
-                                  );
-                              }}
-                              onTrackContextMenu={(e, track) =>
-                                setTrackContextMenu({
-                                  x: e.clientX,
-                                  y: e.clientY,
-                                  track,
-                                  playlistId: collection.isAlbum ? null : collection.playlistId,
-                                })
-                              }
-                              hideExplicit={hideExplicit}
-                              onToggleLike={handleToggleLike}
-                              likedIds={likedIds}
-                              selectedTracks={selectedTracks}
-                              onToggleSelect={toggleTrackSelection}
-                              onSelectAll={selectAllTracks}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "artist" && artistView && (
-                          <AnimatedView key={`artist-${viewRefreshKey}`}>
-                            <ArtistView
-                              browseId={artistView.browseId}
-                              onOpenAlbum={(item) => openAlbum(item, "artist")}
-                              onOpenPlaylist={(item) => openPlaylist(item, "artist")}
-                              onOpenArtist={(item) => openArtist(item, "artist")}
-                              onBack={goBack}
-                              onContextMenu={openContextMenu}
-                              onTogglePin={togglePin}
-                              isPinned={pinnedIds.includes(artistView.browseId)}
-                              hideExplicit={hideExplicit}
-                            />
-                          </AnimatedView>
-                        )}
-                        {view === "downloads" && (
-                          <AnimatedView key={`downloads-${viewRefreshKey}`}>
-                            <DownloadsView
-                              onTrackContextMenu={(e, track) =>
-                                setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
-                              }
-                              hideExplicit={hideExplicit}
-                              onOpenAlbum={(item) => openAlbum(item, "downloads")}
-                              onOpenArtist={openArtist}
-                              onToggleLike={handleToggleLike}
-                              likedIds={likedIds}
-                            />
-                          </AnimatedView>
-                        )}
-                        {isOffline && view !== "downloads" && (
+                          <AmbientBackdrop
+                            thumbnail={ambientBackground ? currentTrack?.thumbnail : null}
+                          />
+                          {!fullscreen && !IS_MAC && <TitleBar />}
                           <div
                             style={{
-                              position: "sticky",
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              background: "rgba(240,180,41,0.12)",
-                              borderTop: "1px solid rgba(240,180,41,0.3)",
-                              color: "#f0b429",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 8,
-                              padding: "6px 16px",
-                              fontSize: 13,
-                              zIndex: 10,
+                              width: fullscreen
+                                ? 0
+                                : sidebarCollapsed
+                                  ? SIDEBAR_COLLAPSED
+                                  : sidebarWidth,
+                              minWidth: fullscreen
+                                ? 0
+                                : sidebarCollapsed
+                                  ? SIDEBAR_COLLAPSED
+                                  : sidebarWidth,
+                              flexShrink: 0,
+                              overflow: "hidden",
+                              transition: sidebarResizing
+                                ? "none"
+                                : "width 0.3s cubic-bezier(0.4,0,0.2,1), min-width 0.3s cubic-bezier(0.4,0,0.2,1)",
+                              padding: fullscreen ? 0 : "8px 4px 8px 8px",
+                              position: "relative",
                             }}
                           >
-                            <WifiX size={15} weight="bold" />
-                            {translate(language, "offlineBanner")}
-                          </div>
-                        )}
-                        {/* Spacer so content scrolls clear of the floating player bar */}
-                        <div
-                          style={{ height: 97, flexShrink: 0, pointerEvents: "none" }}
-                          aria-hidden="true"
-                        />
-                      </div>
-                    </div>
-                    {/* end clip container */}
-                    {/* Player + floating action bar wrapper — position:relative so the bar can float above the player without affecting layout */}
-                    <div style={{ position: "relative", flexShrink: 0 }}>
-                      {/* Multi-track selection action bar — position:absolute so it floats above the player without pushing the list up */}
-                      {selectedTracks.size > 0 && (
-                        <SelectionActionBar
-                          selectedTracks={selectedTracks}
-                          language={language}
-                          view={view}
-                          collection={collection}
-                          setCollection={setCollection}
-                          onToggleLike={handleToggleLike}
-                          onClearSelection={clearSelection}
-                          onAddToPlaylist={(tracks) =>
-                            setAddToPlaylistFor({ tracks, fromSelection: true })
-                          }
-                        />
-                      )}
-                      <div
-                        style={{
-                          // Fullscreen: slide the bar down off-screen when hidden. Settings: plain fade.
-                          opacity: settingsOpen ? 0 : 1,
-                          transform:
-                            fullscreen && !playerVisible ? "translateY(120%)" : "translateY(0)",
-                          visibility:
-                            settingsOpen || (fullscreen && !playerVisible) ? "hidden" : "visible",
-                          transition:
-                            "opacity 0.35s ease, transform 0.42s cubic-bezier(0.4,0,0.2,1), visibility 0.42s ease",
-                          pointerEvents: settingsOpen
-                            ? "none"
-                            : !fullscreen || playerVisible
-                              ? "auto"
-                              : "none",
-                          position: "relative",
-                          zIndex: fullscreen ? 105 : "auto",
-                          padding: fullscreen ? 0 : "0 8px 8px 4px",
-                        }}
-                      >
-                        <Player
-                          expanded={overlayOpen}
-                          onExpandToggle={() => setOverlayOpen((e) => !e)}
-                          showLyrics={showLyrics}
-                          onToggleLyrics={() => {
-                            if (!overlayOpen) {
-                              setOverlayOpen(true);
-                              setSplitView(false);
-                              setShowLyricsManual(true);
-                            } else if (fullscreen) {
-                              // Cycle: lyrics → cover → split → lyrics
-                              autoCoverRef.current = false;
-                              if (splitView) {
-                                setSplitView(false);
-                                setShowLyrics(true);
-                              } else if (showLyrics) {
-                                setShowLyrics(false);
-                              } else {
-                                setSplitView(true);
-                              }
-                            } else {
-                              setShowLyricsManual((l) => !l);
-                            }
-                          }}
-                          queueOpen={queueOpen}
-                          onToggleQueue={() => setQueueOpen((q) => !q)}
-                          remoteEnabled={remoteEnabled}
-                          fullscreen={fullscreen}
-                          onToggleFullscreen={async () => {
-                            const { invoke } = await import("@tauri-apps/api/core");
-                            const next = !fullscreen;
-                            try {
-                              await invoke("set_fullscreen", { fullscreen: next });
-                            } catch (e) {
-                              console.error(e);
-                            }
-                            setFullscreen(next);
-                            if (next) setOverlayOpen(true);
-                            else if (splitView) {
-                              setSplitView(false);
-                              setShowLyrics(true);
-                            }
-                          }}
-                          onOpenAlbum={openAlbum}
-                          onOpenArtist={openArtist}
-                          onRefetchLyrics={() => {
-                            setForcedLyricsProvider(null);
-                            setLyricsRefetchKey((k) => k + 1);
-                          }}
-                          currentLyricsSource={currentLyricsSource}
-                          onSwitchLyricsProvider={(id) => setForcedLyricsProvider(id)}
-                          failedLyricsProviders={failedLyricsProviders}
-                          language={language}
-                          showLyricsTranslation={showLyricsTranslation}
-                          onToggleLyricsTranslation={() => {
-                            const next = !showLyricsTranslation;
-                            setShowLyricsTranslation(next);
-                            localStorage.setItem("kiyoshi-lyrics-translation", String(next));
-                          }}
-                          lyricsTranslationLang={lyricsTranslationLang}
-                          onSetLyricsTranslationLang={(lang) => {
-                            setLyricsTranslationLang(lang);
-                            localStorage.setItem("kiyoshi-lyrics-translation-lang", lang);
-                          }}
-                          isCustomLyrics={isCustomLyrics}
-                          onImportLyrics={() => importLyricsRef.current?.()}
-                          onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
-                          onCreatePlaylist={() => setCreatePlaylistOpen(true)}
-                          onAddToPlaylist={(tracks) => setAddToPlaylistFor({ tracks })}
-                          buildShareLink={buildShareLink}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: overlayOpen ? (fullscreen ? 0 : 8) : "100%",
-                      left: fullscreen
-                        ? 0
-                        : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth) + 4,
-                      right: fullscreen ? 0 : queueOpen ? queueWidth + 16 : 8,
-                      bottom: fullscreen ? 0 : 112,
-                      zIndex: fullscreen ? 102 : 100,
-                      overflow: "hidden",
-                      borderRadius: fullscreen ? 0 : "var(--r-xl)",
-                      transition: queueResizing
-                        ? "top 0.42s cubic-bezier(0.4,0,0.2,1), left 0.3s ease"
-                        : animations
-                          ? "top 0.42s cubic-bezier(0.4,0,0.2,1), right 0.3s ease, left 0.3s ease"
-                          : "top 0.1s ease",
-                      pointerEvents: overlayOpen ? "all" : "none",
-                    }}
-                  >
-                    {/* Shared static background — stays fixed during crossfade */}
-                    {currentTrack && !ambientBackground && (
-                      <>
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            background: "#0d0d0d",
-                            pointerEvents: "none",
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            pointerEvents: "none",
-                            backgroundImage: currentTrack.thumbnail
-                              ? `url(${hiResThumb(currentTrack.thumbnail)})`
-                              : "none",
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                            filter: "blur(24px) brightness(0.5)",
-                            transform: "scale(1.08)",
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            background: "rgba(0,0,0,0.55)",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      </>
-                    )}
-                    {currentTrack &&
-                      (() => {
-                        // Split (fullscreen only): cover/visualizer left, lyrics right. Both stay mounted —
-                        // only width/opacity animate, so there's no remount/refetch when switching modes.
-                        const splitActive = fullscreen && splitView;
-                        const coverPct = `${(splitRatio * 100).toFixed(2)}%`;
-                        const lyricsPct = `${((1 - splitRatio) * 100).toFixed(2)}%`;
-                        // No width animation while dragging (snappy), otherwise the smooth mode transition.
-                        const widthTransition = splitResizing
-                          ? "none"
-                          : "width 0.4s cubic-bezier(0.4,0,0.2,1)";
-                        const paneTransition = `opacity 0.35s ease, ${widthTransition}`;
-                        return (
-                          <>
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                bottom: 0,
-                                right: 0,
-                                width: splitActive ? lyricsPct : "100%",
-                                opacity: splitActive ? 1 : showLyrics ? 1 : 0,
-                                transition: paneTransition,
-                                pointerEvents: splitActive || showLyrics ? "all" : "none",
+                            <Sidebar
+                              view={view}
+                              setView={navigateTo}
+                              onSearch={handleSearch}
+                              collapsed={sidebarCollapsed}
+                              onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+                              onOpenSettings={() => setSettingsOpen(true)}
+                              onOpenAccountTab={() => {
+                                setSettingsTab("account");
+                                setSettingsOpen(true);
                               }}
-                            >
-                              <LyricsOverlay
-                                track={currentTrack}
-                                audioRef={audioRef}
-                                onClose={() => setOverlayOpen(false)}
-                                fontSize={lyricsFontSize}
-                                providers={lyricsProviders}
-                                refetchKey={lyricsRefetchKey}
-                                onAddToast={addToast}
-                                language={language}
-                                forcedProvider={forcedLyricsProvider}
-                                onSourceChange={setCurrentLyricsSource}
-                                onProviderFailed={(id) =>
-                                  setFailedLyricsProviders((s) => new Set([...s, id]))
-                                }
-                                showTranslation={showLyricsTranslation}
-                                translationLang={lyricsTranslationLang}
-                                translationFontSize={lyricsTranslationFontSize}
-                                showRomaji={showRomaji}
-                                romajiFontSize={lyricsRomajiFontSize}
-                                onCustomLyricsStatusChange={setIsCustomLyrics}
-                                importLyricsRef={importLyricsRef}
-                                removeCustomLyricsRef={removeCustomLyricsRef}
-                                showAgentTags={showAgentTags}
-                                ambientVisualizer={ambientVisualizer}
-                                syllableZoom={syllableZoom}
-                                fluidLyrics={fluidLyrics}
-                                ambientBackground={ambientBackground}
-                                fullscreen={fullscreen}
-                                playerBarVisible={playerVisible}
-                                onInstrumentalChange={handleInstrumentalChange}
-                              />
-                            </div>
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                bottom: 0,
-                                left: 0,
-                                width: splitActive ? coverPct : "100%",
-                                opacity: splitActive ? 1 : showLyrics ? 0 : 1,
-                                transition: paneTransition,
-                                pointerEvents: splitActive || !showLyrics ? "all" : "none",
-                                borderRight: splitActive
-                                  ? "1px solid rgba(255,255,255,0.08)"
-                                  : "none",
+                              onOpenUpdateTab={() => {
+                                setSettingsTab("update");
+                                setSettingsOpen(true);
                               }}
-                            >
-                              <CoverView
-                                track={currentTrack}
-                                isPlaying={isPlaying}
-                                onClose={() => setOverlayOpen(false)}
-                                ambientVisualizer={ambientVisualizer}
-                                vizConfig={vizConfig}
-                                narrow={splitActive}
+                              onCloseOverlay={() => setOverlayOpen(false)}
+                              onOpenPlaylist={(pl) => openPlaylist(pl, view)}
+                              onOpenAlbum={(item) => openAlbum(item, view)}
+                              onOpenArtist={(item) => openArtist(item, view)}
+                              onAddRecent={addRecentPlaylist}
+                              onContextMenu={openContextMenu}
+                              onOpenProfileSwitcher={() => setShowProfileSwitcher(true)}
+                              onCreatePlaylist={() => setCreatePlaylistOpen(true)}
+                              updateInfo={updateInfo}
+                              offlineMode={offlineMode}
+                              isActuallyOffline={isActuallyOffline}
+                              onToggleOffline={handleToggleOffline}
+                              onRefreshView={() => setViewRefreshKey((k) => k + 1)}
+                              obsEnabled={obsEnabled}
+                              onOpenOverlaySettings={() => {
+                                setSettingsTab("overlay");
+                                setSettingsOpen(true);
+                              }}
+                              onOpenNews={openNews}
+                              onOpenFeedback={openFeedback}
+                              newsUnread={newsUnreadCount}
+                              settingsOpen={settingsOpen}
+                              hideUserHandle={hideUserHandle}
+                            />
+                            {(settingsOpen || settingsClosing) && !fullscreen && (
+                              <SettingsSidebarContent
+                                tab={settingsTab}
+                                setTab={setSettingsTab}
+                                onSectionSelect={selectSettingsSection}
+                                updateInfo={updateInfo}
+                                onClose={closeSettings}
+                                collapsed={sidebarCollapsed}
+                                closing={settingsClosing}
                               />
-                            </div>
-                            {/* Drag handle between the two panes (mirrors the sidebar/queue handles) */}
-                            {splitActive && (
+                            )}
+                            {/* Drag handle to resize the expanded sidebar */}
+                            {!fullscreen && !sidebarCollapsed && (
                               <div
-                                onMouseDown={startSplitResize}
+                                onMouseDown={startSidebarResize}
                                 style={{
                                   position: "absolute",
                                   top: 0,
+                                  right: 0,
                                   bottom: 0,
-                                  left: coverPct,
-                                  width: 12,
-                                  marginLeft: -6,
+                                  width: 8,
                                   cursor: "ew-resize",
-                                  zIndex: 6,
+                                  zIndex: 50,
                                 }}
                                 onMouseEnter={(e) => {
                                   const bar = e.currentTarget.firstChild;
@@ -4737,802 +4103,1381 @@ export default function App() {
                                 }}
                                 onMouseLeave={(e) => {
                                   const bar = e.currentTarget.firstChild;
-                                  if (bar) bar.style.opacity = splitResizing ? "1" : "0";
+                                  if (bar) bar.style.opacity = sidebarResizing ? "1" : "0";
                                 }}
                               >
                                 <div
                                   style={{
                                     position: "absolute",
-                                    left: 5,
-                                    top: 0,
-                                    bottom: 0,
-                                    width: 2,
-                                    background: "rgba(255,255,255,0.55)",
-                                    opacity: splitResizing ? 1 : 0,
+                                    top: "50%",
+                                    right: 1,
+                                    transform: "translateY(-50%)",
+                                    width: 3,
+                                    height: 44,
+                                    borderRadius: 2,
+                                    background: "var(--accent)",
+                                    opacity: sidebarResizing ? 1 : 0,
                                     transition: "opacity 0.15s",
                                     pointerEvents: "none",
                                   }}
                                 />
                               </div>
                             )}
-                          </>
-                        );
-                      })()}
-                  </div>
-
-                  {/* Queue panel */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: fullscreen ? 0 : 8,
-                      right: fullscreen ? 0 : 8,
-                      width: fullscreen ? 360 : queueWidth,
-                      bottom: fullscreen ? 0 : 112,
-                      zIndex: fullscreen ? 104 : 101,
-                      // Slide via transform (compositor-only) instead of `right` (per-frame layout).
-                      // Once settled, drop the transform/will-change entirely — an ancestor transform
-                      // otherwise neutralises backdrop-filter on descendants (e.g. the scroll-to-top pill).
-                      transform: queueOpen
-                        ? queueSettled
-                          ? "none"
-                          : "translateX(0)"
-                        : "translateX(calc(100% + 16px))",
-                      willChange: queueOpen && queueSettled ? "auto" : "transform",
-                      // Keep the panel near-opaque while moving; only switch to the costly ambient
-                      // backdrop-blur once it has settled, so the slide never repaints the blur.
-                      background: ambientBackground
-                        ? queueSettled
-                          ? "rgba(18,18,18,0.5)"
-                          : "rgba(18,18,18,0.92)"
-                        : "var(--bg-surface)",
-                      backdropFilter:
-                        ambientBackground && queueSettled ? "blur(32px) saturate(1.4)" : "none",
-                      WebkitBackdropFilter:
-                        ambientBackground && queueSettled ? "blur(32px) saturate(1.4)" : "none",
-                      border: ambientBackground ? "0.5px solid rgba(255,255,255,0.08)" : "none",
-                      borderRadius: fullscreen ? 0 : "var(--r-xl)",
-                      overflow: "hidden",
-                      transition: queueResizing
-                        ? "none"
-                        : animations
-                          ? "transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.25s ease"
-                          : "transform 0.1s ease",
-                      display: "flex",
-                      flexDirection: "column",
-                      pointerEvents: queueOpen ? "all" : "none",
-                    }}
-                  >
-                    {/* Drag handle to resize the panel (mirrors the sidebar handle) */}
-                    {!fullscreen && queueOpen && (
-                      <div
-                        onMouseDown={startQueueResize}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          bottom: 0,
-                          width: 8,
-                          cursor: "ew-resize",
-                          zIndex: 50,
-                        }}
-                        onMouseEnter={(e) => {
-                          const bar = e.currentTarget.firstChild;
-                          if (bar) bar.style.opacity = "1";
-                        }}
-                        onMouseLeave={(e) => {
-                          const bar = e.currentTarget.firstChild;
-                          if (bar) bar.style.opacity = queueResizing ? "1" : "0";
-                        }}
-                      >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: 1,
-                            transform: "translateY(-50%)",
-                            width: 3,
-                            height: 44,
-                            borderRadius: 2,
-                            background: "var(--accent)",
-                            opacity: queueResizing ? 1 : 0,
-                            transition: "opacity 0.15s",
-                            pointerEvents: "none",
-                          }}
-                        />
-                      </div>
-                    )}
-                    <QueuePanel
-                      onClose={() => setQueueOpen(false)}
-                      likedIds={likedIds}
-                      onToggleLike={handleToggleLike}
-                      visible={queueOpen}
-                    />
-                  </div>
-                  {/* Login Screen - shown when no profile exists */}
-                  {showLogin && (
-                    <LoginScreen
-                      forcedProfileName={reauthName}
-                      onSuccess={() => {
-                        fetchProfiles();
-                        setShowLogin(false);
-                        setAddingProfile(false);
-                        setReauthName(null);
-                      }}
-                      onCancel={
-                        addingProfile
-                          ? () => {
-                              setShowLogin(false);
-                              setAddingProfile(false);
-                              setReauthName(null);
-                            }
-                          : undefined
-                      }
-                    />
-                  )}
-
-                  {/* LAN remote pairing / approval — top-level so it can pop up even with Settings closed. */}
-                  {remoteEnabled && (
-                    <RemotePairModal
-                      isOpen={pairModalOpen}
-                      onClose={() => setPairModalOpen(false)}
-                      info={remoteInfo}
-                      devices={remoteDevices}
-                      onDevice={remoteDeviceAction}
-                      onRemember={remoteRememberDevice}
-                    />
-                  )}
-
-                  {(settingsOpen || settingsClosing) && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: fullscreen ? 0 : 8,
-                        left: fullscreen
-                          ? 0
-                          : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth) + 4,
-                        right: fullscreen ? 0 : 8,
-                        bottom: fullscreen ? 0 : 8,
-                        zIndex: 150,
-                        borderRadius: fullscreen ? 0 : "var(--r-xl)",
-                        overflow: "hidden",
-                        animation: animations
-                          ? settingsClosing
-                            ? "fadeSlideOut 0.22s cubic-bezier(0.4,0,0.2,1) forwards"
-                            : "fadeSlideIn 0.28s cubic-bezier(0.4,0,0.2,1)"
-                          : undefined,
-                      }}
-                    >
-                      <SettingsPanel
-                        onClose={closeSettings}
-                        onOpenOverlayEditor={openOverlayEditor}
-                        onResetShortcuts={setCustomShortcuts}
-                        onSectionChange={setSettingsSectionStore}
-                        language={language}
-                        onLanguageChange={handleLanguageChange}
-                        updateInfo={updateInfo}
-                        onCheckUpdate={checkForUpdates}
-                        updateDownloading={updateDownloading}
-                        updateDownloadProgress={updateDownloadProgress}
-                        updateDownloaded={updateDownloaded}
-                        onDownloadUpdate={downloadUpdate}
-                        onInstallUpdate={installUpdate}
-                        onCancelDownload={cancelUpdateDownload}
-                        tab={settingsTab}
-                        setTab={setSettingsTab}
-                        anonStats={anonStats}
-                        onAnonStatsChange={handleAnonStatsChange}
-                        hideUserHandle={hideUserHandle}
-                        onToggleHideUserHandle={(v) => {
-                          setHideUserHandle(v);
-                          localStorage.setItem("kiyoshi-hide-handle", String(v));
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Debug Floating Window */}
-                  {debugFloat && <DebugFloatingWindow onClose={() => setDebugFloat(false)} />}
-
-                  {/* Create Playlist Modal */}
-                  <ProfileSwitcherModal
-                    isOpen={showProfileSwitcher}
-                    onOpenChange={setShowProfileSwitcher}
-                  />
-                  {newsOpen && (
-                    <NewsModal
-                      news={newsItems}
-                      unreadIds={newsUnreadSnapshot}
-                      onRefresh={loadNews}
-                      onClose={() => setNewsOpen(false)}
-                      t={(key) => translate(language, key)}
-                    />
-                  )}
-
-                  {feedbackOpen && (
-                    <BugReportModal
-                      screenshot={feedbackShot}
-                      onClose={() => setFeedbackOpen(false)}
-                      t={(key) => translate(language, key)}
-                      version={APP_VERSION}
-                      currentTrack={
-                        currentTrack
-                          ? { videoId: currentTrack.videoId, title: currentTrack.title }
-                          : null
-                      }
-                    />
-                  )}
-
-                  {createPlaylistOpen && (
-                    <CreatePlaylistModal
-                      t={(key) => translate(language, key)}
-                      onClose={() => {
-                        setCreatePlaylistOpen(false);
-                        setCreatePlaylistForSelection(false);
-                        setCreatePlaylistTracks(null);
-                      }}
-                      onCreated={async (id, title) => {
-                        // If the create flow started from "Add to playlist ▸ New playlist", push the
-                        // pending tracks into the new playlist (works for both a single context-menu
-                        // track and a multi-selection — the tracks were captured when the modal opened).
-                        const pending = createPlaylistTracks;
-                        if (pending && pending.length > 0) {
-                          try {
-                            await fetch(`${API}/playlist/${id}/add`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                videoIds: pending.map((t) => t.videoId),
-                                tracks: pending,
-                              }),
-                            });
-                          } catch {}
-                          if (createPlaylistForSelection) clearSelection();
-                        }
-                        setCreatePlaylistTracks(null);
-                        setCreatePlaylistForSelection(false);
-                        openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
-                      }}
-                    />
-                  )}
-
-                  {/* Add to playlist — dedicated modal (search + rich playlist rows) */}
-                  {addToPlaylistFor && (
-                    <AddToPlaylistModal
-                      tracks={addToPlaylistFor.tracks}
-                      onClose={() => setAddToPlaylistFor(null)}
-                      onNewPlaylist={() => {
-                        setCreatePlaylistTracks(addToPlaylistFor.tracks || null);
-                        if (addToPlaylistFor.fromSelection) setCreatePlaylistForSelection(true);
-                        setCreatePlaylistOpen(true);
-                      }}
-                      onAdded={addToPlaylistFor.fromSelection ? clearSelection : undefined}
-                    />
-                  )}
-
-                  {/* Download Queue — HeroUI toast-styled card with Spinner + ProgressBar */}
-                  {downloadBatches.length > 0 && (
-                    <DownloadQueueCard
-                      batches={downloadBatches}
-                      minimized={downloadQueueMin}
-                      onToggleMinimize={() => setDownloadQueueMin((m) => !m)}
-                      onCancelBatch={handleCancelBatch}
-                      language={language}
-                    />
-                  )}
-
-                  {/* Track context menu */}
-                  {trackContextMenu &&
-                    (() => {
-                      const track = trackContextMenu.track;
-                      const ctxLiked = likedIds.has(track.videoId);
-                      const showRemovePl = trackContextMenu.playlistId && track.setVideoId;
-                      const showRemoveHist = !!trackContextMenu.removeFromHistory;
-                      const artistList = Array.isArray(track.artists)
-                        ? track.artists.filter((a) => a?.browseId || a?.id)
-                        : [];
-                      const showAlbumNav = !!track.albumBrowseId;
-                      const showArtistNav = artistList.length > 0 || !!track.artistBrowseId;
-                      const isCached = cachedSongIds.has(track.videoId);
-
-                      const copyShare = (url) => {
-                        navigator.clipboard
-                          .writeText(url)
-                          .then(() => toast.success(translate(language, "linkCopied")))
-                          .catch(() => {});
-                      };
-                      const copyLyrics = () => {
-                        fetch(`${API}/lyrics/${track.videoId}`)
-                          .then((r) => r.json())
-                          .then((d) => {
-                            if (!d.lyrics) return;
-                            const text = d.lyrics
-                              .map((l) => {
-                                const main = l.wordSync
-                                  ? (l.words || []).map((w) => w.text).join("")
-                                  : l.text || "";
-                                const bg =
-                                  (l.bgWords || []).map((w) => w.text).join("") || l.bgText || "";
-                                return bg ? `${main} ${bg}` : main;
-                              })
-                              .join("\n");
-                            navigator.clipboard.writeText(text).catch(() => {});
-                          })
-                          .catch(() => {});
-                      };
-                      const saveLrc = async () => {
-                        try {
-                          const d = await fetch(`${API}/lyrics/${track.videoId}`).then((r) =>
-                            r.json()
-                          );
-                          if (!d.lyrics) return;
-                          const lyrics = d.lyrics;
-                          const isSync = lyrics.some((l) => l.time >= 0);
-                          const lrcLineText = (l) => {
-                            const main = l.wordSync
-                              ? (l.words || []).map((w) => w.text).join("")
-                              : l.text || "";
-                            const bg =
-                              (l.bgWords || []).map((w) => w.text).join("") || l.bgText || "";
-                            return bg ? `${main} ${bg}` : main;
-                          };
-                          const lrcText = isSync
-                            ? lyrics
-                                .map((l) => {
-                                  const lineText = lrcLineText(l);
-                                  if (l.time < 0) return lineText;
-                                  const mm = String(Math.floor(l.time / 60)).padStart(2, "0");
-                                  const ss = String(Math.floor(l.time % 60)).padStart(2, "0");
-                                  const cs = String(Math.floor((l.time % 1) * 100)).padStart(
-                                    2,
-                                    "0"
-                                  );
-                                  return `[${mm}:${ss}.${cs}] ${lineText}`;
-                                })
-                                .join("\n")
-                            : lyrics.map(lrcLineText).join("\n");
-                          const { save } = await import("@tauri-apps/plugin-dialog");
-                          const { writeTextFile } = await import("@tauri-apps/plugin-fs");
-                          const safeTitle = (track?.title || "lyrics").replace(
-                            /[<>:"/\\|?*]/g,
-                            "_"
-                          );
-                          const filePath = await save({
-                            title: translate(language, "saveLrc"),
-                            defaultPath: `${safeTitle}.lrc`,
-                            filters: [
-                              { name: "LRC", extensions: ["lrc"] },
-                              { name: "Text", extensions: ["txt"] },
-                            ],
-                          });
-                          if (!filePath) return;
-                          await writeTextFile(filePath, lrcText);
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      };
-                      const removeFromPlaylist = async () => {
-                        // Optimistic: burst the row + drop it (and decrement total so the virtualized list
-                        // doesn't render a phantom SkeletonRow for the now-missing slot), then tell the server.
-                        if (animations) {
-                          try {
-                            particleBurst(
-                              document.querySelector(
-                                `[data-track-id="${CSS.escape(track.videoId)}"]`
-                              )
-                            );
-                          } catch {}
-                        }
-                        setCollection((c) =>
-                          c
-                            ? {
-                                ...c,
-                                tracks: c.tracks.filter(
-                                  (t) =>
-                                    t.videoId !== track.videoId || t.setVideoId !== track.setVideoId
-                                ),
-                                total: Math.max(0, (c.total ?? c.tracks.length) - 1),
-                              }
-                            : c
-                        );
-                        try {
-                          await fetch(`${API}/playlist/${trackContextMenu.playlistId}/remove`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              videos: [{ videoId: track.videoId, setVideoId: track.setVideoId }],
-                            }),
-                          });
-                        } catch {}
-                      };
-                      const removeDownload = () => removeCachedSong(track.videoId);
-
-                      return (
-                        <ContextMenu
-                          x={trackContextMenu.x}
-                          y={trackContextMenu.y}
-                          zoom={uiZoom}
-                          onClose={() => setTrackContextMenu(null)}
-                          ariaLabel={track.title || "Track"}
-                          minWidth={210}
-                        >
-                          <DropdownSection>
-                            {/* Add to playlist — opens a dedicated modal with search + rich rows */}
-                            <CtxItem
-                              icon={<Plus size={15} />}
-                              label={translate(language, "addToPlaylist")}
-                              onSelect={() => setAddToPlaylistFor({ tracks: [track] })}
-                            />
-
-                            <CtxItem
-                              icon={<Queue size={15} />}
-                              label={translate(language, "playNext")}
-                              onSelect={() => {
-                                enqueue(track, "next");
-                                addToast(
-                                  translate(language, "addedNext") || "Als Nächstes eingereiht",
-                                  "success"
-                                );
+                          </div>
+                          <div
+                            {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
+                            style={{
+                              flex: 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              overflow: "hidden",
+                              position: "relative",
+                            }}
+                          >
+                            {/* macOS: the gap above the content card (this column's exposed top margin) is a
+              drag region, so the window can be moved from the top of the main area too — the
+              card and everything inside it stay clickable (they're children, not the region). */}
+                            <div
+                              style={{
+                                flex: 1,
+                                minHeight: 0,
+                                overflow: "hidden",
+                                borderRadius: "var(--r-xl)",
+                                margin: queueOpen
+                                  ? `${IS_MAC ? 16 : 8}px ${queueWidth + 16}px 4px 4px`
+                                  : `${IS_MAC ? 16 : 8}px 8px 4px 4px`,
+                                transition: queueResizing
+                                  ? "none"
+                                  : animations
+                                    ? "margin 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease"
+                                    : "none",
+                                opacity: overlayOpen || settingsOpen || settingsClosing ? 0 : 1,
+                                pointerEvents:
+                                  overlayOpen || settingsOpen || settingsClosing ? "none" : "auto",
                               }}
-                            />
-                            <CtxItem
-                              icon={<Queue size={15} />}
-                              label={translate(language, "addToQueue")}
-                              onSelect={() => {
-                                enqueue(track, "end");
-                                addToast(
-                                  translate(language, "addedQueue") ||
-                                    "Zur Warteschlange hinzugefügt",
-                                  "success"
+                            >
+                              <div
+                                key={appKey}
+                                className="scrollable"
+                                style={{ height: "100%", overflowY: "auto" }}
+                              >
+                                {view === "home" && (
+                                  <AnimatedView key={`home-${viewRefreshKey}`}>
+                                    <HomeView
+                                      displayName={profiles.find((p) => p.active)?.displayName}
+                                      onOpenPlaylist={(item) => openPlaylist(item, "home")}
+                                      onOpenAlbum={(item) => openAlbum(item, "home")}
+                                      onOpenArtist={(item) => openArtist(item, "home")}
+                                      onContextMenu={openContextMenu}
+                                      onTrackContextMenu={(e, track) =>
+                                        setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "search" && (
+                                  <AnimatedView key={`search-${viewRefreshKey}`}>
+                                    <SearchView
+                                      query={searchQuery}
+                                      onOpenArtist={openArtist}
+                                      onOpenAlbum={(item) => openAlbum(item, "search")}
+                                      onOpenPlaylist={(item) => openPlaylist(item, "search")}
+                                      onContextMenu={openContextMenu}
+                                      onTrackContextMenu={(e, track) =>
+                                        setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "liked" && (
+                                  <AnimatedView key={`liked-${viewRefreshKey}`}>
+                                    <LikedView
+                                      onOpenArtist={openArtist}
+                                      onOpenAlbum={(item) => openAlbum(item, "liked")}
+                                      onTrackContextMenu={(e, track) =>
+                                        setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                      onToggleLike={handleToggleLike}
+                                      likedIds={likedIds}
+                                      selectedTracks={selectedTracks}
+                                      onToggleSelect={toggleTrackSelection}
+                                      onSelectAll={selectAllTracks}
+                                      onBack={goBack}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "history" && (
+                                  <AnimatedView key={`history-${viewRefreshKey}`}>
+                                    <HistoryView
+                                      onOpenArtist={openArtist}
+                                      onOpenAlbum={(item) => openAlbum(item, "history")}
+                                      onTrackContextMenu={(e, track, extra) =>
+                                        setTrackContextMenu({
+                                          x: e.clientX,
+                                          y: e.clientY,
+                                          track,
+                                          ...extra,
+                                        })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                      onBack={goBack}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "library" && (
+                                  <AnimatedView key={`library-${viewRefreshKey}`}>
+                                    <LibraryView
+                                      onOpenPlaylist={openPlaylist}
+                                      onOpenAlbum={openAlbum}
+                                      onOpenArtist={openArtist}
+                                      onContextMenu={openContextMenu}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "collection" && collection && (
+                                  <AnimatedView key={`collection-${viewRefreshKey}`}>
+                                    <CollectionView
+                                      title={collection.title}
+                                      thumbnail={collection.thumbnail}
+                                      tracks={collection.tracks}
+                                      total={collection.total}
+                                      loading={collection.loading}
+                                      progress={collection.progress || 0}
+                                      cached={collection.cached}
+                                      onBack={goBack}
+                                      onOpenArtist={openArtist}
+                                      onOpenAlbum={(item) => openAlbum(item, "collection")}
+                                      isAlbum={collection.isAlbum}
+                                      albumArtists={collection.albumArtists}
+                                      albumArtistBrowseId={collection.albumArtistBrowseId}
+                                      year={collection.year}
+                                      onRefresh={() => {
+                                        if (collection.isAlbum)
+                                          openAlbum(
+                                            {
+                                              browseId: collection.browseId,
+                                              title: collection.title,
+                                              thumbnail: collection.thumbnail,
+                                            },
+                                            collection.fromView,
+                                            true
+                                          );
+                                        else
+                                          openPlaylist(
+                                            {
+                                              playlistId: collection.playlistId,
+                                              title: collection.title,
+                                              thumbnail: collection.thumbnail,
+                                              forcedTitle: collection.forcedTitle,
+                                            },
+                                            collection.fromView,
+                                            true
+                                          );
+                                      }}
+                                      onTrackContextMenu={(e, track) =>
+                                        setTrackContextMenu({
+                                          x: e.clientX,
+                                          y: e.clientY,
+                                          track,
+                                          playlistId: collection.isAlbum
+                                            ? null
+                                            : collection.playlistId,
+                                        })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                      onToggleLike={handleToggleLike}
+                                      likedIds={likedIds}
+                                      selectedTracks={selectedTracks}
+                                      onToggleSelect={toggleTrackSelection}
+                                      onSelectAll={selectAllTracks}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "artist" && artistView && (
+                                  <AnimatedView key={`artist-${viewRefreshKey}`}>
+                                    <ArtistView
+                                      browseId={artistView.browseId}
+                                      onOpenAlbum={(item) => openAlbum(item, "artist")}
+                                      onOpenPlaylist={(item) => openPlaylist(item, "artist")}
+                                      onOpenArtist={(item) => openArtist(item, "artist")}
+                                      onBack={goBack}
+                                      onContextMenu={openContextMenu}
+                                      onTogglePin={togglePin}
+                                      isPinned={pinnedIds.includes(artistView.browseId)}
+                                      hideExplicit={hideExplicit}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {view === "downloads" && (
+                                  <AnimatedView key={`downloads-${viewRefreshKey}`}>
+                                    <DownloadsView
+                                      onTrackContextMenu={(e, track) =>
+                                        setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
+                                      }
+                                      hideExplicit={hideExplicit}
+                                      onOpenAlbum={(item) => openAlbum(item, "downloads")}
+                                      onOpenArtist={openArtist}
+                                      onToggleLike={handleToggleLike}
+                                      likedIds={likedIds}
+                                    />
+                                  </AnimatedView>
+                                )}
+                                {isOffline && view !== "downloads" && (
+                                  <div
+                                    style={{
+                                      position: "sticky",
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      background: "rgba(240,180,41,0.12)",
+                                      borderTop: "1px solid rgba(240,180,41,0.3)",
+                                      color: "#f0b429",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      padding: "6px 16px",
+                                      fontSize: 13,
+                                      zIndex: 10,
+                                    }}
+                                  >
+                                    <WifiX size={15} weight="bold" />
+                                    {translate(language, "offlineBanner")}
+                                  </div>
+                                )}
+                                {/* Spacer so content scrolls clear of the floating player bar */}
+                                <div
+                                  style={{ height: 97, flexShrink: 0, pointerEvents: "none" }}
+                                  aria-hidden="true"
+                                />
+                              </div>
+                            </div>
+                            {/* end clip container */}
+                            {/* Player + floating action bar wrapper — position:relative so the bar can float above the player without affecting layout */}
+                            <div style={{ position: "relative", flexShrink: 0 }}>
+                              {/* Multi-track selection action bar — position:absolute so it floats above the player without pushing the list up */}
+                              {selectedTracks.size > 0 && (
+                                <SelectionActionBar
+                                  selectedTracks={selectedTracks}
+                                  language={language}
+                                  view={view}
+                                  collection={collection}
+                                  setCollection={setCollection}
+                                  onToggleLike={handleToggleLike}
+                                  onClearSelection={clearSelection}
+                                  onAddToPlaylist={(tracks) =>
+                                    setAddToPlaylistFor({ tracks, fromSelection: true })
+                                  }
+                                />
+                              )}
+                              <div
+                                style={{
+                                  // Fullscreen: slide the bar down off-screen when hidden. Settings: plain fade.
+                                  opacity: settingsOpen ? 0 : 1,
+                                  transform:
+                                    fullscreen && !playerVisible
+                                      ? "translateY(120%)"
+                                      : "translateY(0)",
+                                  visibility:
+                                    settingsOpen || (fullscreen && !playerVisible)
+                                      ? "hidden"
+                                      : "visible",
+                                  transition:
+                                    "opacity 0.35s ease, transform 0.42s cubic-bezier(0.4,0,0.2,1), visibility 0.42s ease",
+                                  pointerEvents: settingsOpen
+                                    ? "none"
+                                    : !fullscreen || playerVisible
+                                      ? "auto"
+                                      : "none",
+                                  position: "relative",
+                                  zIndex: fullscreen ? 105 : "auto",
+                                  padding: fullscreen ? 0 : "0 8px 8px 4px",
+                                }}
+                              >
+                                <Player
+                                  expanded={overlayOpen}
+                                  onExpandToggle={() => setOverlayOpen((e) => !e)}
+                                  showLyrics={showLyrics}
+                                  onToggleLyrics={() => {
+                                    if (!overlayOpen) {
+                                      setOverlayOpen(true);
+                                      setSplitView(false);
+                                      setShowLyricsManual(true);
+                                    } else if (fullscreen) {
+                                      // Cycle: lyrics → cover → split → lyrics
+                                      autoCoverRef.current = false;
+                                      if (splitView) {
+                                        setSplitView(false);
+                                        setShowLyrics(true);
+                                      } else if (showLyrics) {
+                                        setShowLyrics(false);
+                                      } else {
+                                        setSplitView(true);
+                                      }
+                                    } else {
+                                      setShowLyricsManual((l) => !l);
+                                    }
+                                  }}
+                                  queueOpen={queueOpen}
+                                  onToggleQueue={() => setQueueOpen((q) => !q)}
+                                  remoteEnabled={remoteEnabled}
+                                  fullscreen={fullscreen}
+                                  onToggleFullscreen={async () => {
+                                    const { invoke } = await import("@tauri-apps/api/core");
+                                    const next = !fullscreen;
+                                    try {
+                                      await invoke("set_fullscreen", { fullscreen: next });
+                                    } catch (e) {
+                                      console.error(e);
+                                    }
+                                    setFullscreen(next);
+                                    if (next) setOverlayOpen(true);
+                                    else if (splitView) {
+                                      setSplitView(false);
+                                      setShowLyrics(true);
+                                    }
+                                  }}
+                                  onOpenAlbum={openAlbum}
+                                  onOpenArtist={openArtist}
+                                  onRefetchLyrics={() => {
+                                    setForcedLyricsProvider(null);
+                                    setLyricsRefetchKey((k) => k + 1);
+                                  }}
+                                  currentLyricsSource={currentLyricsSource}
+                                  onSwitchLyricsProvider={(id) => setForcedLyricsProvider(id)}
+                                  failedLyricsProviders={failedLyricsProviders}
+                                  language={language}
+                                  showLyricsTranslation={showLyricsTranslation}
+                                  onToggleLyricsTranslation={() => {
+                                    const next = !showLyricsTranslation;
+                                    setShowLyricsTranslation(next);
+                                    localStorage.setItem(
+                                      "kiyoshi-lyrics-translation",
+                                      String(next)
+                                    );
+                                  }}
+                                  lyricsTranslationLang={lyricsTranslationLang}
+                                  onSetLyricsTranslationLang={(lang) => {
+                                    setLyricsTranslationLang(lang);
+                                    localStorage.setItem("kiyoshi-lyrics-translation-lang", lang);
+                                  }}
+                                  isCustomLyrics={isCustomLyrics}
+                                  onImportLyrics={() => importLyricsRef.current?.()}
+                                  onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
+                                  onCreatePlaylist={() => setCreatePlaylistOpen(true)}
+                                  onAddToPlaylist={(tracks) => setAddToPlaylistFor({ tracks })}
+                                  buildShareLink={buildShareLink}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: overlayOpen ? (fullscreen ? 0 : 8) : "100%",
+                              left: fullscreen
+                                ? 0
+                                : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth) + 4,
+                              right: fullscreen ? 0 : queueOpen ? queueWidth + 16 : 8,
+                              bottom: fullscreen ? 0 : 112,
+                              zIndex: fullscreen ? 102 : 100,
+                              overflow: "hidden",
+                              borderRadius: fullscreen ? 0 : "var(--r-xl)",
+                              transition: queueResizing
+                                ? "top 0.42s cubic-bezier(0.4,0,0.2,1), left 0.3s ease"
+                                : animations
+                                  ? "top 0.42s cubic-bezier(0.4,0,0.2,1), right 0.3s ease, left 0.3s ease"
+                                  : "top 0.1s ease",
+                              pointerEvents: overlayOpen ? "all" : "none",
+                            }}
+                          >
+                            {/* Shared static background — stays fixed during crossfade */}
+                            {currentTrack && !ambientBackground && (
+                              <>
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    background: "#0d0d0d",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    pointerEvents: "none",
+                                    backgroundImage: currentTrack.thumbnail
+                                      ? `url(${hiResThumb(currentTrack.thumbnail)})`
+                                      : "none",
+                                    backgroundSize: "cover",
+                                    backgroundPosition: "center",
+                                    filter: "blur(24px) brightness(0.5)",
+                                    transform: "scale(1.08)",
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    background: "rgba(0,0,0,0.55)",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                              </>
+                            )}
+                            {currentTrack &&
+                              (() => {
+                                // Split (fullscreen only): cover/visualizer left, lyrics right. Both stay mounted —
+                                // only width/opacity animate, so there's no remount/refetch when switching modes.
+                                const splitActive = fullscreen && splitView;
+                                const coverPct = `${(splitRatio * 100).toFixed(2)}%`;
+                                const lyricsPct = `${((1 - splitRatio) * 100).toFixed(2)}%`;
+                                // No width animation while dragging (snappy), otherwise the smooth mode transition.
+                                const widthTransition = splitResizing
+                                  ? "none"
+                                  : "width 0.4s cubic-bezier(0.4,0,0.2,1)";
+                                const paneTransition = `opacity 0.35s ease, ${widthTransition}`;
+                                return (
+                                  <>
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        bottom: 0,
+                                        right: 0,
+                                        width: splitActive ? lyricsPct : "100%",
+                                        opacity: splitActive ? 1 : showLyrics ? 1 : 0,
+                                        transition: paneTransition,
+                                        pointerEvents: splitActive || showLyrics ? "all" : "none",
+                                      }}
+                                    >
+                                      <LyricsOverlay
+                                        track={currentTrack}
+                                        audioRef={audioRef}
+                                        onClose={() => setOverlayOpen(false)}
+                                        fontSize={lyricsFontSize}
+                                        providers={lyricsProviders}
+                                        refetchKey={lyricsRefetchKey}
+                                        onAddToast={addToast}
+                                        language={language}
+                                        forcedProvider={forcedLyricsProvider}
+                                        onSourceChange={setCurrentLyricsSource}
+                                        onProviderFailed={(id) =>
+                                          setFailedLyricsProviders((s) => new Set([...s, id]))
+                                        }
+                                        showTranslation={showLyricsTranslation}
+                                        translationLang={lyricsTranslationLang}
+                                        translationFontSize={lyricsTranslationFontSize}
+                                        showRomaji={showRomaji}
+                                        romajiFontSize={lyricsRomajiFontSize}
+                                        onCustomLyricsStatusChange={setIsCustomLyrics}
+                                        importLyricsRef={importLyricsRef}
+                                        removeCustomLyricsRef={removeCustomLyricsRef}
+                                        showAgentTags={showAgentTags}
+                                        ambientVisualizer={ambientVisualizer}
+                                        syllableZoom={syllableZoom}
+                                        fluidLyrics={fluidLyrics}
+                                        ambientBackground={ambientBackground}
+                                        fullscreen={fullscreen}
+                                        playerBarVisible={playerVisible}
+                                        onInstrumentalChange={handleInstrumentalChange}
+                                      />
+                                    </div>
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        top: 0,
+                                        bottom: 0,
+                                        left: 0,
+                                        width: splitActive ? coverPct : "100%",
+                                        opacity: splitActive ? 1 : showLyrics ? 0 : 1,
+                                        transition: paneTransition,
+                                        pointerEvents: splitActive || !showLyrics ? "all" : "none",
+                                        borderRight: splitActive
+                                          ? "1px solid rgba(255,255,255,0.08)"
+                                          : "none",
+                                      }}
+                                    >
+                                      <CoverView
+                                        track={currentTrack}
+                                        isPlaying={isPlaying}
+                                        onClose={() => setOverlayOpen(false)}
+                                        ambientVisualizer={ambientVisualizer}
+                                        vizConfig={vizConfig}
+                                        narrow={splitActive}
+                                      />
+                                    </div>
+                                    {/* Drag handle between the two panes (mirrors the sidebar/queue handles) */}
+                                    {splitActive && (
+                                      <div
+                                        onMouseDown={startSplitResize}
+                                        style={{
+                                          position: "absolute",
+                                          top: 0,
+                                          bottom: 0,
+                                          left: coverPct,
+                                          width: 12,
+                                          marginLeft: -6,
+                                          cursor: "ew-resize",
+                                          zIndex: 6,
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          const bar = e.currentTarget.firstChild;
+                                          if (bar) bar.style.opacity = "1";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          const bar = e.currentTarget.firstChild;
+                                          if (bar) bar.style.opacity = splitResizing ? "1" : "0";
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            position: "absolute",
+                                            left: 5,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: 2,
+                                            background: "rgba(255,255,255,0.55)",
+                                            opacity: splitResizing ? 1 : 0,
+                                            transition: "opacity 0.15s",
+                                            pointerEvents: "none",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
                                 );
-                              }}
-                            />
-                            <CtxItem
-                              icon={<Radio size={15} />}
-                              label={translate(language, "startRadio")}
-                              onSelect={() => startSongRadio(track)}
-                            />
+                              })()}
+                          </div>
 
-                            <DropdownItem
-                              textValue={
-                                ctxLiked
-                                  ? translate(language, "unlike")
-                                  : translate(language, "like")
-                              }
-                              onAction={() => handleToggleLike(track)}
-                              className={
-                                ctxLiked
-                                  ? "text-accent! data-[focused]:text-accent! data-[hovered]:text-accent!"
+                          {/* Queue panel */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: fullscreen ? 0 : 8,
+                              right: fullscreen ? 0 : 8,
+                              width: fullscreen ? 360 : queueWidth,
+                              bottom: fullscreen ? 0 : 112,
+                              zIndex: fullscreen ? 104 : 101,
+                              // Slide via transform (compositor-only) instead of `right` (per-frame layout).
+                              // Once settled, drop the transform/will-change entirely — an ancestor transform
+                              // otherwise neutralises backdrop-filter on descendants (e.g. the scroll-to-top pill).
+                              transform: queueOpen
+                                ? queueSettled
+                                  ? "none"
+                                  : "translateX(0)"
+                                : "translateX(calc(100% + 16px))",
+                              willChange: queueOpen && queueSettled ? "auto" : "transform",
+                              // Keep the panel near-opaque while moving; only switch to the costly ambient
+                              // backdrop-blur once it has settled, so the slide never repaints the blur.
+                              background: ambientBackground
+                                ? queueSettled
+                                  ? "rgba(18,18,18,0.5)"
+                                  : "rgba(18,18,18,0.92)"
+                                : "var(--bg-surface)",
+                              backdropFilter:
+                                ambientBackground && queueSettled
+                                  ? "blur(32px) saturate(1.4)"
+                                  : "none",
+                              WebkitBackdropFilter:
+                                ambientBackground && queueSettled
+                                  ? "blur(32px) saturate(1.4)"
+                                  : "none",
+                              border: ambientBackground
+                                ? "0.5px solid rgba(255,255,255,0.08)"
+                                : "none",
+                              borderRadius: fullscreen ? 0 : "var(--r-xl)",
+                              overflow: "hidden",
+                              transition: queueResizing
+                                ? "none"
+                                : animations
+                                  ? "transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.25s ease"
+                                  : "transform 0.1s ease",
+                              display: "flex",
+                              flexDirection: "column",
+                              pointerEvents: queueOpen ? "all" : "none",
+                            }}
+                          >
+                            {/* Drag handle to resize the panel (mirrors the sidebar handle) */}
+                            {!fullscreen && queueOpen && (
+                              <div
+                                onMouseDown={startQueueResize}
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  left: 0,
+                                  bottom: 0,
+                                  width: 8,
+                                  cursor: "ew-resize",
+                                  zIndex: 50,
+                                }}
+                                onMouseEnter={(e) => {
+                                  const bar = e.currentTarget.firstChild;
+                                  if (bar) bar.style.opacity = "1";
+                                }}
+                                onMouseLeave={(e) => {
+                                  const bar = e.currentTarget.firstChild;
+                                  if (bar) bar.style.opacity = queueResizing ? "1" : "0";
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "50%",
+                                    left: 1,
+                                    transform: "translateY(-50%)",
+                                    width: 3,
+                                    height: 44,
+                                    borderRadius: 2,
+                                    background: "var(--accent)",
+                                    opacity: queueResizing ? 1 : 0,
+                                    transition: "opacity 0.15s",
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <QueuePanel
+                              onClose={() => setQueueOpen(false)}
+                              likedIds={likedIds}
+                              onToggleLike={handleToggleLike}
+                              visible={queueOpen}
+                            />
+                          </div>
+                          {/* Login Screen - shown when no profile exists */}
+                          {showLogin && (
+                            <LoginScreen
+                              forcedProfileName={reauthName}
+                              onSuccess={() => {
+                                fetchProfiles();
+                                setShowLogin(false);
+                                setAddingProfile(false);
+                                setReauthName(null);
+                              }}
+                              onCancel={
+                                addingProfile
+                                  ? () => {
+                                      setShowLogin(false);
+                                      setAddingProfile(false);
+                                      setReauthName(null);
+                                    }
                                   : undefined
                               }
+                            />
+                          )}
+
+                          {/* LAN remote pairing / approval — top-level so it can pop up even with Settings closed. */}
+                          {remoteEnabled && (
+                            <RemotePairModal
+                              isOpen={pairModalOpen}
+                              onClose={() => setPairModalOpen(false)}
+                              info={remoteInfo}
+                              devices={remoteDevices}
+                              onDevice={remoteDeviceAction}
+                              onRemember={remoteRememberDevice}
+                            />
+                          )}
+
+                          {(settingsOpen || settingsClosing) && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: fullscreen ? 0 : 8,
+                                left: fullscreen
+                                  ? 0
+                                  : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth) + 4,
+                                right: fullscreen ? 0 : 8,
+                                bottom: fullscreen ? 0 : 8,
+                                zIndex: 150,
+                                borderRadius: fullscreen ? 0 : "var(--r-xl)",
+                                overflow: "hidden",
+                                animation: animations
+                                  ? settingsClosing
+                                    ? "fadeSlideOut 0.22s cubic-bezier(0.4,0,0.2,1) forwards"
+                                    : "fadeSlideIn 0.28s cubic-bezier(0.4,0,0.2,1)"
+                                  : undefined,
+                              }}
                             >
-                              <span className="w-4 flex justify-center shrink-0">
-                                <Heart size={15} weight={ctxLiked ? "fill" : "regular"} />
-                              </span>
-                              {ctxLiked
-                                ? translate(language, "unlike")
-                                : translate(language, "like")}
-                            </DropdownItem>
-
-                            {showRemovePl ? (
-                              <CtxItem
-                                icon={<X size={15} />}
-                                danger
-                                label={translate(language, "removeFromPlaylist")}
-                                onSelect={removeFromPlaylist}
+                              <SettingsPanel
+                                onClose={closeSettings}
+                                onOpenOverlayEditor={openOverlayEditor}
+                                onResetShortcuts={setCustomShortcuts}
+                                onSectionChange={setSettingsSectionStore}
+                                language={language}
+                                onLanguageChange={handleLanguageChange}
+                                updateInfo={updateInfo}
+                                onCheckUpdate={checkForUpdates}
+                                updateDownloading={updateDownloading}
+                                updateDownloadProgress={updateDownloadProgress}
+                                updateDownloaded={updateDownloaded}
+                                onDownloadUpdate={downloadUpdate}
+                                onInstallUpdate={installUpdate}
+                                onCancelDownload={cancelUpdateDownload}
+                                tab={settingsTab}
+                                setTab={setSettingsTab}
+                                anonStats={anonStats}
+                                onAnonStatsChange={handleAnonStatsChange}
+                                hideUserHandle={hideUserHandle}
+                                onToggleHideUserHandle={(v) => {
+                                  setHideUserHandle(v);
+                                  localStorage.setItem("kiyoshi-hide-handle", String(v));
+                                }}
                               />
-                            ) : null}
-                            {showRemoveHist ? (
-                              <CtxItem
-                                icon={<X size={15} />}
-                                danger
-                                label={translate(language, "removeFromHistory")}
-                                onSelect={() => trackContextMenu.removeFromHistory()}
-                              />
-                            ) : null}
-                          </DropdownSection>
+                            </div>
+                          )}
 
-                          {showAlbumNav || showArtistNav ? (
-                            <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                              {showAlbumNav ? (
-                                <CtxItem
-                                  icon={<VinylRecord size={15} />}
-                                  label={translate(language, "goToAlbum")}
-                                  onSelect={() =>
-                                    openAlbum(
-                                      { browseId: track.albumBrowseId, title: track.album },
-                                      view
-                                    )
-                                  }
-                                />
-                              ) : null}
-                              {artistList.length > 0 ? (
-                                artistList.map((a, i) => {
-                                  const browseId = a.browseId || a.id;
-                                  const name = a.name || "";
-                                  return (
-                                    <CtxItem
-                                      key={browseId || i}
-                                      id={`artist-${browseId || i}`}
-                                      icon={<Microphone size={15} />}
-                                      label={`${translate(language, "goToArtist")}${name ? `: ${name}` : ""}`}
-                                      textValue={`${translate(language, "goToArtist")} ${name}`}
-                                      onSelect={() => openArtist({ browseId, artist: name }, view)}
-                                    />
-                                  );
-                                })
-                              ) : track.artistBrowseId ? (
-                                <CtxItem
-                                  icon={<Microphone size={15} />}
-                                  label={translate(language, "goToArtist")}
-                                  onSelect={() =>
-                                    openArtist({ browseId: track.artistBrowseId }, view)
-                                  }
-                                />
-                              ) : null}
-                            </DropdownSection>
-                          ) : null}
+                          {/* Debug Floating Window */}
+                          {debugFloat && (
+                            <DebugFloatingWindow onClose={() => setDebugFloat(false)} />
+                          )}
 
-                          <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                            <DropdownSubmenuTrigger>
-                              <DropdownItem textValue={translate(language, "share")}>
-                                <span className="w-4 flex justify-center shrink-0">
-                                  <ShareNodes size={15} />
-                                </span>
-                                {translate(language, "share")}
-                                <DropdownSubmenuIndicator className="ml-auto" />
-                              </DropdownItem>
-                              <DropdownPopover className="min-w-56">
-                                <DropdownMenu aria-label={translate(language, "share")}>
-                                  <DropdownSection>
-                                    <CtxItem
-                                      icon={<ShareNodes size={15} />}
-                                      label={translate(language, "copyShareLink")}
-                                      onSelect={() => copyShare(buildShareLink(track))}
-                                    />
-                                    <CtxItem
-                                      icon={<Copy size={15} />}
-                                      label={translate(language, "copyKodamaLink")}
-                                      onSelect={() => copyShare(`kodama://song/${track.videoId}`)}
-                                    />
-                                    <CtxItem
-                                      icon={<Copy size={15} />}
-                                      label={translate(language, "copyYtMusicLink")}
-                                      onSelect={() =>
-                                        copyShare(
-                                          `https://music.youtube.com/watch?v=${track.videoId}`
-                                        )
-                                      }
-                                    />
-                                    <CtxItem
-                                      icon={<Copy size={15} />}
-                                      label={translate(language, "copyYoutubeLink")}
-                                      onSelect={() =>
-                                        copyShare(`https://youtube.com/watch?v=${track.videoId}`)
-                                      }
-                                    />
-                                  </DropdownSection>
-                                </DropdownMenu>
-                              </DropdownPopover>
-                            </DropdownSubmenuTrigger>
-                          </DropdownSection>
-
-                          <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                            {isCached ? (
-                              <CtxItem
-                                icon={<Trash size={15} />}
-                                danger
-                                label={translate(language, "removeDownload")}
-                                onSelect={removeDownload}
-                              />
-                            ) : !downloadingIds.has(track.videoId) ? (
-                              <CtxItem
-                                icon={<DownloadSimple size={15} />}
-                                label={translate(language, "download")}
-                                onSelect={() => handleDownloadSong(track)}
-                              />
-                            ) : null}
-                            <CtxItem
-                              icon={<MusicNote size={15} />}
-                              label={translate(language, "saveAsMp3")}
-                              onSelect={() => handleExportSong(track, "mp3")}
+                          {/* Create Playlist Modal */}
+                          <ProfileSwitcherModal
+                            isOpen={showProfileSwitcher}
+                            onOpenChange={setShowProfileSwitcher}
+                          />
+                          {newsOpen && (
+                            <NewsModal
+                              news={newsItems}
+                              unreadIds={newsUnreadSnapshot}
+                              onRefresh={loadNews}
+                              onClose={() => setNewsOpen(false)}
+                              t={(key) => translate(language, key)}
                             />
-                            <CtxItem
-                              icon={<MusicNote size={15} />}
-                              label={translate(language, "saveAsOpus")}
-                              onSelect={() => handleExportSong(track, "opus")}
-                            />
-                          </DropdownSection>
+                          )}
 
-                          <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                            <CtxItem
-                              icon={<Copy size={15} />}
-                              label={translate(language, "copyLyrics")}
-                              onSelect={copyLyrics}
-                            />
-                            <CtxItem
-                              icon={<DownloadSimple size={15} />}
-                              label={translate(language, "saveLrc")}
-                              onSelect={saveLrc}
-                            />
-                          </DropdownSection>
-                        </ContextMenu>
-                      );
-                    })()}
-
-                  {/* Global playlist context menu */}
-                  {globalContextMenu &&
-                    (() => {
-                      const pl = globalContextMenu.playlist;
-                      const isPinned = pinnedIds.includes(itemId(pl));
-                      const showAlbumNav = pl?.browseId && pl?.type !== "artist";
-                      const showArtistNav = !!pl?.artistBrowseId;
-                      const isUserPlaylist =
-                        pl?.playlistId && pl?.type !== "album" && pl?.owned !== false;
-                      // Playlists are shareable (not albums/artists). The raw list id is the
-                      // playlistId, or the search browseId with its "VL" prefix stripped.
-                      const isPlaylistShare =
-                        pl &&
-                        pl.type !== "album" &&
-                        pl.type !== "artist" &&
-                        (pl.playlistId || pl.browseId);
-                      const plShareId = (pl?.playlistId || pl?.browseId || "").replace(/^VL/, "");
-                      return (
-                        <ContextMenu
-                          x={globalContextMenu.x}
-                          y={globalContextMenu.y}
-                          zoom={uiZoom}
-                          onClose={() => setGlobalContextMenu(null)}
-                          ariaLabel="Playlist"
-                          minWidth={190}
-                        >
-                          <DropdownSection>
-                            <CtxItem
-                              icon={<PushPin size={15} />}
-                              label={
-                                isPinned ? translate(language, "unpin") : translate(language, "pin")
+                          {feedbackOpen && (
+                            <BugReportModal
+                              screenshot={feedbackShot}
+                              onClose={() => setFeedbackOpen(false)}
+                              t={(key) => translate(language, key)}
+                              version={APP_VERSION}
+                              currentTrack={
+                                currentTrack
+                                  ? { videoId: currentTrack.videoId, title: currentTrack.title }
+                                  : null
                               }
-                              onSelect={() => togglePin(pl)}
                             />
-                            <CtxItem
-                              icon={<DotsThreeVertical size={16} />}
-                              label={translate(language, "open")}
-                              onSelect={() => {
-                                if (pl?.type === "album") openAlbum(pl, view);
-                                else if (pl?.type === "artist") openArtist(pl, view);
-                                else openPlaylist(pl, view);
+                          )}
+
+                          {createPlaylistOpen && (
+                            <CreatePlaylistModal
+                              t={(key) => translate(language, key)}
+                              onClose={() => {
+                                setCreatePlaylistOpen(false);
+                                setCreatePlaylistForSelection(false);
+                                setCreatePlaylistTracks(null);
+                              }}
+                              onCreated={async (id, title) => {
+                                // If the create flow started from "Add to playlist ▸ New playlist", push the
+                                // pending tracks into the new playlist (works for both a single context-menu
+                                // track and a multi-selection — the tracks were captured when the modal opened).
+                                const pending = createPlaylistTracks;
+                                if (pending && pending.length > 0) {
+                                  try {
+                                    await fetch(`${API}/playlist/${id}/add`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        videoIds: pending.map((t) => t.videoId),
+                                        tracks: pending,
+                                      }),
+                                    });
+                                  } catch {}
+                                  if (createPlaylistForSelection) clearSelection();
+                                }
+                                setCreatePlaylistTracks(null);
+                                setCreatePlaylistForSelection(false);
+                                openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
                               }}
                             />
-                          </DropdownSection>
-                          {isPlaylistShare && plShareId ? (
-                            <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                              <CtxItem
-                                icon={<ShareNodes size={15} />}
-                                label={translate(language, "copyYtMusicLink")}
-                                onSelect={() =>
-                                  navigator.clipboard
-                                    .writeText(
-                                      `https://music.youtube.com/playlist?list=${plShareId}`
-                                    )
-                                    .then(() => toast.success(translate(language, "linkCopied")))
-                                    .catch(() => {})
-                                }
-                              />
-                              <CtxItem
-                                icon={<Copy size={15} />}
-                                label={translate(language, "copyYoutubeLink")}
-                                onSelect={() =>
-                                  navigator.clipboard
-                                    .writeText(`https://youtube.com/playlist?list=${plShareId}`)
-                                    .then(() => toast.success(translate(language, "linkCopied")))
-                                    .catch(() => {})
-                                }
-                              />
-                            </DropdownSection>
-                          ) : null}
-                          {showAlbumNav || showArtistNav ? (
-                            <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                              {showAlbumNav ? (
-                                <CtxItem
-                                  icon={<VinylRecord size={15} />}
-                                  label={translate(language, "goToAlbum")}
-                                  onSelect={() => openAlbum(pl, view)}
-                                />
-                              ) : null}
-                              {showArtistNav ? (
-                                <CtxItem
-                                  icon={<Microphone size={15} />}
-                                  label={translate(language, "goToArtist")}
-                                  onSelect={() => openArtist({ browseId: pl.artistBrowseId }, view)}
-                                />
-                              ) : null}
-                            </DropdownSection>
-                          ) : null}
-                          {isUserPlaylist || !isPinned ? (
-                            <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                              {isUserPlaylist ? (
-                                <CtxItem
-                                  icon={<PencilSimple size={15} />}
-                                  label={translate(language, "renamePlaylist")}
-                                  onSelect={() =>
-                                    setRenameDialog({ playlistId: pl.playlistId, title: pl.title })
-                                  }
-                                />
-                              ) : null}
-                              {isUserPlaylist ? (
-                                <CtxItem
-                                  icon={<Trash size={15} />}
-                                  danger
-                                  label={translate(language, "deletePlaylist")}
-                                  onSelect={() =>
-                                    setDeleteDialog({ playlistId: pl.playlistId, title: pl.title })
-                                  }
-                                />
-                              ) : null}
-                              {!isPinned ? (
-                                <CtxItem
-                                  icon={<X size={16} />}
-                                  danger
-                                  label={translate(language, "removeFromRecent")}
-                                  onSelect={() => removeRecentPlaylist(itemId(pl))}
-                                />
-                              ) : null}
-                            </DropdownSection>
-                          ) : null}
-                        </ContextMenu>
-                      );
-                    })()}
+                          )}
 
-                  {/* Rename Playlist Dialog */}
-                  {renameDialog && (
-                    <RenamePlaylistModal
-                      dialog={renameDialog}
-                      onClose={() => setRenameDialog(null)}
-                      t={(key) => translate(language, key)}
-                    />
-                  )}
+                          {/* Add to playlist — dedicated modal (search + rich playlist rows) */}
+                          {addToPlaylistFor && (
+                            <AddToPlaylistModal
+                              tracks={addToPlaylistFor.tracks}
+                              onClose={() => setAddToPlaylistFor(null)}
+                              onNewPlaylist={() => {
+                                setCreatePlaylistTracks(addToPlaylistFor.tracks || null);
+                                if (addToPlaylistFor.fromSelection)
+                                  setCreatePlaylistForSelection(true);
+                                setCreatePlaylistOpen(true);
+                              }}
+                              onAdded={addToPlaylistFor.fromSelection ? clearSelection : undefined}
+                            />
+                          )}
 
-                  {/* Delete Playlist Confirm Dialog */}
-                  {deleteDialog && (
-                    <DeletePlaylistModal
-                      dialog={deleteDialog}
-                      onClose={() => setDeleteDialog(null)}
-                      t={(key) => translate(language, key)}
-                      onConfirm={async () => {
-                        const pid = deleteDialog.playlistId;
-                        const fromCollection =
-                          view === "collection" && collection?.playlistId === pid;
-                        setDeleteDialog(null);
-                        removeRecentPlaylist(pid);
-                        if (!fromCollection) {
-                          // Library grid: dissolve the card (burst + fade), then remove just that one card
-                          // locally — no full library refetch, so the grid never flashes empty.
-                          const remove = () =>
-                            window.dispatchEvent(
-                              new CustomEvent("kiyoshi-playlist-removed", { detail: pid })
-                            );
-                          requestAnimationFrame(() => {
-                            const el = document.querySelector(
-                              `[data-card-id="${CSS.escape(pid)}"]`
-                            );
-                            if (animations && el) dissolve(el, remove);
-                            else remove();
-                          });
-                          fetch(`${API}/playlist/${pid}`, { method: "DELETE" }).catch(() => {});
-                        } else {
-                          // Deleting the currently open playlist: delete first, then go back to a fresh library.
-                          try {
-                            await fetch(`${API}/playlist/${pid}`, { method: "DELETE" });
-                          } catch {}
-                          window.dispatchEvent(new Event("kiyoshi-library-updated"));
-                          setView("library");
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-                </SettingsProviders>
-                </PlayerProvider>
-                </DownloadProvider>
+                          {/* Download Queue — HeroUI toast-styled card with Spinner + ProgressBar */}
+                          {downloadBatches.length > 0 && (
+                            <DownloadQueueCard
+                              batches={downloadBatches}
+                              minimized={downloadQueueMin}
+                              onToggleMinimize={() => setDownloadQueueMin((m) => !m)}
+                              onCancelBatch={handleCancelBatch}
+                              language={language}
+                            />
+                          )}
+
+                          {/* Track context menu */}
+                          {trackContextMenu &&
+                            (() => {
+                              const track = trackContextMenu.track;
+                              const ctxLiked = likedIds.has(track.videoId);
+                              const showRemovePl = trackContextMenu.playlistId && track.setVideoId;
+                              const showRemoveHist = !!trackContextMenu.removeFromHistory;
+                              const artistList = Array.isArray(track.artists)
+                                ? track.artists.filter((a) => a?.browseId || a?.id)
+                                : [];
+                              const showAlbumNav = !!track.albumBrowseId;
+                              const showArtistNav = artistList.length > 0 || !!track.artistBrowseId;
+                              const isCached = cachedSongIds.has(track.videoId);
+
+                              const copyShare = (url) => {
+                                navigator.clipboard
+                                  .writeText(url)
+                                  .then(() => toast.success(translate(language, "linkCopied")))
+                                  .catch(() => {});
+                              };
+                              const copyLyrics = () => {
+                                fetch(`${API}/lyrics/${track.videoId}`)
+                                  .then((r) => r.json())
+                                  .then((d) => {
+                                    if (!d.lyrics) return;
+                                    const text = d.lyrics
+                                      .map((l) => {
+                                        const main = l.wordSync
+                                          ? (l.words || []).map((w) => w.text).join("")
+                                          : l.text || "";
+                                        const bg =
+                                          (l.bgWords || []).map((w) => w.text).join("") ||
+                                          l.bgText ||
+                                          "";
+                                        return bg ? `${main} ${bg}` : main;
+                                      })
+                                      .join("\n");
+                                    navigator.clipboard.writeText(text).catch(() => {});
+                                  })
+                                  .catch(() => {});
+                              };
+                              const saveLrc = async () => {
+                                try {
+                                  const d = await fetch(`${API}/lyrics/${track.videoId}`).then(
+                                    (r) => r.json()
+                                  );
+                                  if (!d.lyrics) return;
+                                  const lyrics = d.lyrics;
+                                  const isSync = lyrics.some((l) => l.time >= 0);
+                                  const lrcLineText = (l) => {
+                                    const main = l.wordSync
+                                      ? (l.words || []).map((w) => w.text).join("")
+                                      : l.text || "";
+                                    const bg =
+                                      (l.bgWords || []).map((w) => w.text).join("") ||
+                                      l.bgText ||
+                                      "";
+                                    return bg ? `${main} ${bg}` : main;
+                                  };
+                                  const lrcText = isSync
+                                    ? lyrics
+                                        .map((l) => {
+                                          const lineText = lrcLineText(l);
+                                          if (l.time < 0) return lineText;
+                                          const mm = String(Math.floor(l.time / 60)).padStart(
+                                            2,
+                                            "0"
+                                          );
+                                          const ss = String(Math.floor(l.time % 60)).padStart(
+                                            2,
+                                            "0"
+                                          );
+                                          const cs = String(
+                                            Math.floor((l.time % 1) * 100)
+                                          ).padStart(2, "0");
+                                          return `[${mm}:${ss}.${cs}] ${lineText}`;
+                                        })
+                                        .join("\n")
+                                    : lyrics.map(lrcLineText).join("\n");
+                                  const { save } = await import("@tauri-apps/plugin-dialog");
+                                  const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+                                  const safeTitle = (track?.title || "lyrics").replace(
+                                    /[<>:"/\\|?*]/g,
+                                    "_"
+                                  );
+                                  const filePath = await save({
+                                    title: translate(language, "saveLrc"),
+                                    defaultPath: `${safeTitle}.lrc`,
+                                    filters: [
+                                      { name: "LRC", extensions: ["lrc"] },
+                                      { name: "Text", extensions: ["txt"] },
+                                    ],
+                                  });
+                                  if (!filePath) return;
+                                  await writeTextFile(filePath, lrcText);
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              };
+                              const removeFromPlaylist = async () => {
+                                // Optimistic: burst the row + drop it (and decrement total so the virtualized list
+                                // doesn't render a phantom SkeletonRow for the now-missing slot), then tell the server.
+                                if (animations) {
+                                  try {
+                                    particleBurst(
+                                      document.querySelector(
+                                        `[data-track-id="${CSS.escape(track.videoId)}"]`
+                                      )
+                                    );
+                                  } catch {}
+                                }
+                                setCollection((c) =>
+                                  c
+                                    ? {
+                                        ...c,
+                                        tracks: c.tracks.filter(
+                                          (t) =>
+                                            t.videoId !== track.videoId ||
+                                            t.setVideoId !== track.setVideoId
+                                        ),
+                                        total: Math.max(0, (c.total ?? c.tracks.length) - 1),
+                                      }
+                                    : c
+                                );
+                                try {
+                                  await fetch(
+                                    `${API}/playlist/${trackContextMenu.playlistId}/remove`,
+                                    {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        videos: [
+                                          { videoId: track.videoId, setVideoId: track.setVideoId },
+                                        ],
+                                      }),
+                                    }
+                                  );
+                                } catch {}
+                              };
+                              const removeDownload = () => removeCachedSong(track.videoId);
+
+                              return (
+                                <ContextMenu
+                                  x={trackContextMenu.x}
+                                  y={trackContextMenu.y}
+                                  zoom={uiZoom}
+                                  onClose={() => setTrackContextMenu(null)}
+                                  ariaLabel={track.title || "Track"}
+                                  minWidth={210}
+                                >
+                                  <DropdownSection>
+                                    {/* Add to playlist — opens a dedicated modal with search + rich rows */}
+                                    <CtxItem
+                                      icon={<Plus size={15} />}
+                                      label={translate(language, "addToPlaylist")}
+                                      onSelect={() => setAddToPlaylistFor({ tracks: [track] })}
+                                    />
+
+                                    <CtxItem
+                                      icon={<Queue size={15} />}
+                                      label={translate(language, "playNext")}
+                                      onSelect={() => {
+                                        enqueue(track, "next");
+                                        addToast(
+                                          translate(language, "addedNext") ||
+                                            "Als Nächstes eingereiht",
+                                          "success"
+                                        );
+                                      }}
+                                    />
+                                    <CtxItem
+                                      icon={<Queue size={15} />}
+                                      label={translate(language, "addToQueue")}
+                                      onSelect={() => {
+                                        enqueue(track, "end");
+                                        addToast(
+                                          translate(language, "addedQueue") ||
+                                            "Zur Warteschlange hinzugefügt",
+                                          "success"
+                                        );
+                                      }}
+                                    />
+                                    <CtxItem
+                                      icon={<Radio size={15} />}
+                                      label={translate(language, "startRadio")}
+                                      onSelect={() => startSongRadio(track)}
+                                    />
+
+                                    <DropdownItem
+                                      textValue={
+                                        ctxLiked
+                                          ? translate(language, "unlike")
+                                          : translate(language, "like")
+                                      }
+                                      onAction={() => handleToggleLike(track)}
+                                      className={
+                                        ctxLiked
+                                          ? "text-accent! data-[focused]:text-accent! data-[hovered]:text-accent!"
+                                          : undefined
+                                      }
+                                    >
+                                      <span className="w-4 flex justify-center shrink-0">
+                                        <Heart size={15} weight={ctxLiked ? "fill" : "regular"} />
+                                      </span>
+                                      {ctxLiked
+                                        ? translate(language, "unlike")
+                                        : translate(language, "like")}
+                                    </DropdownItem>
+
+                                    {showRemovePl ? (
+                                      <CtxItem
+                                        icon={<X size={15} />}
+                                        danger
+                                        label={translate(language, "removeFromPlaylist")}
+                                        onSelect={removeFromPlaylist}
+                                      />
+                                    ) : null}
+                                    {showRemoveHist ? (
+                                      <CtxItem
+                                        icon={<X size={15} />}
+                                        danger
+                                        label={translate(language, "removeFromHistory")}
+                                        onSelect={() => trackContextMenu.removeFromHistory()}
+                                      />
+                                    ) : null}
+                                  </DropdownSection>
+
+                                  {showAlbumNav || showArtistNav ? (
+                                    <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                      {showAlbumNav ? (
+                                        <CtxItem
+                                          icon={<VinylRecord size={15} />}
+                                          label={translate(language, "goToAlbum")}
+                                          onSelect={() =>
+                                            openAlbum(
+                                              { browseId: track.albumBrowseId, title: track.album },
+                                              view
+                                            )
+                                          }
+                                        />
+                                      ) : null}
+                                      {artistList.length > 0 ? (
+                                        artistList.map((a, i) => {
+                                          const browseId = a.browseId || a.id;
+                                          const name = a.name || "";
+                                          return (
+                                            <CtxItem
+                                              key={browseId || i}
+                                              id={`artist-${browseId || i}`}
+                                              icon={<Microphone size={15} />}
+                                              label={`${translate(language, "goToArtist")}${name ? `: ${name}` : ""}`}
+                                              textValue={`${translate(language, "goToArtist")} ${name}`}
+                                              onSelect={() =>
+                                                openArtist({ browseId, artist: name }, view)
+                                              }
+                                            />
+                                          );
+                                        })
+                                      ) : track.artistBrowseId ? (
+                                        <CtxItem
+                                          icon={<Microphone size={15} />}
+                                          label={translate(language, "goToArtist")}
+                                          onSelect={() =>
+                                            openArtist({ browseId: track.artistBrowseId }, view)
+                                          }
+                                        />
+                                      ) : null}
+                                    </DropdownSection>
+                                  ) : null}
+
+                                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                    <DropdownSubmenuTrigger>
+                                      <DropdownItem textValue={translate(language, "share")}>
+                                        <span className="w-4 flex justify-center shrink-0">
+                                          <ShareNodes size={15} />
+                                        </span>
+                                        {translate(language, "share")}
+                                        <DropdownSubmenuIndicator className="ml-auto" />
+                                      </DropdownItem>
+                                      <DropdownPopover className="min-w-56">
+                                        <DropdownMenu aria-label={translate(language, "share")}>
+                                          <DropdownSection>
+                                            <CtxItem
+                                              icon={<ShareNodes size={15} />}
+                                              label={translate(language, "copyShareLink")}
+                                              onSelect={() => copyShare(buildShareLink(track))}
+                                            />
+                                            <CtxItem
+                                              icon={<Copy size={15} />}
+                                              label={translate(language, "copyKodamaLink")}
+                                              onSelect={() =>
+                                                copyShare(`kodama://song/${track.videoId}`)
+                                              }
+                                            />
+                                            <CtxItem
+                                              icon={<Copy size={15} />}
+                                              label={translate(language, "copyYtMusicLink")}
+                                              onSelect={() =>
+                                                copyShare(
+                                                  `https://music.youtube.com/watch?v=${track.videoId}`
+                                                )
+                                              }
+                                            />
+                                            <CtxItem
+                                              icon={<Copy size={15} />}
+                                              label={translate(language, "copyYoutubeLink")}
+                                              onSelect={() =>
+                                                copyShare(
+                                                  `https://youtube.com/watch?v=${track.videoId}`
+                                                )
+                                              }
+                                            />
+                                          </DropdownSection>
+                                        </DropdownMenu>
+                                      </DropdownPopover>
+                                    </DropdownSubmenuTrigger>
+                                  </DropdownSection>
+
+                                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                    {isCached ? (
+                                      <CtxItem
+                                        icon={<Trash size={15} />}
+                                        danger
+                                        label={translate(language, "removeDownload")}
+                                        onSelect={removeDownload}
+                                      />
+                                    ) : !downloadingIds.has(track.videoId) ? (
+                                      <CtxItem
+                                        icon={<DownloadSimple size={15} />}
+                                        label={translate(language, "download")}
+                                        onSelect={() => handleDownloadSong(track)}
+                                      />
+                                    ) : null}
+                                    <CtxItem
+                                      icon={<MusicNote size={15} />}
+                                      label={translate(language, "saveAsMp3")}
+                                      onSelect={() => handleExportSong(track, "mp3")}
+                                    />
+                                    <CtxItem
+                                      icon={<MusicNote size={15} />}
+                                      label={translate(language, "saveAsOpus")}
+                                      onSelect={() => handleExportSong(track, "opus")}
+                                    />
+                                  </DropdownSection>
+
+                                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                    <CtxItem
+                                      icon={<Copy size={15} />}
+                                      label={translate(language, "copyLyrics")}
+                                      onSelect={copyLyrics}
+                                    />
+                                    <CtxItem
+                                      icon={<DownloadSimple size={15} />}
+                                      label={translate(language, "saveLrc")}
+                                      onSelect={saveLrc}
+                                    />
+                                  </DropdownSection>
+                                </ContextMenu>
+                              );
+                            })()}
+
+                          {/* Global playlist context menu */}
+                          {globalContextMenu &&
+                            (() => {
+                              const pl = globalContextMenu.playlist;
+                              const isPinned = pinnedIds.includes(itemId(pl));
+                              const showAlbumNav = pl?.browseId && pl?.type !== "artist";
+                              const showArtistNav = !!pl?.artistBrowseId;
+                              const isUserPlaylist =
+                                pl?.playlistId && pl?.type !== "album" && pl?.owned !== false;
+                              // Playlists are shareable (not albums/artists). The raw list id is the
+                              // playlistId, or the search browseId with its "VL" prefix stripped.
+                              const isPlaylistShare =
+                                pl &&
+                                pl.type !== "album" &&
+                                pl.type !== "artist" &&
+                                (pl.playlistId || pl.browseId);
+                              const plShareId = (pl?.playlistId || pl?.browseId || "").replace(
+                                /^VL/,
+                                ""
+                              );
+                              return (
+                                <ContextMenu
+                                  x={globalContextMenu.x}
+                                  y={globalContextMenu.y}
+                                  zoom={uiZoom}
+                                  onClose={() => setGlobalContextMenu(null)}
+                                  ariaLabel="Playlist"
+                                  minWidth={190}
+                                >
+                                  <DropdownSection>
+                                    <CtxItem
+                                      icon={<PushPin size={15} />}
+                                      label={
+                                        isPinned
+                                          ? translate(language, "unpin")
+                                          : translate(language, "pin")
+                                      }
+                                      onSelect={() => togglePin(pl)}
+                                    />
+                                    <CtxItem
+                                      icon={<DotsThreeVertical size={16} />}
+                                      label={translate(language, "open")}
+                                      onSelect={() => {
+                                        if (pl?.type === "album") openAlbum(pl, view);
+                                        else if (pl?.type === "artist") openArtist(pl, view);
+                                        else openPlaylist(pl, view);
+                                      }}
+                                    />
+                                  </DropdownSection>
+                                  {isPlaylistShare && plShareId ? (
+                                    <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                      <CtxItem
+                                        icon={<ShareNodes size={15} />}
+                                        label={translate(language, "copyYtMusicLink")}
+                                        onSelect={() =>
+                                          navigator.clipboard
+                                            .writeText(
+                                              `https://music.youtube.com/playlist?list=${plShareId}`
+                                            )
+                                            .then(() =>
+                                              toast.success(translate(language, "linkCopied"))
+                                            )
+                                            .catch(() => {})
+                                        }
+                                      />
+                                      <CtxItem
+                                        icon={<Copy size={15} />}
+                                        label={translate(language, "copyYoutubeLink")}
+                                        onSelect={() =>
+                                          navigator.clipboard
+                                            .writeText(
+                                              `https://youtube.com/playlist?list=${plShareId}`
+                                            )
+                                            .then(() =>
+                                              toast.success(translate(language, "linkCopied"))
+                                            )
+                                            .catch(() => {})
+                                        }
+                                      />
+                                    </DropdownSection>
+                                  ) : null}
+                                  {showAlbumNav || showArtistNav ? (
+                                    <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                      {showAlbumNav ? (
+                                        <CtxItem
+                                          icon={<VinylRecord size={15} />}
+                                          label={translate(language, "goToAlbum")}
+                                          onSelect={() => openAlbum(pl, view)}
+                                        />
+                                      ) : null}
+                                      {showArtistNav ? (
+                                        <CtxItem
+                                          icon={<Microphone size={15} />}
+                                          label={translate(language, "goToArtist")}
+                                          onSelect={() =>
+                                            openArtist({ browseId: pl.artistBrowseId }, view)
+                                          }
+                                        />
+                                      ) : null}
+                                    </DropdownSection>
+                                  ) : null}
+                                  {isUserPlaylist || !isPinned ? (
+                                    <DropdownSection className="w-full border-t border-border mt-1 pt-1">
+                                      {isUserPlaylist ? (
+                                        <CtxItem
+                                          icon={<PencilSimple size={15} />}
+                                          label={translate(language, "renamePlaylist")}
+                                          onSelect={() =>
+                                            setRenameDialog({
+                                              playlistId: pl.playlistId,
+                                              title: pl.title,
+                                            })
+                                          }
+                                        />
+                                      ) : null}
+                                      {isUserPlaylist ? (
+                                        <CtxItem
+                                          icon={<Trash size={15} />}
+                                          danger
+                                          label={translate(language, "deletePlaylist")}
+                                          onSelect={() =>
+                                            setDeleteDialog({
+                                              playlistId: pl.playlistId,
+                                              title: pl.title,
+                                            })
+                                          }
+                                        />
+                                      ) : null}
+                                      {!isPinned ? (
+                                        <CtxItem
+                                          icon={<X size={16} />}
+                                          danger
+                                          label={translate(language, "removeFromRecent")}
+                                          onSelect={() => removeRecentPlaylist(itemId(pl))}
+                                        />
+                                      ) : null}
+                                    </DropdownSection>
+                                  ) : null}
+                                </ContextMenu>
+                              );
+                            })()}
+
+                          {/* Rename Playlist Dialog */}
+                          {renameDialog && (
+                            <RenamePlaylistModal
+                              dialog={renameDialog}
+                              onClose={() => setRenameDialog(null)}
+                              t={(key) => translate(language, key)}
+                            />
+                          )}
+
+                          {/* Delete Playlist Confirm Dialog */}
+                          {deleteDialog && (
+                            <DeletePlaylistModal
+                              dialog={deleteDialog}
+                              onClose={() => setDeleteDialog(null)}
+                              t={(key) => translate(language, key)}
+                              onConfirm={async () => {
+                                const pid = deleteDialog.playlistId;
+                                const fromCollection =
+                                  view === "collection" && collection?.playlistId === pid;
+                                setDeleteDialog(null);
+                                removeRecentPlaylist(pid);
+                                if (!fromCollection) {
+                                  // Library grid: dissolve the card (burst + fade), then remove just that one card
+                                  // locally — no full library refetch, so the grid never flashes empty.
+                                  const remove = () =>
+                                    window.dispatchEvent(
+                                      new CustomEvent("kiyoshi-playlist-removed", { detail: pid })
+                                    );
+                                  requestAnimationFrame(() => {
+                                    const el = document.querySelector(
+                                      `[data-card-id="${CSS.escape(pid)}"]`
+                                    );
+                                    if (animations && el) dissolve(el, remove);
+                                    else remove();
+                                  });
+                                  fetch(`${API}/playlist/${pid}`, { method: "DELETE" }).catch(
+                                    () => {}
+                                  );
+                                } else {
+                                  // Deleting the currently open playlist: delete first, then go back to a fresh library.
+                                  try {
+                                    await fetch(`${API}/playlist/${pid}`, { method: "DELETE" });
+                                  } catch {}
+                                  window.dispatchEvent(new Event("kiyoshi-library-updated"));
+                                  setView("library");
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                      </SettingsProviders>
+                    </PlayerProvider>
+                  </DownloadProvider>
                 </ProfileProvider>
               </ZoomContext.Provider>
             </FontScaleContext.Provider>
