@@ -86,6 +86,8 @@ import {
   Headphones,
   PodcastIcon,
   Gamepad,
+  ClapperboardPlay,
+  HeadphonesSimple,
   Eyedropper,
   Info,
   WarningCircle,
@@ -114,6 +116,7 @@ import { FadeEditorModal } from "./modals/fade-editor-modal.jsx";
 import { DEFAULT_LYRICS_PROVIDERS, PROVIDER_SYNC } from "./lyrics/providers.js";
 import { parseLrc, parseTtml, parseDurationToSeconds } from "./lyrics/parse.js";
 import { fetchLyrics } from "./lyrics/fetch.js";
+import { useVideoSync, VideoSyncView } from "./video-sync.jsx";
 import { unisonSetNickname, unisonResetNickname, unisonFetchDisplayName } from "./unison/api.js";
 import { LyricsBrowserModal } from "./modals/lyrics-browser-modal.jsx";
 import { ExplicitBadge, ArtistLinks, TrackRow, GridCard, SkeletonRow } from "./ui/rows.jsx";
@@ -3298,7 +3301,7 @@ function AccountSettingsTab({ accounts, activeAccount, onSwitch, onAdd, onReauth
 
 function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accentDynamic, onAccentDynamicChange, accentSat, onAccentSatChange, accentLight, onAccentLightChange, appIcon = APP_ICON_DEFAULT, onAppIconChange,
   remoteEnabled = false, remoteDevices = [], remoteTrustedIds = new Set(), onToggleRemote, onRemoteDevice, onRememberDevice, onPairDevice,
-  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, ytmusicHistorySync, onYtmusicHistorySyncChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
+  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, ytmusicHistorySync, onYtmusicHistorySyncChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, videoSyncEnabled, onToggleVideoSync, videoSyncQuality = "auto", onVideoSyncQualityChange, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, onObsPortSave,
   customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut,
   accounts, activeAccount, onAccountSwitch, onAccountAdd, onAccountReauth, onAccountRemove, onAccountRename, onAccountLogout, onAccountAvatarChange,
@@ -4551,6 +4554,26 @@ function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accen
                     {t("bigPictureLaunch")}
                   </Button>
                 </SettingRow>
+                <SettingRow label={t("videoSyncMode")} description={t("videoSyncModeDesc")} icon={<ClapperboardPlay />}>
+                  <Toggle value={videoSyncEnabled} onChange={onToggleVideoSync} />
+                </SettingRow>
+                {videoSyncEnabled && (
+                  <SettingRow label={t("videoSyncQuality")} description={t("videoSyncQualityDesc")} icon={<Sliders />}>
+                    <ToggleButtonGroupRoot
+                      selectionMode="single"
+                      disallowEmptySelection
+                      selectedKeys={[videoSyncQuality]}
+                      onSelectionChange={(keys) => { const v = [...keys][0]; if (v) onVideoSyncQualityChange?.(v); }}
+                      size="sm"
+                    >
+                      <ToggleButton id="360">360p</ToggleButton>
+                      <ToggleButton id="480">480p</ToggleButton>
+                      <ToggleButton id="720">720p</ToggleButton>
+                      <ToggleButton id="1080">1080p</ToggleButton>
+                      <ToggleButton id="auto">{t("videoSyncQualityAuto")}</ToggleButton>
+                    </ToggleButtonGroupRoot>
+                  </SettingRow>
+                )}
               </div>
             )}
 
@@ -5179,7 +5202,7 @@ function QueuePanel({ queue, setQueue, currentTrack, setTrack, onClose, likedIds
   );
 }
 
-function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, crossfadeOverrides = {}, remoteEnabled = false, playbackProgressive = true, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onOpenLyricsBrowser, onPremiumDetected, onCreatePlaylist, onAddToPlaylist }) {
+function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPlaying, expanded, onExpandToggle, showLyrics, onToggleLyrics, videoAvailable = false, showVideoView = false, onSetVideoView, videoSync, queueOpen, onToggleQueue, fullscreen, onToggleFullscreen, crossfade = 0, crossfadeOverrides = {}, remoteEnabled = false, playbackProgressive = true, onOpenAlbum, onOpenArtist, onExportSong, onDownloadSong, cachedSongIds, downloadingIds, onRefetchLyrics, language = "de", showLyricsTranslation = false, onToggleLyricsTranslation, lyricsTranslationLang = "DE", onSetLyricsTranslationLang, showRomaji = false, onToggleRomaji, isCustomLyrics = false, onImportLyrics, onRemoveCustomLyrics, onOpenLyricsBrowser, onPremiumDetected, onCreatePlaylist, onAddToPlaylist }) {
   const [progress, setProgress] = useState(0);
   // Stable ref so fetchUrl can read the current playback mode without re-subscribing.
   const playbackProgressiveRef = useRef(playbackProgressive);
@@ -5277,6 +5300,9 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   const crossfadePendingTrackRef = useRef(null);  // next track, set until Rust confirms "started"
   const crossfadeFailedTrackRef = useRef(null);   // videoId a crossfade failed for (don't retry it)
   const skipStreamResetRef = useRef(false);       // suppress audio_play after a crossfade advance
+  const videoModeActiveRef = useRef(false);       // audioRef is currently playing the counterpart's own audio, not the song's
+  const videoModeTrackIdRef = useRef(null);       // which track's video mode this is — guards against a race with a real track change
+  const showVideoViewRef = useRef(showVideoView); showVideoViewRef.current = showVideoView;
   const _lastProgressTs = useRef(0); // throttle: last time setProgress was called
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
   useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
@@ -5382,6 +5408,75 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     if (lastStreamError) console.error(`[stream] ${videoId}: ${lastStreamError}`);
     return null;
   }, [onPremiumDetected]);
+  // fetchUrl's own identity churns whenever the (inline, unmemoized) onPremiumDetected prop does
+  // — i.e. most App re-renders. A ref keeps the video-sync effect below reacting to an actual
+  // showVideoView change only, not to fetchUrl's incidental identity noise (which was causing it
+  // to re-fire on unrelated renders, re-triggering the swap and landing back near position 0).
+  const fetchUrlRef = useRef(fetchUrl);
+  useEffect(() => { fetchUrlRef.current = fetchUrl; }, [fetchUrl]);
+
+  // Loads a fresh src and lands at targetPos — used by the video-sync switch below. Rust only
+  // actually honours a nonzero seekTo on Play for an already-buffered/local source; a just-opened
+  // network stream silently starts at 0 regardless (unlike audio_seek on an already-playing track,
+  // which the seekbar/remote "seek" command already prove works reliably). So instead of relying
+  // on that, this does exactly what those DO prove work: load+play (always starts at 0), wait for
+  // Rust to confirm the new source is actually ready (canplay), THEN issue a normal seek.
+  const loadAndSeek = async (a, url, targetPos, wasPlaying) => {
+    a.src = url;
+    // play() is what actually sends audio_play to Rust (src alone only marks it dirty) — the
+    // "canplay" wait below has to come AFTER, or it'd wait on an event nothing ever triggers.
+    await a.play().catch(e => console.error("[VideoSync] play error:", e));
+    await new Promise(resolve => {
+      const onReady = () => { a.removeEventListener("canplay", onReady); resolve(); };
+      a.addEventListener("canplay", onReady);
+      setTimeout(resolve, 4000); // safety net in case the event never fires
+    });
+    a.currentTime = targetPos;
+    if (!wasPlaying) a.pause();
+  };
+
+  // Video-sync mode: on the audio/video switch, swap the ACTUAL Rust audio source between the
+  // song's own stream and the counterpart video's own audio stream (fetchUrl works for either —
+  // it's just a videoId), landing at the offset-corrected position so playback continues at the
+  // spot that actually corresponds across the two versions. Deliberately bypasses the main
+  // `[track]`-keyed effect above (that would reset progress/crossfade state) since `track` itself
+  // doesn't change here — this mirrors how the crossfade code below directly drives `a`.
+  useEffect(() => {
+    const a = audioRef.current;
+    const curTrack = trackRef.current;
+    if (!a || !curTrack) return;
+    const trackId = curTrack.videoId;
+    let cancelled = false;
+    const wasPlaying = !a.paused;
+
+    if (showVideoView) {
+      if (!videoSync?.ready || !videoSync?.counterpartVideoId) return;
+      const offset = videoSync.offsetSeconds || 0;
+      (async () => {
+        const targetPos = Math.max(0, a.currentTime + offset);
+        const url = await fetchUrlRef.current(videoSync.counterpartVideoId);
+        // Bail if the track changed, or video view was toggled back off, while resolving.
+        if (cancelled || !url || trackRef.current?.videoId !== trackId || !showVideoViewRef.current) return;
+        videoModeActiveRef.current = true;
+        videoModeTrackIdRef.current = trackId;
+        crossfadeActiveRef.current = false;
+        crossfadePendingTrackRef.current = null;
+        await loadAndSeek(a, url, targetPos, wasPlaying);
+        if (wasPlaying) setIsPlaying(true);
+      })();
+    } else if (videoModeActiveRef.current && videoModeTrackIdRef.current === trackId) {
+      const offset = videoSync?.offsetSeconds || 0;
+      (async () => {
+        const targetPos = Math.max(0, a.currentTime - offset);
+        const url = await fetchUrlRef.current(trackId);
+        if (cancelled || !url || trackRef.current?.videoId !== trackId) return;
+        videoModeActiveRef.current = false;
+        await loadAndSeek(a, url, targetPos, wasPlaying);
+        if (wasPlaying) setIsPlaying(true);
+      })();
+    }
+    return () => { cancelled = true; };
+  }, [showVideoView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Preload upcoming tracks in the background so sequential listening (album/playlist/queue)
   // has near-instant transitions and "next". Warm the next TWO tracks (most listening is
@@ -5503,6 +5598,10 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
       // back to HTML5 audio (Rust binary missing), skip it entirely.
       if (audioRef.current?._fallback !== false) return;
       if (crossfadeActiveRef.current || repeatRef.current === "one") return;
+      // While video-sync mode is playing the counterpart's own audio, its duration/position
+      // don't correspond to the song's real timeline — skip the crossfade-into-next trigger
+      // entirely rather than firing it against the wrong numbers.
+      if (videoModeActiveRef.current) return;
       // Don't keep retrying a crossfade that already failed for this very track.
       if (crossfadeFailedTrackRef.current === trackRef.current?.videoId) return;
 
@@ -5891,7 +5990,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 2, width: 320, justifyContent: "flex-end", lineHeight: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2, width: 390, justifyContent: "flex-end", lineHeight: 0 }}>
           {/* Volume icon + slider */}
           <div data-volume-area style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Tooltip text={volume === 0 ? t("unmute") : t("mute")}>
@@ -6170,6 +6269,35 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               <ChatText size={16} />
             </Button>
           </Tooltip>
+          {/* Audio/Video switch — a single icon-thumb toggle (own dedicated slot, not squeezed
+              between the other icon buttons). Always shown; greyed out + disabled until a
+              synced video is actually available for this track. */}
+          <div style={{
+            marginLeft: 4, marginRight: 4, opacity: videoAvailable ? 1 : 0.35, transition: "opacity 0.2s ease",
+            width: 60, height: 30, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Tooltip text={videoAvailable ? (showVideoView ? t("audioViewTooltip") : t("videoViewTooltip")) : t("videoViewUnavailableTooltip")}>
+              {/* HeroUI's largest preset ("lg") still renders a fairly small thumb — scale the
+                  whole switch up rather than hand-overriding its internal sizing, since the
+                  thumb's checked-position offset is baked into size-specific CSS and would
+                  otherwise stop lining up. Icon size is set pre-scale (13 × 1.25 ≈ 16px on screen,
+                  matching the other toolbar buttons' 16px icons). */}
+              <SwitchRoot
+                size="lg"
+                isSelected={showVideoView}
+                isDisabled={!videoAvailable}
+                onChange={(v) => onSetVideoView?.(v)}
+                aria-label={t("videoViewTooltip")}
+                style={{ transform: "scale(1.25)" }}
+              >
+                <SwitchControl>
+                  <SwitchThumb>
+                    {showVideoView ? <ClapperboardPlay size={13} weight="fill" /> : <HeadphonesSimple size={13} weight="fill" />}
+                  </SwitchThumb>
+                </SwitchControl>
+              </SwitchRoot>
+            </Tooltip>
+          </div>
           {/* Expand toggle — hidden in fullscreen (overlay is always open there) */}
           {!fullscreen && (
             <Button variant="ghost" isIconOnly onPress={onExpandToggle}
@@ -10182,6 +10310,22 @@ export default function App() {
   const [fluidLyrics, setFluidLyrics] = useState(() =>
     localStorage.getItem("kiyoshi-lyrics-fluid") === "true"
   );
+  const [videoSyncEnabled, setVideoSyncEnabled] = useState(() =>
+    localStorage.getItem("kiyoshi-video-sync") === "true"
+  );
+  // "auto" = best available; otherwise a max-height cap (string, matches <select>/ToggleButton
+  // values) for users on a weaker/metered connection.
+  const [videoSyncQuality, setVideoSyncQuality] = useState(() =>
+    localStorage.getItem("kiyoshi-video-sync-quality") || "auto"
+  );
+  const videoSync = useVideoSync(currentTrack?.videoId, videoSyncEnabled, videoSyncQuality === "auto" ? null : Number(videoSyncQuality));
+  const [showVideoView, setShowVideoView] = useState(false);
+  // The audio/video switch only exists while a synced video is available for THIS track — drop
+  // back to the normal cover/lyrics view the moment that stops being true (track change, or the
+  // fetch simply came back unavailable) so there's never a dead end with no way back.
+  useEffect(() => {
+    if (!videoSync.ready) setShowVideoView(false);
+  }, [videoSync.ready, currentTrack?.videoId]);
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const [showAgentTags, setShowAgentTags] = useState(() => localStorage.getItem("kiyoshi-lyrics-agent-tags") !== "false");
   const importLyricsRef = useRef(null);
@@ -11846,6 +11990,10 @@ export default function App() {
                 setShowLyricsManual(l => !l);
               }
             }}
+            videoAvailable={videoSync.ready}
+            showVideoView={showVideoView}
+            onSetVideoView={(v) => { if (v && !overlayOpen) setOverlayOpen(true); setShowVideoView(v); }}
+            videoSync={videoSync}
             queueOpen={queueOpen}
             onToggleQueue={() => setQueueOpen(q => !q)}
             crossfade={crossfade}
@@ -11934,21 +12082,30 @@ export default function App() {
               <div style={{
                 position: "absolute", top: 0, bottom: 0, right: 0,
                 width: splitActive ? lyricsPct : "100%",
-                opacity: splitActive ? 1 : (showLyrics ? 1 : 0),
+                opacity: showVideoView ? 0 : (splitActive ? 1 : (showLyrics ? 1 : 0)),
                 transition: paneTransition,
-                pointerEvents: (splitActive || showLyrics) ? "all" : "none",
+                pointerEvents: showVideoView ? "none" : ((splitActive || showLyrics) ? "all" : "none"),
               }}>
                 <LyricsOverlay track={currentTrack} audioRef={audioRef} onClose={() => setOverlayOpen(false)} fontSize={lyricsFontSize} providers={lyricsProviders} refetchKey={lyricsRefetchKey} onAddToast={addToast} language={language} forcedProvider={forcedLyricsProvider} onSourceChange={setCurrentLyricsSource} onProviderFailed={(id) => setFailedLyricsProviders(s => new Set([...s, id]))} showTranslation={showLyricsTranslation} translationLang={lyricsTranslationLang} translationFontSize={lyricsTranslationFontSize} showRomaji={showRomaji} romajiFontSize={lyricsRomajiFontSize} onCustomLyricsStatusChange={setIsCustomLyrics} importLyricsRef={importLyricsRef} removeCustomLyricsRef={removeCustomLyricsRef} openLyricsBrowserRef={openLyricsBrowserRef} showAgentTags={showAgentTags} ambientVisualizer={ambientVisualizer} syllableZoom={syllableZoom} fluidLyrics={fluidLyrics} ambientBackground={ambientBackground} fullscreen={fullscreen} playerBarVisible={playerVisible} onInstrumentalChange={handleInstrumentalChange} />
               </div>
               <div style={{
                 position: "absolute", top: 0, bottom: 0, left: 0,
                 width: splitActive ? coverPct : "100%",
-                opacity: splitActive ? 1 : (showLyrics ? 0 : 1),
+                opacity: showVideoView ? 0 : (splitActive ? 1 : (showLyrics ? 0 : 1)),
                 transition: paneTransition,
-                pointerEvents: (splitActive || !showLyrics) ? "all" : "none",
+                pointerEvents: showVideoView ? "none" : ((splitActive || !showLyrics) ? "all" : "none"),
                 borderRight: splitActive ? "1px solid rgba(255,255,255,0.08)" : "none",
               }}>
                 <CoverView track={currentTrack} isPlaying={isPlaying} onClose={() => setOverlayOpen(false)} ambientVisualizer={ambientVisualizer} vizConfig={vizConfig} narrow={splitActive} />
+              </div>
+              {/* Dedicated video pane — replaces both lyrics and cover panes while active */}
+              <div style={{
+                position: "absolute", inset: 0,
+                opacity: showVideoView ? 1 : 0,
+                transition: "opacity 0.35s ease",
+                pointerEvents: showVideoView ? "all" : "none",
+              }}>
+                {showVideoView && <VideoSyncView videoSync={videoSync} audioRef={audioRef} isPlaying={isPlaying} />}
               </div>
               {/* Drag handle between the two panes (mirrors the sidebar/queue handles) */}
               {splitActive && (
@@ -12133,6 +12290,10 @@ export default function App() {
             onToggleSyllableZoom={() => { const next = !syllableZoom; setSyllableZoom(next); localStorage.setItem("kiyoshi-lyrics-syllable-zoom", String(next)); }}
             fluidLyrics={fluidLyrics}
             onToggleFluidLyrics={() => { const next = !fluidLyrics; setFluidLyrics(next); localStorage.setItem("kiyoshi-lyrics-fluid", String(next)); }}
+            videoSyncEnabled={videoSyncEnabled}
+            onToggleVideoSync={() => { const next = !videoSyncEnabled; setVideoSyncEnabled(next); localStorage.setItem("kiyoshi-video-sync", String(next)); }}
+            videoSyncQuality={videoSyncQuality}
+            onVideoSyncQualityChange={(v) => { setVideoSyncQuality(v); localStorage.setItem("kiyoshi-video-sync-quality", v); }}
             highContrast={highContrast}
             onToggleHighContrast={() => {
               const next = !highContrast;

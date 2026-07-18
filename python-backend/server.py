@@ -334,6 +334,9 @@ os.makedirs(LYRICS_CACHE_DIR, exist_ok=True)
 CUSTOM_LYRICS_DIR = os.path.join(_base_dir, "custom_lyrics")
 os.makedirs(CUSTOM_LYRICS_DIR, exist_ok=True)
 
+VIDEO_SYNC_CACHE_DIR = os.path.join(_base_dir, "video_sync_cache")
+os.makedirs(VIDEO_SYNC_CACHE_DIR, exist_ok=True)
+
 # yt-dlp self-update: YouTube changes constantly and the bundled yt-dlp goes stale between
 # app releases. A newer yt-dlp wheel dropped in here is prepended to sys.path so `import
 # yt_dlp` uses it instead of the bundled copy — the user can update yt-dlp on demand (like
@@ -4781,6 +4784,308 @@ def ffmpeg_check_update():
     latest = _ffmpeg_latest_version()
     update = bool(installed and latest and _ver_tuple(latest) > _ver_tuple(installed))
     return jsonify({"installed": installed, "latest": latest, "updateAvailable": update})
+
+
+# ─── Video Sync Offset (song ↔ official-video alignment, for a future video mode) ────────────
+# Some tracks have both an audio-only "song" (ATV) release and an "official video" (OMV) release
+# that differ in length/mastering but are meant to play in sync (YT Music's own app does this).
+# ytmusicapi exposes the link between the two (get_watch_playlist's "counterpart" field) but NOT
+# a numeric offset — so we compute it ourselves via FFT cross-correlation of short audio clips
+# from both, matching the technique validated in a throwaway prototype against a real track
+# (Fatoni - "Nachos", videoId 3otp2_VhCWk / counterpart zE7pbV9J39c, offset ≈ -5.9s).
+
+VIDEO_SYNC_CLIP_SECONDS = 100  # from t=0 — long enough for a reliable correlation peak
+VIDEO_SYNC_MAX_LAG_SECONDS = 30  # plausible search range for the offset
+_video_sync_path_lock = threading.Lock()  # guards the PATH mutation below (process-wide state)
+
+
+def _video_sync_cache_path(video_id):
+    import hashlib
+    key = hashlib.md5(video_id.encode()).hexdigest()
+    return os.path.join(VIDEO_SYNC_CACHE_DIR, f"{key}.json")
+
+
+def _video_sync_download_clip(vid, out_wav, ffmpeg_dir):
+    """Download the first VIDEO_SYNC_CLIP_SECONDS of `vid`'s audio as mono 8kHz WAV, trying the
+    same client fallbacks as regular streaming (_STREAM_ATTEMPTS)."""
+    import yt_dlp, subprocess
+
+    tmp_dir = os.path.dirname(out_wav)
+    tmp_tpl = os.path.join(tmp_dir, os.path.splitext(os.path.basename(out_wav))[0] + "_raw.%(ext)s")
+    last_err = None
+    # FFmpegFD.available() (yt-dlp's gate for --download-sections) checks PATH only and ignores
+    # ffmpeg_location (known yt-dlp limitation) — so a bundled-next-to-the-exe ffmpeg (the normal
+    # case on Windows) needs its directory on PATH too, not just passed as ffmpeg_location.
+    _video_sync_path_lock.acquire()
+    old_path = os.environ.get("PATH", "")
+    if ffmpeg_dir and ffmpeg_dir not in old_path.split(os.pathsep):
+        os.environ["PATH"] = ffmpeg_dir + os.pathsep + old_path
+    try:
+        for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+            try:
+                ydl_opts = {
+                    "format": fmt,
+                    "quiet": True,
+                    "no_warnings": True,
+                    "outtmpl": tmp_tpl,
+                    "download_ranges": yt_dlp.utils.download_range_func(None, [(0, VIDEO_SYNC_CLIP_SECONDS)]),
+                    "force_keyframes_at_cuts": True,
+                    "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav"}],
+                }
+                if extra:
+                    ydl_opts.update(extra)
+                if ffmpeg_dir:
+                    ydl_opts["ffmpeg_location"] = ffmpeg_dir
+                if not no_auth:
+                    _apply_ydl_auth(ydl_opts)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([f"https://music.youtube.com/watch?v={vid}"])
+                last_err = None
+                break
+            except Exception as e:
+                last_err = e
+                if _is_hard_error(str(e)):
+                    break
+                _logging.warning(f"[video-sync] {vid} fmt={fmt} auth={not no_auth}: {e}")
+    finally:
+        os.environ["PATH"] = old_path
+        _video_sync_path_lock.release()
+    if last_err:
+        raise last_err
+
+    raw_wav = None
+    for f in os.listdir(tmp_dir):
+        if f.startswith(os.path.splitext(os.path.basename(out_wav))[0] + "_raw."):
+            raw_wav = os.path.join(tmp_dir, f)
+            break
+    if not raw_wav:
+        raise RuntimeError(f"no audio produced for {vid}")
+
+    # Downmix to mono 8kHz — plenty for RMS-envelope correlation, keeps the FFT cheap.
+    exe = _ffmpeg_exe_path()
+    _kw = {"creationflags": 0x08000000} if sys.platform == "win32" else {}  # CREATE_NO_WINDOW
+    subprocess.run(
+        [exe, "-y", "-i", raw_wav, "-ac", "1", "-ar", "8000", out_wav],
+        capture_output=True, timeout=60, **_kw,
+    )
+    try:
+        os.remove(raw_wav)
+    except OSError:
+        pass
+
+
+def _video_sync_compute_offset(song_wav, video_wav):
+    """RMS-envelope FFT cross-correlation. Returns (offset_seconds, confidence).
+
+    offset_seconds is how much the video's audio lags the song's (positive = video starts
+    later than the song; matches the prototype's sign convention). confidence is peak
+    height vs. the surrounding correlation noise floor.
+    """
+    import numpy as np
+    from scipy.io import wavfile
+    from scipy.signal import fftconvolve
+
+    sr_s, song = wavfile.read(song_wav)
+    sr_v, video = wavfile.read(video_wav)
+    if sr_s != sr_v:
+        raise RuntimeError(f"sample rate mismatch: {sr_s} vs {sr_v}")
+    sr = sr_s
+
+    def envelope(samples):
+        samples = samples.astype(np.float64)
+        # RMS envelope over ~50ms windows — robust to mix/mastering differences between the
+        # song and video releases, unlike raw-waveform correlation (validated in prototyping).
+        win = max(1, int(sr * 0.05))
+        n = len(samples) // win
+        samples = samples[: n * win].reshape(n, win)
+        env = np.sqrt(np.mean(samples ** 2, axis=1))
+        env -= env.mean()
+        std = env.std()
+        return env / std if std > 1e-9 else env
+
+    song_env = envelope(song)
+    video_env = envelope(video)
+    win_s = sr * 0.05
+
+    corr = fftconvolve(video_env, song_env[::-1], mode="full")
+    lags = np.arange(-len(song_env) + 1, len(video_env))
+    max_lag_windows = int(VIDEO_SYNC_MAX_LAG_SECONDS / (win_s / sr))
+    mask = np.abs(lags) <= max_lag_windows
+    corr_m, lags_m = corr[mask], lags[mask]
+
+    peak_idx = int(np.argmax(corr_m))
+    peak_val = corr_m[peak_idx]
+    offset_windows = lags_m[peak_idx]
+    offset_seconds = float(offset_windows * (win_s / sr))
+
+    noise = np.delete(corr_m, range(max(0, peak_idx - 3), min(len(corr_m), peak_idx + 4)))
+    noise_floor = float(np.abs(noise).mean()) if len(noise) else 1.0
+    confidence = float(abs(peak_val) / noise_floor) if noise_floor > 1e-9 else 0.0
+
+    return offset_seconds, confidence
+
+
+def _compute_video_sync_offset(video_id):
+    """Resolve the counterpart video and compute the song↔video sync offset. Cached on disk."""
+    import shutil, tempfile
+    cache_path = _video_sync_cache_path(video_id)
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+
+    result = {"available": False}
+    try:
+        wp = get_ytmusic().get_watch_playlist(videoId=video_id, limit=1)
+        tracks = wp.get("tracks") or []
+        counterpart = (tracks[0].get("counterpart") if tracks else None) or None
+        counterpart_id = counterpart.get("videoId") if counterpart else None
+
+        if not counterpart_id:
+            result = {"available": False}
+        else:
+            ffmpeg_dir = _find_ffmpeg()
+            if ffmpeg_dir is False:
+                result = {"available": False, "error": "ffmpeg not found"}
+            else:
+                tmp_dir = tempfile.mkdtemp()
+                try:
+                    song_wav = os.path.join(tmp_dir, "song.wav")
+                    video_wav = os.path.join(tmp_dir, "video.wav")
+                    _video_sync_download_clip(video_id, song_wav, ffmpeg_dir)
+                    _video_sync_download_clip(counterpart_id, video_wav, ffmpeg_dir)
+                    offset_seconds, confidence = _video_sync_compute_offset(song_wav, video_wav)
+                    result = {
+                        "available": True,
+                        "counterpartVideoId": counterpart_id,
+                        "offsetSeconds": offset_seconds,
+                        "confidence": confidence,
+                    }
+                finally:
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+    except Exception as e:
+        _logging.warning(f"[video-sync] offset computation failed for {video_id}: {e}")
+        result = {"available": False, "error": str(e)}
+
+    # Only cache durable facts (has/hasn't a counterpart, or a computed offset) — never an
+    # "error" result, since those are almost always transient/environmental (ffmpeg missing,
+    # a flaky download) and would otherwise stick around long after the underlying cause is fixed.
+    if "error" not in result:
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+        except Exception:
+            pass
+    return result
+
+
+@app.route("/video-sync/offset/<video_id>")
+def video_sync_offset(video_id):
+    return jsonify(_compute_video_sync_offset(video_id))
+
+
+# ─── Video Sync Stream (resolve a playable URL for the counterpart video) ────────────────────
+# The song's own audio keeps playing through the existing Rust pipeline — the video element is
+# muted and just supplies the picture — so this does NOT need a muxed (video+audio) stream: a
+# plain <video src=…> plays a single-track (video-only) MP4 file just fine, no MSE required.
+# Dropping the "must also have audio" constraint that a normal player would need unlocks much
+# higher resolutions, since YouTube only offers progressive (muxed) formats up to ~360-720p —
+# anything above that is video-only. maxHeight (from the frontend's quality picker) caps it back
+# down for users on a weaker/metered connection; omitted/0 means best available.
+def _video_fmt_for_quality(max_height=None):
+    h = f"[height<=?{int(max_height)}]" if max_height else ""
+    return (
+        f"bestvideo[ext=mp4]{h}/bestvideo{h}/"
+        f"best[ext=mp4][acodec!=none][vcodec!=none]{h}/best[acodec!=none][vcodec!=none]{h}"
+    )
+
+
+def _video_stream_url_from_info(info):
+    # vcodec is all that matters now — acodec may be "none" (video-only) or present (progressive
+    # fallback), either is playable since the element is muted regardless.
+    if info.get("url") and info.get("vcodec") not in (None, "none"):
+        return info["url"]
+    formats = [f for f in (info.get("formats") or [])
+               if f.get("url") and f.get("vcodec") not in (None, "none")]
+    if not formats:
+        return None
+    formats.sort(key=lambda f: f.get("height") or 0)
+    return formats[-1]["url"]
+
+
+def _ydl_pick_any_video(video_id, extra_opts=None, skip_auth=False, use_ytm=True, max_height=None):
+    """Last-resort: fetch all formats without a selector and pick one manually."""
+    import yt_dlp
+    ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+    if extra_opts:
+        ydl_opts.update(extra_opts)
+    if not skip_auth:
+        _apply_ydl_auth(ydl_opts)
+    base = "music.youtube.com" if use_ytm else "www.youtube.com"
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(f"https://{base}/watch?v={video_id}", download=False)
+    if max_height:
+        capped = [f for f in (info.get("formats") or []) if (f.get("height") or 0) <= max_height]
+        if capped:
+            info = {**info, "formats": capped}
+    return _video_stream_url_from_info(info)
+
+
+@app.route("/video-sync/stream/<video_id>")
+def video_sync_stream(video_id):
+    """Resolve a playable video URL — mirrors /stream/<video_id>'s client fallback chain
+    (_STREAM_ATTEMPTS) but with a video-capable, quality-aware format selector.
+    ?maxHeight=<int> caps the resolution (omitted = best available)."""
+    max_height = request.args.get("maxHeight", type=int)
+    video_fmt = _video_fmt_for_quality(max_height)
+    last_err = None
+
+    if _POT_AVAILABLE:
+        try:
+            info = _ydl_extract_url(video_id, video_fmt, extra_opts=_pot_opts(), skip_auth=False)
+            url = _video_stream_url_from_info(info)
+            if url:
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            _logging.warning(f"[video-sync-stream] {video_id} web_music+PO token FAILED: {e}")
+
+    for fmt, extra, no_auth in _STREAM_ATTEMPTS:
+        try:
+            info = _ydl_extract_url(video_id, video_fmt, extra_opts=extra, skip_auth=no_auth)
+            url = _video_stream_url_from_info(info)
+            if url:
+                return jsonify({"url": url})
+        except Exception as e:
+            last_err = e
+            _logging.warning(f"[video-sync-stream] {video_id} attempt {extra} no_auth={no_auth} FAILED: {e}")
+            if _is_hard_error(str(e)):
+                break
+
+    # Brute-force fallback: no format selector, pick any matching format manually.
+    _hard_stop = False
+    for no_auth, use_ytm in ((False, True), (True, True), (True, False)):
+        if _hard_stop:
+            break
+        for extra in (None, _WEB_MUSIC_OPTS, _MWEB_OPTS, _ANDROID_OPTS, _IOS_OPTS, _TV_OPTS):
+            if extra in (_ANDROID_OPTS, _IOS_OPTS, _TV_OPTS, _MWEB_OPTS) and not no_auth:
+                continue
+            try:
+                url = _ydl_pick_any_video(video_id, extra_opts=extra, skip_auth=no_auth, use_ytm=use_ytm, max_height=max_height)
+                if url:
+                    return jsonify({"url": url})
+            except Exception as e:
+                last_err = e
+                if _is_hard_error(str(e)) or _is_unavailable(str(e)):
+                    _hard_stop = True
+                    break
+                _logging.warning(f"[video-sync-stream] {video_id} brute-force no_auth={no_auth} ytm={use_ytm}: {e}")
+
+    err_str = str(last_err) if last_err else "No playable video URL found"
+    _logging.error(f"[video-sync-stream] {video_id}: {type(last_err).__name__ if last_err else ''}: {err_str}")
+    return jsonify({"error": err_str}), 500
 
 
 # ─── yt-dlp updater ─────────────────────────────────────────────────────────
