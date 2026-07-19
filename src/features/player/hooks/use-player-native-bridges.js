@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+// @refresh reset
+import { useEffect, useRef } from "react";
 
 import { API } from "@/shared/api/client.js";
 
@@ -15,6 +16,8 @@ export function usePlayerNativeBridges({
   integrationsRef,
   integrationRevision,
 }) {
+  const overlaySnapshotRef = useRef("");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -82,6 +85,18 @@ export function usePlayerNativeBridges({
         duration: audio?.duration || 0,
         isPlaying: isPlaying && !!currentTrack,
       };
+
+      // The overlay is driven by SSE, but publishing unchanged state every second
+      // needlessly wakes the backend (and produces an equally noisy request log).
+      // Keep track and play/pause changes immediate, while advancing its progress
+      // in five-second steps.
+      const snapshot = JSON.stringify({
+        ...payload,
+        videoId: currentTrack?.videoId || "",
+        progress: Math.floor(payload.progress / 5) * 5,
+      });
+      if (snapshot === overlaySnapshotRef.current) return;
+      overlaySnapshotRef.current = snapshot;
 
       // The editor preview consumes this state even when the user has not enabled the OBS
       // server, so keep it fresh independently of the integration toggle.

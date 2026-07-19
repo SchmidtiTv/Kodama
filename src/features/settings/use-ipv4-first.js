@@ -21,8 +21,6 @@ async function fetchIpv4FirstSetting(options = {}) {
   throw lastError || new Error("IPv4-first setting request failed");
 }
 
-// The backend accepts both its current operation route and the legacy network route. Keep the
-// optimistic update, reconciliation, and rollback together so callers only consume the setting.
 export function useIpv4First() {
   const [ipv4First, setIpv4First] = useState(true);
 

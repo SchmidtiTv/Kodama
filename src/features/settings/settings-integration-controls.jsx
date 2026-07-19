@@ -118,11 +118,15 @@ export function LastfmRow() {
   const [status, setStatus] = useState({ enabled: true, connected: false, username: "" });
   const [phase, setPhase] = useState("idle");
   const tokenRef = useRef(null);
-  const loadStatus = useCallback(() => {
-    fetch(`${API}/lastfm/status`)
-      .then((response) => response.json())
-      .then(setStatus)
-      .catch(() => {});
+  const loadStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API}/lastfm/status`);
+      const nextStatus = await response.json();
+      setStatus(nextStatus);
+      return nextStatus;
+    } catch {
+      return null;
+    }
   }, []);
   useEffect(() => {
     loadStatus();
@@ -153,7 +157,11 @@ export function LastfmRow() {
         body: JSON.stringify({ token: tokenRef.current }),
       }).then((response) => response.json());
       if (data.connected) {
-        setStatus((current) => ({ ...current, connected: true, username: data.username }));
+        const savedStatus = await loadStatus();
+        if (!savedStatus?.connected) {
+          toast.danger(t("lastfmAuthFailed"));
+          return;
+        }
         window.dispatchEvent(new Event("lastfm-changed"));
         toast.success(t("lastfmConnected"));
       } else toast.danger(t("lastfmAuthFailed"));

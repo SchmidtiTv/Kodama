@@ -48,7 +48,9 @@ def create_app() -> Flask:
         setup_logger()
         app = Flask(__name__)
         app.config.from_object(Config)
-        CORS(app, origins=CORS_ORIGINS)
+        # Cache CORS preflights so the frequent local overlay updates do not issue
+        # an OPTIONS request before every browser POST.
+        CORS(app, origins=CORS_ORIGINS, max_age=600)
         app.extensions["server_start_time"] = time.time()
         app.extensions["feedback_webhook_url"] = load_feedback_webhook()
         app.extensions["network_settings"] = NetworkSettings()

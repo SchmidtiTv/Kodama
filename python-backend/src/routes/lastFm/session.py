@@ -21,10 +21,13 @@ def lastfm_session() -> RouteResponse:
     lastfm_session = response.get("session", {})
     if not isinstance(lastfm_session, dict):
         return jsonify({"error": "session_failed"}), 400
-    metadata = read_active_metadata()
     key = lastfm_session.get("key", "")
     username = lastfm_session.get("name", "")
-    metadata["lastfm_session"] = key if isinstance(key, str) else ""
-    metadata["lastfm_user"] = username if isinstance(username, str) else ""
+    if not isinstance(key, str) or not key.strip() or not isinstance(username, str) or not username.strip():
+        return jsonify({"error": "invalid_session"}), 502
+
+    metadata = read_active_metadata()
+    metadata["lastfm_session"] = key
+    metadata["lastfm_user"] = username
     write_active_metadata(metadata)
-    return jsonify({"connected": True, "username": username if isinstance(username, str) else ""})
+    return jsonify({"connected": True, "username": username})

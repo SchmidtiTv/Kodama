@@ -21,6 +21,25 @@ from src.config import BACKEND_PORT, config_ytdlp
 from src.lib.integrations.ytdlp import YTDLP
 
 
+class _QuietYTDLPLogger:
+    """Keep expected failed extraction attempts out of the application console.
+
+    ``StreamService`` deliberately tries several YouTube clients and cookie modes.
+    yt-dlp writes each unsuccessful format selection to stderr before raising, even
+    though the next fallback may resolve the same track successfully. The service
+    logs a useful final failure itself when every attempt is exhausted.
+    """
+
+    def debug(self, _message: str) -> None:
+        return None
+
+    def warning(self, _message: str) -> None:
+        return None
+
+    def error(self, _message: str) -> None:
+        return None
+
+
 class StreamService:
     """Resolve YouTube Music audio URLs and proxy progressive audio streams."""
 
@@ -35,6 +54,9 @@ class StreamService:
         self._browser_cookie_lock = threading.Lock()
         self._browser_cookie_last_extract = 0.0
         self._audio_url_cache = {}  # video_id -> (url, expiry_ts)
+        self._audio_url_lock = threading.Lock()
+        self._audio_url_inflight: dict[str, threading.Event] = {}
+        self._stream_resolution_lock = threading.Lock()
 
     # ── yt-dlp extraction helpers ────────────────────────────────────────────
     # Old server.py: _ydl_extract_url
@@ -50,6 +72,7 @@ class StreamService:
             "quiet": True,
             "no_warnings": True,
             "skip_download": skip_download,
+            "logger": _QuietYTDLPLogger(),
         }
         if extra_opts:
             ydl_opts.update(extra_opts)
@@ -63,7 +86,12 @@ class StreamService:
     def _pick_any_audio(self, video_id: str, extra_opts: Mapping[str, object] | None = None, skip_auth: bool = False, use_ytm: bool = True) -> str | None:
         """Last-resort: fetch all formats without a selector and pick manually."""
         import yt_dlp
-        ydl_opts: dict[str, object] = {"quiet": True, "no_warnings": True, "skip_download": True}
+        ydl_opts: dict[str, object] = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "logger": _QuietYTDLPLogger(),
+        }
         if extra_opts:
             ydl_opts.update(extra_opts)
         if not skip_auth:
@@ -94,6 +122,31 @@ class StreamService:
         chosen = audio_formats[-1] if audio_formats else entries[-1] if entries else None
         candidate = chosen.get("url") if chosen else None
         return candidate if isinstance(candidate, str) else None
+
+    def _probe_audio_url(self, video_id: str, url: str) -> bool:
+        """Check that a resolved URL is accepted by the media server.
+
+        yt-dlp extraction can succeed even when YouTube issues a signed URL
+        that googlevideo immediately rejects. Probe with the same headers used
+        by the progressive proxy so an unusable candidate falls through to the
+        next extractor client instead of being cached as a successful result.
+        """
+        try:
+            with requests.get(
+                url,
+                headers={"User-Agent": "Mozilla/5.0", "Range": "bytes=0-1"},
+                stream=True,
+                timeout=12,
+            ) as response:
+                if 200 <= response.status_code < 300:
+                    return True
+                self._logger.warning(
+                    f"[stream] {video_id} rejected resolved media URL: "
+                    f"HTTP {response.status_code}"
+                )
+        except requests.RequestException as error:
+            self._logger.warning(f"[stream] {video_id} media URL probe failed: {error}")
+        return False
 
     # Old server.py: _is_hard_error
     @staticmethod
@@ -166,9 +219,43 @@ class StreamService:
     # ── /stream ──────────────────────────────────────────────────────────────
     # Old server.py: stream_url
     def resolve_stream(self, video_id: str) -> tuple[dict[str, str | bool], int]:
+        # yt-dlp's YouTube extraction and challenge-solving path becomes both
+        # slow and unreliable when playback plus several queue warmers run it
+        # concurrently. Per-video de-duplication handles duplicate warm/play
+        # requests; this lock also serializes extraction across different IDs.
+        with self._stream_resolution_lock:
+            return self._resolve_stream_unlocked(video_id)
+
+    def _resolve_stream_unlocked(self, video_id: str) -> tuple[dict[str, str | bool], int]:
         """Resolve a playable audio URL. Returns ``(payload, status_code)``."""
         last_err = None
         _t_total = time.time()
+
+        # Try the public endpoint before any cookie-backed client. YouTube can
+        # return a signed URL for an authenticated client that extraction
+        # considers successful but the media server immediately rejects with
+        # HTTP 403. Public tracks do not need that fragile authenticated path.
+        _t = time.time()
+        try:
+            info = self._extract_url(
+                video_id,
+                config_ytdlp.AUDIO_FORMAT,
+                skip_auth=True,
+                use_ytm=False,
+            )
+            url = self._stream_url_from_info(info)
+            if url and self._probe_audio_url(video_id, url):
+                self._logger.info(
+                    f"[stream] {video_id} OK via anonymous www.youtube.com in "
+                    f"{time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)"
+                )
+                return {"url": url}, 200
+        except Exception as e:
+            last_err = e
+            self._logger.warning(
+                f"[stream] {video_id} initial anonymous www.youtube.com FAILED in "
+                f"{time.time()-_t:.1f}s: {e}"
+            )
 
         # ── Tier 1: browser cookies via a CACHED cookie file ─────────────────
         # Uses a cookie file extracted from the browser once (see
@@ -180,7 +267,7 @@ class StreamService:
             try:
                 info = self._extract_url(video_id, config_ytdlp.AUDIO_FORMAT, extra_opts={"cookiefile": _bcf}, skip_auth=True)
                 url = self._stream_url_from_info(info)
-                if url:
+                if url and self._probe_audio_url(video_id, url):
                     self._logger.info(f"[stream] {video_id} OK via cached browser cookies in {time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)")
                     return {"url": url}, 200
             except Exception as e:
@@ -194,20 +281,47 @@ class StreamService:
                         try:
                             info = self._extract_url(video_id, config_ytdlp.AUDIO_FORMAT, extra_opts={"cookiefile": _bcf2}, skip_auth=True)
                             url = self._stream_url_from_info(info)
-                            if url:
+                            if url and self._probe_audio_url(video_id, url):
                                 self._logger.info(f"[stream] {video_id} OK via refreshed browser cookies in {time.time()-_t:.1f}s")
                                 return {"url": url}, 200
                         except Exception as e2:
                             last_err = e2
                             self._logger.warning(f"[stream] {video_id} refreshed-browser-cookies FAILED: {e2}")
 
-        # ── Tier 2: STREAM_ATTEMPTS (app cookies + anonymous mobile/web) ─────
+        # ── Tier 2: anonymous www.youtube.com ───────────────────────────────
+        # The default web endpoint is both fast and broadly compatible for
+        # ordinary tracks. Keep the authenticated Music-specific clients below
+        # it for tracks that actually need them; otherwise each failed client
+        # can add several seconds before playback begins.
+        _t = time.time()
+        try:
+            info = self._extract_url(
+                video_id,
+                config_ytdlp.AUDIO_FORMAT,
+                skip_auth=True,
+                use_ytm=False,
+            )
+            url = self._stream_url_from_info(info)
+            if url and self._probe_audio_url(video_id, url):
+                self._logger.info(
+                    f"[stream] {video_id} OK via anonymous www.youtube.com in "
+                    f"{time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)"
+                )
+                return {"url": url}, 200
+        except Exception as e:
+            last_err = e
+            self._logger.warning(
+                f"[stream] {video_id} anonymous www.youtube.com FAILED in "
+                f"{time.time()-_t:.1f}s: {e}"
+            )
+
+        # ── Tier 3: STREAM_ATTEMPTS (app cookies + anonymous mobile/web) ─────
         for fmt, extra, no_auth in config_ytdlp.STREAM_ATTEMPTS:
             _t = time.time()
             try:
                 info = self._extract_url(video_id, fmt, extra_opts=extra, skip_auth=no_auth)
                 url = self._stream_url_from_info(info)
-                if url:
+                if url and self._probe_audio_url(video_id, url):
                     self._logger.info(f"[stream] {video_id} OK via attempt {extra} no_auth={no_auth} in {time.time()-_t:.1f}s (total {time.time()-_t_total:.1f}s)")
                     return {"url": url}, 200
             except Exception as e:
@@ -231,7 +345,7 @@ class StreamService:
                     continue  # never combine mobile clients with cookies
                 try:
                     url = self._pick_any_audio(video_id, extra_opts=extra, skip_auth=no_auth, use_ytm=use_ytm)
-                    if url:
+                    if url and self._probe_audio_url(video_id, url):
                         self._logger.info(f"[stream] {video_id} recovered via brute-force no_auth={no_auth} ytm={use_ytm}")
                         return {"url": url}, 200
                 except Exception as e:
@@ -280,6 +394,7 @@ class StreamService:
                     "outtmpl": outtmpl,
                     "quiet": True,
                     "no_warnings": True,
+                    "logger": _QuietYTDLPLogger(),
                 }
                 if extra:
                     ydl_opts.update(extra)
@@ -311,19 +426,44 @@ class StreamService:
     # Old server.py: _resolve_audio_url
     def resolve_audio_url(self, video_id: str) -> str | None:
         now = time.time()
-        ent = self._audio_url_cache.get(video_id)
-        if ent and ent[1] > now:
-            return ent[0]
+        with self._audio_url_lock:
+            ent = self._audio_url_cache.get(video_id)
+            if ent and ent[1] > now:
+                return ent[0]
+            in_flight = self._audio_url_inflight.get(video_id)
+            if in_flight is None:
+                in_flight = threading.Event()
+                self._audio_url_inflight[video_id] = in_flight
+                resolver = True
+            else:
+                resolver = False
+
+        # Queue prewarming and Rust playback can ask for the same track almost
+        # simultaneously. Let one yt-dlp process resolve it; duplicate work was
+        # causing a thundering herd of 45-second fallback chains.
+        if not resolver:
+            in_flight.wait(timeout=75)
+            with self._audio_url_lock:
+                ent = self._audio_url_cache.get(video_id)
+                return ent[0] if ent and ent[1] > time.time() else None
+
         try:
             d = requests.get(f"{self.STREAM_ENDPOINT}/{video_id}", timeout=60).json()
         except Exception:
+            d = {}
+        try:
+            if d.get("premium_only"):
+                return "premium_only"
+            url = d.get("url")
+            if isinstance(url, str) and url:
+                with self._audio_url_lock:
+                    self._audio_url_cache[video_id] = (url, now + 5 * 3600)
+                return url
             return None
-        if d.get("premium_only"):
-            return "premium_only"
-        url = d.get("url")
-        if url:
-            self._audio_url_cache[video_id] = (url, now + 5 * 3600)
-        return url
+        finally:
+            with self._audio_url_lock:
+                self._audio_url_inflight.pop(video_id, None)
+                in_flight.set()
 
     # Old server.py: audio_stream (resolution portion)
     def open_audio_stream(self, video_id: str, range_header: str | None = None) -> tuple[requests.Response | None, tuple[dict[str, str | bool], int] | None]:
@@ -346,13 +486,15 @@ class StreamService:
             try:
                 upstream = requests.get(url, headers=up_headers, stream=True, timeout=60)
             except Exception as e:
-                self._audio_url_cache.pop(video_id, None)
+                with self._audio_url_lock:
+                    self._audio_url_cache.pop(video_id, None)
                 if attempt == 0:
                     continue
                 return None, ({"error": str(e)}, 502)
             # Expired/blocked signed URL → drop cache and re-resolve once.
             if upstream.status_code in (403, 410) and attempt == 0:
-                self._audio_url_cache.pop(video_id, None)
+                with self._audio_url_lock:
+                    self._audio_url_cache.pop(video_id, None)
                 continue
             break
         return upstream, None
