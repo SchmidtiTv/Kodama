@@ -134,6 +134,20 @@ export function Sidebar({
   };
   const [pinnedPlaylists, setPinnedPlaylists] = useState([]);
   const [recentPlaylists, setRecentPlaylists] = useState([]);
+  const [collapsedGroupOpen, setCollapsedGroupOpen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kiyoshi-sidebar-collapsed-groups") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const setCollapsedGroupExpanded = (titleKey, isExpanded) => {
+    setCollapsedGroupOpen((previous) => {
+      const next = { ...previous, [titleKey]: isExpanded };
+      localStorage.setItem("kiyoshi-sidebar-collapsed-groups", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const reloadFromStorage = useCallback((prof) => {
     const p = prof || window.__activeProfile || "default";
@@ -409,34 +423,41 @@ export function Sidebar({
   // sidebar it uses HeroUI's Disclosure (animated expand/collapse + rotating
   // chevron). In the collapsed sidebar there are no headers — just the covers.
   const playlistSection = (titleKey, items, Icon, iconWeight) => (
-    <Disclosure defaultExpanded>
-      <DisclosureHeading>
-        <DisclosureTrigger
-          className={cn(
-            "flex items-center text-t10 font-semibold text-muted uppercase tracking-wider hover:text-secondary transition-colors duration-150",
-            collapsed ? "w-full justify-center py-2" : "w-full gap-1.5 px-3 pt-1.5 pb-1"
-          )}
-          onMouseEnter={
-            collapsed
-              ? (e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setTooltip({ text: t(titleKey), x: r.right + 10, y: r.top + r.height / 2 });
-                }
-              : undefined
-          }
-          onMouseLeave={collapsed ? () => setTooltip(null) : undefined}
-        >
-          <span className={cn("shrink-0 flex items-center justify-center", !collapsed && "w-3.5")}>
-            <Icon size={collapsed ? 15 : 11} weight={iconWeight} />
-          </span>
-          {!collapsed && t(titleKey)}
-          {!collapsed && <DisclosureIndicator />}
-        </DisclosureTrigger>
-      </DisclosureHeading>
-      <DisclosureContent>
-        <DisclosureBody className="p-0!">{playlistList(items)}</DisclosureBody>
-      </DisclosureContent>
-    </Disclosure>
+    <div className="bg-white/5 hover:bg-white/10 rounded-xl w-full mb-1.5 overflow-hidden transition-colors duration-150">
+      <Disclosure
+        isExpanded={collapsedGroupOpen[titleKey] ?? false}
+        onExpandedChange={(isExpanded) => setCollapsedGroupExpanded(titleKey, isExpanded)}
+      >
+        <DisclosureHeading>
+          <DisclosureTrigger
+            className={cn(
+              "flex items-center text-t10 font-semibold text-muted uppercase tracking-wider hover:text-secondary transition-colors duration-150",
+              collapsed ? "w-full justify-center py-2" : "w-full gap-1.5 px-3 pt-1.5 pb-1"
+            )}
+            onMouseEnter={
+              collapsed
+                ? (e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setTooltip({ text: t(titleKey), x: r.right + 10, y: r.top + r.height / 2 });
+                  }
+                : undefined
+            }
+            onMouseLeave={collapsed ? () => setTooltip(null) : undefined}
+          >
+            <span
+              className={cn("shrink-0 flex items-center justify-center", !collapsed && "w-3.5")}
+            >
+              <Icon size={collapsed ? 15 : 11} weight={iconWeight} />
+            </span>
+            {!collapsed && t(titleKey)}
+            {!collapsed && <DisclosureIndicator />}
+          </DisclosureTrigger>
+        </DisclosureHeading>
+        <DisclosureContent>
+          <DisclosureBody className="p-0!">{playlistList(items)}</DisclosureBody>
+        </DisclosureContent>
+      </Disclosure>
+    </div>
   );
 
   const handleAccountAction = (key) => {
@@ -727,7 +748,12 @@ export function Sidebar({
 
       {/* Pinned + recent playlists */}
       {(pinnedPlaylists.length > 0 || recentPlaylists.length > 0) && (
-        <div className={cn("overflow-y-auto flex-1 min-h-0 my-1", collapsed ? "px-0" : "px-2")}>
+        <div
+          className={cn(
+            "overflow-y-auto flex-1 min-h-0 my-1",
+            collapsed ? "px-0 no-scrollbar" : "px-2"
+          )}
+        >
           {pinnedPlaylists.length > 0 &&
             playlistSection("pinned", pinnedPlaylists, PushPin, "fill")}
           {recentPlaylists.filter((pl) => !isPinned(pl)).length > 0 &&

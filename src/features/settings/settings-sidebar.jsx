@@ -37,6 +37,7 @@ export function SettingsSidebarContent({
   const activeSection = useSyncExternalStore(subscribeSettingsSection, getSettingsSection);
   const t = useLang();
   const anim = useAnimations();
+  const [tooltip, setTooltip] = useState(null);
   const [debugUnlocked, setDebugUnlocked] = useState(
     () => localStorage.getItem("kiyoshi-debug-unlocked") === "true"
   );
@@ -160,6 +161,14 @@ export function SettingsSidebarContent({
           : undefined,
       }}
     >
+      {tooltip && (
+        <div
+          className="fixed -translate-y-1/2 bg-elevated text-primary px-2.5 py-1 rounded text-t12 whitespace-nowrap border border-border pointer-events-none z-[9999] shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          {tooltip.text}
+        </div>
+      )}
       {/* Header */}
       <div
         style={{
@@ -233,12 +242,22 @@ export function SettingsSidebarContent({
                 id={item.id}
                 data-testid={`settings-nav-${item.id}`}
                 textValue={item.label}
-                title={collapsed ? item.label : undefined}
                 className={cn(
                   "text-t13 min-h-10 rounded-xl",
                   tab === item.id && "bg-accent-dim text-accent",
                   collapsed && "justify-center"
                 )}
+                onMouseEnter={(event) => {
+                  if (collapsed) {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    setTooltip({
+                      text: item.label,
+                      x: rect.right + 10,
+                      y: rect.top + rect.height / 2,
+                    });
+                  }
+                }}
+                onMouseLeave={() => setTooltip(null)}
               >
                 <span className="shrink-0 w-5 flex items-center justify-center">{item.iconEl}</span>
                 {!collapsed && <span className="flex-1 truncate">{item.label}</span>}

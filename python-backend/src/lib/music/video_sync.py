@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
@@ -50,49 +51,42 @@ class VideoSyncService:
 
         raw_template = str(output_wav.with_name(f"{output_wav.stem}_raw.%(ext)s"))
         last_error: Exception | None = None
-        with self._path_lock:
-            old_path = os.environ.get("PATH", "")
-            if ffmpeg_dir and ffmpeg_dir not in old_path.split(os.pathsep):
-                os.environ["PATH"] = ffmpeg_dir + os.pathsep + old_path
+        # The caller adds the bundled FFmpeg directory to PATH once while both clips are
+        # downloading. yt-dlp checks PATH (rather than ffmpeg_location) for ranged downloads.
+        for audio_format, extra, anonymous in config_ytdlp.STREAM_ATTEMPTS:
             try:
-                for audio_format, extra, anonymous in config_ytdlp.STREAM_ATTEMPTS:
-                    try:
-                        options: dict[str, object] = {
-                            "format": audio_format,
-                            "quiet": True,
-                            "no_warnings": True,
-                            "outtmpl": raw_template,
-                            "download_ranges": yt_dlp.utils.download_range_func(
-                                None, [(0, self.CLIP_SECONDS)]
-                            ),
-                            "force_keyframes_at_cuts": True,
-                            "postprocessors": [
-                                {"key": "FFmpegExtractAudio", "preferredcodec": "wav"}
-                            ],
-                        }
-                        if extra:
-                            options.update(extra)
-                        if ffmpeg_dir:
-                            options["ffmpeg_location"] = ffmpeg_dir
-                        if not anonymous:
-                            self._ytdlp.apply_active_session_auth(options)
-                        with yt_dlp.YoutubeDL(cast("yt_dlp._Params", options)) as ydl:
-                            ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
-                        last_error = None
-                        break
-                    except Exception as error:
-                        last_error = error
-                        if is_hard_error(str(error)):
-                            break
-                        self._logger.warning(
-                            "[video-sync] %s format=%s authenticated=%s: %s",
-                            video_id,
-                            audio_format,
-                            not anonymous,
-                            error,
-                        )
-            finally:
-                os.environ["PATH"] = old_path
+                options: dict[str, object] = {
+                    "format": audio_format,
+                    "quiet": True,
+                    "no_warnings": True,
+                    "outtmpl": raw_template,
+                    "download_ranges": yt_dlp.utils.download_range_func(
+                        None, [(0, self.CLIP_SECONDS)]
+                    ),
+                    "force_keyframes_at_cuts": True,
+                    "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav"}],
+                }
+                if extra:
+                    options.update(extra)
+                if ffmpeg_dir:
+                    options["ffmpeg_location"] = ffmpeg_dir
+                if not anonymous:
+                    self._ytdlp.apply_active_session_auth(options)
+                with yt_dlp.YoutubeDL(cast("yt_dlp._Params", options)) as ydl:
+                    ydl.download([f"https://music.youtube.com/watch?v={video_id}"])
+                last_error = None
+                break
+            except Exception as error:
+                last_error = error
+                if is_hard_error(str(error)):
+                    break
+                self._logger.warning(
+                    "[video-sync] %s format=%s authenticated=%s: %s",
+                    video_id,
+                    audio_format,
+                    not anonymous,
+                    error,
+                )
 
         if last_error:
             raise last_error
@@ -183,8 +177,27 @@ class VideoSyncService:
                         try:
                             song_wav = temp_dir / "song.wav"
                             video_wav = temp_dir / "video.wav"
-                            self._download_clip(video_id, song_wav, ffmpeg_dir)
-                            self._download_clip(str(counterpart_id), video_wav, ffmpeg_dir)
+                            # The downloads are independent. Keep PATH stable for yt-dlp's ranged
+                            # download check, then fetch them concurrently to avoid serial latency.
+                            with self._path_lock:
+                                old_path = os.environ.get("PATH", "")
+                                if ffmpeg_dir and ffmpeg_dir not in old_path.split(os.pathsep):
+                                    os.environ["PATH"] = ffmpeg_dir + os.pathsep + old_path
+                                try:
+                                    with ThreadPoolExecutor(max_workers=2) as pool:
+                                        song_download = pool.submit(
+                                            self._download_clip, video_id, song_wav, ffmpeg_dir
+                                        )
+                                        video_download = pool.submit(
+                                            self._download_clip,
+                                            str(counterpart_id),
+                                            video_wav,
+                                            ffmpeg_dir,
+                                        )
+                                        song_download.result()
+                                        video_download.result()
+                                finally:
+                                    os.environ["PATH"] = old_path
                             offset, confidence = self._compute_offset(song_wav, video_wav)
                             result = {
                                 "available": True,
