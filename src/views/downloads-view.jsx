@@ -1,6 +1,7 @@
 // Downloads view — offline/cached songs, rendered via PlaylistLayout. Extracted from App.jsx.
 import { useState, useEffect, useMemo } from "react";
-import { API, useLang } from "../context.jsx";
+import { API } from "../shared/api/client.js";
+import { useLang } from "../context.jsx";
 import { PlaylistLayout } from "./track-table.jsx";
 import { GridCard } from "../ui/rows.jsx";
 import { Microphone, MusicNote, VinylRecord } from "../icons.jsx";

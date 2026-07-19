@@ -1,6 +1,6 @@
 // Unison community-lyrics API: identity-signed vote / report / nickname calls.
 // Extracted from App.jsx.
-import { API } from "../context.jsx";
+import { API } from "../shared/api/client.js";
 import { buildSignedRequest } from "./identity.js";
 
 function getUnisonIdentity() {

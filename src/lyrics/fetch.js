@@ -1,5 +1,5 @@
 // Multi-provider lyrics fetch. Extracted from App.jsx.
-import { API } from "../context.jsx";
+import { API } from "../shared/api/client.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "./providers.js";
 import { parseLrc, parseRichSync, parseTtml } from "./parse.js";
 

@@ -5,7 +5,7 @@ import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
 
 // Expanding player overlay — the crossfaded cover backdrop plus the lyrics/cover panes that
 // slide up over the content area (and the fullscreen split view with its drag handle).
-// Extracted verbatim from AppShell.jsx (Step 14); flat props keep the moved JSX unchanged.
+// Extracted verbatim from AppShell.jsx (Step 13c); flat props keep the moved JSX unchanged.
 export function PlayerOverlay({
   overlayOpen,
   fullscreen,

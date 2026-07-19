@@ -6,7 +6,7 @@ const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
 
 // Global keyboard-shortcut handler for the app shell — playback, seek, volume/mute, zoom,
 // fullscreen, lyrics, feedback (F8), plus shortcut-recording and layout-label capture.
-// Extracted verbatim from AppShell.jsx (Step 14); every piece of state it drives is passed
+// Extracted verbatim from AppShell.jsx (Step 13c); every piece of state it drives is passed
 // in via the options object, and it owns the mute-restore volume ref itself.
 export function useAppShortcuts({
   recordingShortcutRef,

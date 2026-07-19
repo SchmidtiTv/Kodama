@@ -1,7 +1,7 @@
 // Big Picture — Now Playing screen. Big cover + transport, driven by the real player via the
 // in-process bridge. Controller/keyboard focusable; the seek bar seeks ±10s on left/right.
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
-import { thumbHi } from "../context.jsx";
+import { thumbHi } from "../shared/api/thumbnails.js";
 import { useNowPlaying, sendPlayerCommand, sendSeek } from "./playerBridge.js";
 import {
   Play,

@@ -14,7 +14,8 @@ import {
   ModalCloseTrigger,
 } from "@heroui/react";
 import { Users, Check, UserPlus } from "../icons.jsx";
-import { thumb, useLang } from "../context.jsx";
+import { thumb } from "../shared/api/thumbnails.js";
+import { useLang } from "../context.jsx";
 import { useProfileState, useProfileActions } from "../features/profiles/profile-context.jsx";
 
 export function ProfileSwitcherModal({ isOpen, onOpenChange }) {

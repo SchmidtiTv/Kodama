@@ -21,7 +21,7 @@ import {
   TextArea,
 } from "@heroui/react";
 import { Lock, EyeSlash, Globe, Playlist, PencilSimple, Trash } from "../icons.jsx";
-import { API } from "../context.jsx";
+import { API } from "../shared/api/client.js";
 
 export function CreatePlaylistModal({ onClose, onCreated, t }) {
   const [title, setTitle] = useState("");

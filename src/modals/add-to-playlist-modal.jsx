@@ -21,7 +21,9 @@ import {
   ModalCloseTrigger,
 } from "@heroui/react";
 import { Playlist, MagnifyingGlass, Plus } from "../icons.jsx";
-import { API, thumb, useLang } from "../context.jsx";
+import { API } from "../shared/api/client.js";
+import { thumb } from "../shared/api/thumbnails.js";
+import { useLang } from "../context.jsx";
 
 export function AddToPlaylistModal({ tracks, onClose, onNewPlaylist, onAdded }) {
   const t = useLang();

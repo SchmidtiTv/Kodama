@@ -1,14 +1,10 @@
-// Shared foundation extracted from App.jsx: the backend base URL, the thumbnail proxy helper,
-// and the React contexts + hooks used across the app (language, animations, zoom, font scale).
-// Kept in its own module so components split out of App.jsx can import these without pointing
-// back at App.jsx (which would create a circular import).
+// React contexts + hooks used across the app (language, animations, zoom, font scale),
+// extracted from App.jsx. Kept in its own module so components split out of App.jsx can
+// import these without pointing back at App.jsx (which would create a circular import).
+// (The former API/thumbnail compatibility re-exports were removed in Step 14 — callers
+// now import those directly from shared/api/.)
 import { createContext, useContext } from "react";
 import { translate } from "./i18n.js";
-import { API } from "./shared/api/client.js";
-import { hiResThumb, thumb, thumbHi } from "./shared/api/thumbnails.js";
-
-// Temporary compatibility exports while existing callers migrate to shared/api.
-export { API, hiResThumb, thumb, thumbHi };
 
 // ─── Language ─────────────────────────────────────────────────────────────────
 export const LangContext = createContext("de");

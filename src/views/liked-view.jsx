@@ -1,7 +1,8 @@
 // Liked-songs view — fetches the user's liked tracks and renders them via PlaylistLayout.
 // Extracted from App.jsx.
 import { useState, useEffect } from "react";
-import { API, useLang } from "../context.jsx";
+import { API } from "../shared/api/client.js";
+import { useLang } from "../context.jsx";
 import { PlaylistLayout } from "./track-table.jsx";
 
 export function LikedView({

@@ -84,7 +84,6 @@ export function AppShell({
     artistView,
     searchQuery,
     handleSearch,
-    addRecentPlaylist,
     removeRecentPlaylist,
     openPlaylist,
     openAlbum,
@@ -152,7 +151,7 @@ export function AppShell({
     remoteDeviceAction,
     remoteRememberDevice,
   } = remote;
-  const { offlineMode, isActuallyOffline, isOffline, handleToggleOffline } = network;
+  const { offlineMode, isActuallyOffline, isOffline } = network;
   const { downloadBatches, downloadQueueMin, setDownloadQueueMin, handleCancelBatch } =
     downloadQueue;
   const { anonStats, handleAnonStatsChange, hideUserHandle, setHideUserHandle } = privacySettings;
@@ -535,14 +534,12 @@ export function AppShell({
             onOpenPlaylist={(pl) => openPlaylist(pl, view)}
             onOpenAlbum={(item) => openAlbum(item, view)}
             onOpenArtist={(item) => openArtist(item, view)}
-            onAddRecent={addRecentPlaylist}
             onContextMenu={openContextMenu}
             onOpenProfileSwitcher={() => setShowProfileSwitcher(true)}
             onCreatePlaylist={() => setCreatePlaylistOpen(true)}
             updateInfo={updateInfo}
             offlineMode={offlineMode}
             isActuallyOffline={isActuallyOffline}
-            onToggleOffline={handleToggleOffline}
             onRefreshView={() => setViewRefreshKey((k) => k + 1)}
             obsEnabled={obsEnabled}
             onOpenOverlaySettings={() => {

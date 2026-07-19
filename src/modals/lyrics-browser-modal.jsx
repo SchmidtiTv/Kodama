@@ -24,7 +24,8 @@ import {
   DropdownItem,
 } from "@heroui/react";
 import { Microphone, Flag, Check, CaretUp, CaretDown } from "../icons.jsx";
-import { API, useLang } from "../context.jsx";
+import { API } from "../shared/api/client.js";
+import { useLang } from "../context.jsx";
 import { PROVIDER_SYNC } from "../lyrics/providers.js";
 import { fetchLyrics } from "../lyrics/fetch.js";
 import { parseTtml, parseLrc, parseDurationToSeconds } from "../lyrics/parse.js";

@@ -1143,6 +1143,49 @@ requests, and native bridge events for the risky flows.
     startup/FFmpeg/langpicker gates, the provider stack, and a single `<AppShell/>` call. Step 14
     (remove compatibility glue, final boundary audit) is next per the plan.
 
-- [ ] Step 14: Remove compatibility glue and audit boundaries
-  - How: *(to be filled in when done)*
-  - Verified: *(how it was checked / what still needs manual testing)*
+- [~] Step 14: Remove compatibility glue and audit boundaries
+  - Preceded by an AppShell decomposition ("Step 13c"): the ~2,345-line `app/AppShell.jsx`
+    was split into `app/Sidebar.jsx`, `app/MainContent.jsx` (the view router + `AnimatedView`),
+    `app/PlayerOverlay.jsx` (the lyrics/cover overlay + split view), `app/QueueDock.jsx`,
+    the `app/hooks/use-app-shortcuts.js` keyboard-shortcut hook, and the shared
+    `app/shell-constants.js` geometry module + `shared/lib/platform.js` (`IS_MAC`). AppShell
+    is now a ~915-line orchestrator; each moved piece takes a focused prop set. All extraction
+    comments cite "(Step 13c)".
+  - Compatibility glue removed:
+    - **`context.jsx` temporary API/thumbnail re-exports** (`API`, `thumb`, `hiResThumb`,
+      `thumbHi`) — the last documented "temporary compatibility export" in the tree. Its 19
+      consumers (`bigpicture/*`, `modals/*`, `views/*`, `ui/rows.jsx`, `lyrics/fetch.js`,
+      `unison/api.js`) now import `API` from `shared/api/client.js` and the thumbnail helpers
+      from `shared/api/thumbnails.js` directly; the re-export and its backing imports are gone.
+    - **Dead helper** `clampMenu` in `App.jsx` (dead since the context-menu extraction) and the
+      unused `React` default import.
+    - **Duplicate constant** `SIDEBAR_COLLAPSED` in `AppOverlays.jsx` now imports from
+      `app/shell-constants.js`.
+    - **Dead Sidebar boundary**: props `onAddRecent`/`onToggleOffline` (never read) and dead
+      locals `anim`/`useAnimations`, `profileDropdownOpen`, `profileTriggerRef` removed. The
+      now-orphaned `addRecentPlaylist` (nav bundle) and `handleToggleOffline` (network bundle)
+      were dropped from `App.jsx`'s `appShellNav`/`appShellNetwork` bundles and their hook
+      destructures.
+  - Boundary audit (clean):
+    - **Import graph:** nothing imports `App.jsx` (its only export is the default `App`); no
+      AppShell child imports `AppShell` back — no cycles. `LyricsOverlay` is imported from
+      `features/lyrics/`, not re-exported from App.
+    - **Prop interfaces:** every extracted component (`Sidebar` 26, `MainContent` 24,
+      `PlayerOverlay` 41, `QueueDock` 11, `AppOverlays` 32) has **0 declared-but-unused props**;
+      App→AppShell bundles have no unused members.
+  - Remaining boundary debt (documented, not glue — belongs to a future domain-extraction step):
+    - `App.jsx` still owns the **likes** feature (the `/liked/ids` load, `/like/:id` toggle, and
+      the Last.fm love/unlove mirror in `handleToggleLike`), passed to AppShell as
+      `likedIds`/`handleToggleLike`. A likes hook/context is the eventual owner; it carries no
+      profile-reset ordering risk but is a real feature still in the root.
+    - `App.jsx` still owns `ipv4First`/`fetchIpv4FirstSetting` (a connections/backend setting,
+      explicitly deferred at Step 4) and FFmpeg startup-gating fetches (`/ffmpeg/status`,
+      `/ffmpeg/check-update`) — the latter are legitimate startup gating.
+    - App's remaining `localStorage` writes are appearance/geometry/preference/history
+      persistence that App still owns pending the settings extraction; none are feature glue.
+  - Verified: `npx vite build` passes (`✓ built`; only the pre-existing chunk-size warning) after
+    every sub-step. Import-graph, cycle, and unused-prop/-import scans are clean. Native desktop
+    smoke testing still owed (blocked by the pre-existing missing `src-tauri/resources/node`
+    resource): thumbnail rendering across the 19 migrated consumers (bigpicture tabs, playlist/
+    add-to-playlist/profile-switcher modals, history/liked/downloads/track-table views), sidebar
+    nav/offline-indicator, and the full player/queue/overlay interaction matrix.

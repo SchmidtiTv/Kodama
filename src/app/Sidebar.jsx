@@ -53,9 +53,12 @@ import {
   VinylRecord,
   WifiX,
 } from "../icons.jsx";
-import { useAnimations, useLang } from "../context.jsx";
+import { useLang } from "../context.jsx";
 import { useProfileState, useProfileActions } from "../features/profiles/profile-context.jsx";
 
+// Navigation sidebar — search, main/secondary nav, pinned/recent playlists, and the account
+// menu. Extracted verbatim from AppShell.jsx (Step 13c). Profile list/active profile/logout
+// come from ProfileContext; everything else still crosses as props from AppShell.
 export function Sidebar({
   view,
   setView,
@@ -70,14 +73,12 @@ export function Sidebar({
   onOpenPlaylist,
   onOpenAlbum,
   onOpenArtist,
-  onAddRecent,
   onContextMenu,
   onOpenProfileSwitcher,
   onCreatePlaylist,
   updateInfo,
   offlineMode,
   isActuallyOffline,
-  onToggleOffline,
   onRefreshView,
   obsEnabled,
   onOpenNews,
@@ -109,11 +110,9 @@ export function Sidebar({
     return () => clearTimeout(id);
   }, [query]);
   const [tooltip, setTooltip] = useState(null);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [tetoVisible, setTetoVisible] = useState(false);
   const [tetoLeaving, setTetoLeaving] = useState(false);
   const tetoTimerRef = useRef(null);
-  const profileTriggerRef = useRef(null);
   const [quitHolding, setQuitHolding] = useState(false);
   const quitHoldTimer = useRef(null);
   const t = useLang();
@@ -134,7 +133,6 @@ export function Sidebar({
   };
   const [pinnedPlaylists, setPinnedPlaylists] = useState([]);
   const [recentPlaylists, setRecentPlaylists] = useState([]);
-  const anim = useAnimations();
 
   const reloadFromStorage = useCallback((prof) => {
     const p = prof || window.__activeProfile || "default";

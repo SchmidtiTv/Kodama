@@ -1,7 +1,7 @@
 import { storageCodecs } from "../shared/hooks/use-persisted-state.js";
 
 // Shell layout geometry — sidebar / queue / fullscreen-split dimensions and the persisted-width
-// codecs that clamp them. Shared by AppShell and the layout pieces extracted from it (Step 14).
+// codecs that clamp them. Shared by AppShell and the layout pieces extracted from it (Step 13c).
 export const SIDEBAR_EXPANDED = 288; // default expanded width
 export const SIDEBAR_COLLAPSED = 56;
 export const SIDEBAR_MIN = 230; // min when dragging

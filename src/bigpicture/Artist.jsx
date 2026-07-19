@@ -3,7 +3,8 @@
 // detail screen. Everything sits in one FocusContext so the controller flows by geometry.
 import { useEffect, useState } from "react";
 import { FocusContext, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
-import { API, thumbHi } from "../context.jsx";
+import { API } from "../shared/api/client.js";
+import { thumbHi } from "../shared/api/thumbnails.js";
 import { sendPlay } from "./playerBridge.js";
 import { setContextTarget } from "./bpContext.js";
 import { trackContextActions } from "./Detail.jsx";

@@ -2,7 +2,8 @@
 // PlaylistLayout (used by playlist / album / liked / downloads / history). Extracted from App.jsx.
 import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { thumb, useLang, useAnimations, useTrackNumbers } from "../context.jsx";
+import { thumb } from "../shared/api/thumbnails.js";
+import { useLang, useAnimations, useTrackNumbers } from "../context.jsx";
 import { useAccentColor } from "../ui/use-accent-color.js";
 import { Tooltip } from "../ui/tooltip.jsx";
 import { ExplicitBadge, ArtistLinks, SkeletonRow } from "../ui/rows.jsx";

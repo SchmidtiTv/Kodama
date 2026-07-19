@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button, CardRoot, ProgressBar, ProgressBarFill, ProgressBarTrack, toast, ToastProvider } from "@heroui/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -365,18 +365,8 @@ if (typeof document !== "undefined" && !document.getElementById("kiyoshi-tooltip
 // IpcAudio moved to src/features/player/ipc-audio.js (Step 11).
 
 // TitleBar moved to src/shared/ui/title-bar.jsx.
-
-/** Returns {left, top} clamped so the menu (w×h px) stays within the viewport. */
-function clampMenu(x, y, w = 220, h = 320) {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  return {
-    left: x + w > vw ? Math.max(4, x - w) : x,
-    top: y + h > vh ? Math.max(4, y - h) : y,
-  };
-}
-
 // ContextMenu + CtxItem moved to src/shared/ui/context-menu.jsx.
+// clampMenu helper removed in Step 14 (dead after the context-menu extraction).
 
 // SIDEBAR_*/QUEUE_*/SPLIT_* geometry constants and Sidebar moved to src/app/AppShell.jsx (Step 13a-i).
 // Alternate app icons for personalization (live: taskbar/window/tray + macOS Dock & bundle).
@@ -1323,7 +1313,6 @@ export default function App() {
     setCollection,
     artistView,
     handleSearch,
-    addRecentPlaylist,
     removeRecentPlaylist,
     openPlaylist,
     openAlbum,
@@ -1821,7 +1810,7 @@ export default function App() {
   );
 
   // ── Network status + offline mode (see app/hooks/use-network-status.js) ──
-  const { offlineMode, isActuallyOffline, isOffline, handleToggleOffline } = useNetworkStatus({
+  const { offlineMode, isActuallyOffline, isOffline } = useNetworkStatus({
     fetchProfiles,
     setAppKey,
     setView,
@@ -2158,7 +2147,6 @@ export default function App() {
     artistView,
     searchQuery,
     handleSearch,
-    addRecentPlaylist,
     removeRecentPlaylist,
     openPlaylist,
     openAlbum,
@@ -2226,7 +2214,7 @@ export default function App() {
     remoteDeviceAction,
     remoteRememberDevice,
   };
-  const appShellNetwork = { offlineMode, isActuallyOffline, isOffline, handleToggleOffline };
+  const appShellNetwork = { offlineMode, isActuallyOffline, isOffline };
   const appShellDownloadQueue = {
     downloadBatches,
     downloadQueueMin,

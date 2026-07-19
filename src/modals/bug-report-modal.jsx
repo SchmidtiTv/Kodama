@@ -22,7 +22,7 @@ import {
 } from "@heroui/react";
 import { Bug, CheckCircle, Info, ImageSquare, PaperPlaneTilt } from "../icons.jsx";
 import { Toggle } from "../ui/settings-controls.jsx";
-import { API } from "../context.jsx";
+import { API } from "../shared/api/client.js";
 import { getConsoleErrors } from "../bug-diagnostics.js";
 
 // Short, human-readable OS string for bug-report diagnostics.
