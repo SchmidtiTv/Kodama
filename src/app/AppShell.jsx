@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Button,
-  CardRoot,
   cn,
   Disclosure,
   DisclosureBody,
@@ -15,10 +14,7 @@ import {
   DropdownMenu,
   DropdownPopover,
   DropdownSection,
-  DropdownSubmenuIndicator,
-  DropdownSubmenuTrigger,
   DropdownTrigger,
-  InputRoot,
   ListBox,
   ListBoxItem,
   SearchFieldClearButton,
@@ -26,18 +22,14 @@ import {
   SearchFieldInput,
   SearchFieldRoot,
   SearchFieldSearchIcon,
-  Spinner,
-  TextFieldRoot,
-  toast,
 } from "@heroui/react";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { API } from "../shared/api/client.js";
 import { thumb } from "../shared/api/thumbnails.js";
-import { ContextMenu, CtxItem } from "../shared/ui/context-menu.jsx";
 import { AmbientBackdrop } from "../shared/ui/ambient-backdrop.jsx";
 import { TitleBar } from "../shared/ui/title-bar.jsx";
-import { DownloadQueueCard } from "./DownloadQueueCard.jsx";
 import { SelectionActionBar } from "./SelectionActionBar.jsx";
+import { AppOverlays } from "./AppOverlays.jsx";
+import { buildShareLink } from "../features/player/share-link.js";
 import { storageCodecs, usePersistedState } from "../shared/hooks/use-persisted-state.js";
 import { matchesShortcut, serializeShortcut } from "../shared/lib/shortcuts.js";
 import { useNews } from "./hooks/use-news.js";
@@ -51,10 +43,7 @@ import {
   Bug,
   CaretLineLeft,
   CaretLineRight,
-  CheckCircle,
   ClockCounterClockwise,
-  Copy,
-  DotsThreeVertical,
   DownloadSimple,
   Gear,
   Heart,
@@ -62,34 +51,18 @@ import {
   MagnifyingGlass,
   Megaphone,
   Microphone,
-  MusicNote,
-  PencilSimple,
   Playlist,
   Plus,
   Power,
   PushPin,
-  Queue,
-  Radio,
   ScreencastSimple,
-  ShareNodes,
   SignOut,
-  Trash,
   UserCircle,
   Users,
   VinylRecord,
   WifiX,
-  X,
 } from "../icons.jsx";
 import { useAnimations, useLang } from "../context.jsx";
-import {
-  CreatePlaylistModal,
-  DeletePlaylistModal,
-  RenamePlaylistModal,
-} from "../modals/playlist-modals.jsx";
-import { NewsModal } from "../modals/news-modal.jsx";
-import { BugReportModal } from "../modals/bug-report-modal.jsx";
-import { ProfileSwitcherModal } from "../modals/profile-switcher-modal.jsx";
-import { RemotePairModal } from "../ui/remote-control.jsx";
 import { CollectionView } from "../views/collection-view.jsx";
 import { DownloadsView } from "../views/downloads-view.jsx";
 import { HistoryView } from "../views/history-view.jsx";
@@ -98,26 +71,20 @@ import { LibraryView } from "../features/music/views/library-view.jsx";
 import { SearchView } from "../features/music/views/search-view.jsx";
 import { HomeView } from "../features/music/views/home-view.jsx";
 import { ArtistView } from "../features/music/views/artist-view.jsx";
-import { itemId } from "../features/music/lib/playlist-id.js";
 import { LyricsOverlay } from "../features/lyrics/LyricsOverlay.jsx";
 import { CoverView, Player, QueuePanel } from "../features/player/player-ui.jsx";
 import { hiResThumb } from "../features/player/cover-art.js";
 import { usePlaybackStatus, useQueueState, usePlayerActions } from "../features/player/player-context.jsx";
 import { useProfileState, useProfileActions } from "../features/profiles/profile-context.jsx";
-import { useDownloadState, useDownloadActions } from "../features/downloads/download-context.jsx";
-import { SettingsPanel } from "../features/settings/settings-panel.jsx";
 import { SettingsSidebarContent } from "../features/settings/settings-sidebar.jsx";
-import { DebugFloatingWindow } from "../features/settings/settings-support.jsx";
 import { lockSettingsSection, setSettingsSectionStore } from "../features/settings/section-store.js";
-import { AddToPlaylistModal } from "../modals/add-to-playlist-modal.jsx";
-import { dissolve, particleBurst } from "../effects/particle-burst.js";
 
 // macOS uses a native titled window (traffic lights + native drag), so the custom
 // titlebar/drag-region is Windows-only. (Borderless windows swallow clicks on macOS.)
 const IS_MAC = /Mac OS X|Macintosh/.test(navigator.userAgent || "");
 
-// ─── App Version ─────────────────────────────────────────────────────────────
-const APP_VERSION = __APP_VERSION__;
+// APP_VERSION moved to src/app/AppOverlays.jsx (Step 13b) — its only consumer, BugReportModal,
+// lives there now.
 
 // Stepped values for the zoom slider (mirrors the copy in App.jsx, which owns the persisted state).
 const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
@@ -139,41 +106,8 @@ function getInitialLang() {
   return localStorage.getItem("kiyoshi-lang") || detectSystemLang();
 }
 
-async function openOverlayEditor() {
-  const existing = await WebviewWindow.getByLabel("overlay-editor");
-  if (existing) {
-    await existing.setFocus();
-    return;
-  }
-  new WebviewWindow("overlay-editor", {
-    url: "/?overlayEditor=1",
-    title: "Overlay Editor — Kodama",
-    width: 1440,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 600,
-    resizable: true,
-    center: true,
-    decorations: false,
-  });
-}
-
-// Universal share link → GitHub-Pages redirect page (tries kodama://, falls back to YT Music).
-const KODAMA_SHARE_BASE = "https://kiyoshithedevil.github.io/Kodama/s/";
-function buildShareLink(track) {
-  const p = new URLSearchParams({ v: track.videoId });
-  const title = track.title || "";
-  const artists = Array.isArray(track.artists)
-    ? track.artists
-        .map((a) => (a && a.name) || a)
-        .filter(Boolean)
-        .join(", ")
-    : track.artists || "";
-  if (title) p.set("t", title);
-  if (artists) p.set("a", artists);
-  if (track.thumbnail) p.set("c", track.thumbnail);
-  return `${KODAMA_SHARE_BASE}?${p.toString()}`;
-}
+// openOverlayEditor moved to src/app/AppOverlays.jsx (Step 13b) — its only consumer, the
+// SettingsPanel overlay, lives there now.
 
 const SIDEBAR_EXPANDED = 288; // default expanded width
 const SIDEBAR_COLLAPSED = 56;
@@ -1030,331 +964,6 @@ function Sidebar({
   );
 }
 
-// Extracted outside LoginScreen to avoid remount on every parent render
-function LoginLogo() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-      <img src="/Kodama%20Logo.png" alt="Kodama" style={{ width: 56, height: 56 }} />
-    </div>
-  );
-}
-function LoginBtn({ onClick, children, secondary, disabled }) {
-  return (
-    <Button
-      fullWidth
-      variant={secondary ? "secondary" : "solid"}
-      color={secondary ? "default" : "accent"}
-      isDisabled={disabled}
-      className="font-semibold"
-      onPress={onClick}
-    >
-      {children}
-    </Button>
-  );
-}
-
-function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
-  const [step, setStep] = useState("start"); // start | waiting | success | local-create
-  const [localName, setLocalName] = useState("");
-  const [localLoading, setLocalLoading] = useState(false);
-  const t = useLang();
-
-  useEffect(() => {
-    let unlistenComplete, unlistenCancelled;
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      listen("login-complete", () => {
-        setStep("success");
-        setTimeout(() => onSuccess(), 1000);
-      }).then((fn) => {
-        unlistenComplete = fn;
-      });
-      listen("login-cancelled", () => {
-        setStep("start");
-      }).then((fn) => {
-        unlistenCancelled = fn;
-      });
-    });
-    return () => {
-      if (unlistenComplete) unlistenComplete();
-      if (unlistenCancelled) unlistenCancelled();
-    };
-  }, []);
-
-  const startLogin = async () => {
-    const name = forcedProfileName || "account_" + Date.now();
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("open_login_window", { profileName: name });
-      setStep("waiting");
-    } catch (e) {
-      console.error("open_login_window failed:", e);
-    }
-  };
-
-  const cancelLogin = async () => {
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("close_login_window");
-    } catch {}
-    setStep("start");
-  };
-
-  const createLocalProfile = async () => {
-    const name = localName.trim();
-    if (!name) return;
-    setLocalLoading(true);
-    try {
-      const res = await fetch(`${API}/auth/local-create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: name }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setStep("success");
-        setTimeout(() => onSuccess(), 1000);
-      }
-    } catch (e) {
-      console.error("local-create failed:", e);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  const Logo = LoginLogo;
-  const Btn = LoginBtn;
-
-  return (
-    <div
-      data-testid="login-screen"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--bg-base)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 2000,
-      }}
-    >
-      <CardRoot
-        variant="secondary"
-        className="relative gap-0!"
-        style={{
-          width: 420,
-          maxWidth: "92vw",
-          padding: 36,
-          boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
-        }}
-      >
-        {onCancel && step !== "waiting" && (
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            className="absolute top-3.5 right-3.5 size-7 min-w-0 rounded-full text-muted hover:text-primary"
-            onPress={onCancel}
-          >
-            <X size={16} />
-          </Button>
-        )}
-        <Logo />
-
-        {/* ── Start ── */}
-        {step === "start" && (
-          <>
-            <div
-              style={{
-                fontSize: "var(--t20)",
-                fontWeight: 700,
-                textAlign: "center",
-                marginBottom: 8,
-              }}
-            >
-              {forcedProfileName ? t("reauthTitle") : t("welcome")}
-            </div>
-            <div
-              style={{
-                fontSize: "var(--t13)",
-                color: "var(--text-muted)",
-                textAlign: "center",
-                marginBottom: 28,
-                lineHeight: 1.6,
-              }}
-            >
-              {forcedProfileName ? t("reauthDesc") : t("loginDesc")}
-            </div>
-            <Btn onClick={startLogin}>{t("loginButton")}</Btn>
-            {/* Hide "create local profile" for a cancelable re-auth (from settings — it has an X);
-                keep it at startup as an escape hatch even when re-auth is targeted. */}
-            {!(forcedProfileName && onCancel) && (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
-                  <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                  <span style={{ fontSize: "var(--t11)", color: "var(--text-muted)" }}>
-                    {t("orSignInWithGoogle")
-                      ? t("orSignInWithGoogle").split(" ").slice(-2).join(" ")
-                      : "oder"}
-                  </span>
-                  <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                </div>
-                <Btn onClick={() => setStep("local-create")} secondary>
-                  {t("createLocalProfile")}
-                </Btn>
-              </>
-            )}
-            <div
-              style={{
-                fontSize: "var(--t11)",
-                color: "var(--text-muted)",
-                textAlign: "center",
-                marginTop: 14,
-                lineHeight: 1.6,
-              }}
-            >
-              {t("loginHint")}
-            </div>
-          </>
-        )}
-
-        {/* ── Lokales Profil erstellen ── */}
-        {step === "local-create" && (
-          <>
-            <div
-              style={{
-                fontSize: "var(--t18)",
-                fontWeight: 700,
-                textAlign: "center",
-                marginBottom: 6,
-              }}
-            >
-              {t("localProfile")}
-            </div>
-            <div
-              style={{
-                fontSize: "var(--t12)",
-                color: "var(--text-muted)",
-                textAlign: "center",
-                marginBottom: 20,
-                lineHeight: 1.6,
-              }}
-            >
-              {t("localProfileDesc")}
-            </div>
-            {/* Vorteile-Panel */}
-            <div
-              style={{
-                background: "var(--bg-elevated)",
-                borderRadius: 10,
-                padding: "12px 14px",
-                marginBottom: 20,
-                border: "0.5px solid var(--border)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "var(--t11)",
-                  fontWeight: 600,
-                  color: "var(--accent)",
-                  marginBottom: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M8 0a8 8 0 110 16A8 8 0 018 0zm.93 6.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM8 5.5a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
-                {t("googleBenefits")}
-              </div>
-              {[
-                { icon: "☁️", key: "benefitLibrary" },
-                { icon: "🎵", key: "benefitRecommendations" },
-                { icon: "📋", key: "benefitPlaylists" },
-                { icon: "🔄", key: "benefitSync" },
-              ].map(({ icon, key }) => (
-                <div
-                  key={key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: "var(--t12)",
-                    color: "var(--text-secondary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  <span>{icon}</span> {t(key)}
-                </div>
-              ))}
-            </div>
-            <TextFieldRoot
-              aria-label={t("profileName")}
-              value={localName}
-              onChange={setLocalName}
-              className="w-full mb-3"
-            >
-              <InputRoot
-                autoFocus
-                placeholder={t("profileName")}
-                onKeyDown={(e) => e.key === "Enter" && createLocalProfile()}
-              />
-            </TextFieldRoot>
-            <Btn onClick={createLocalProfile} disabled={!localName.trim() || localLoading}>
-              {localLoading ? "..." : t("createProfile")}
-            </Btn>
-            <div style={{ marginTop: 10 }}>
-              <Btn onClick={() => setStep("start")} secondary>
-                {t("cancel")}
-              </Btn>
-            </div>
-          </>
-        )}
-
-        {/* ── Warten ── */}
-        {step === "waiting" && (
-          <div style={{ textAlign: "center", padding: "10px 0" }}>
-            <div className="flex justify-center" style={{ marginBottom: 20 }}>
-              <Spinner size="lg" />
-            </div>
-            <div style={{ fontSize: "var(--t15)", fontWeight: 600, marginBottom: 8 }}>
-              {t("loginWaiting")}
-            </div>
-            <div
-              style={{
-                fontSize: "var(--t12)",
-                color: "var(--text-muted)",
-                lineHeight: 1.6,
-                marginBottom: 24,
-              }}
-            >
-              {t("loginWaitingDesc")}
-            </div>
-            <Btn onClick={cancelLogin} secondary>
-              {t("cancel")}
-            </Btn>
-          </div>
-        )}
-
-        {/* ── Erfolg ── */}
-        {step === "success" && (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
-              <CheckCircle size={52} weight="fill" style={{ color: "var(--accent)" }} />
-            </div>
-            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 6 }}>
-              {t("loginSuccess")}
-            </div>
-            <div style={{ fontSize: "var(--t13)", color: "var(--text-muted)" }}>
-              {t("loginSuccessHint")}
-            </div>
-          </div>
-        )}
-      </CardRoot>
-    </div>
-  );
-}
-
 // ─── AppShell ─────────────────────────────────────────────────────────────────
 // Layout, route/view selection, sidebar/content/player/queue placement, and
 // resize/fullscreen presentation state (Step 13a-i). Consumes the domain
@@ -1458,20 +1067,14 @@ export function AppShell({
   // reset bridge (populated here, invoked by usePlayerController in App)
   const { autoCoverRef, flashbangTriggerRef, resetLyricsSessionRef } = bridges;
 
-  // Player controller (Step 11): consumed via context instead of re-threaded props.
+  // Player controller (Step 11): consumed via context instead of re-threaded props. enqueue/
+  // startSongRadio now live in TrackContextMenu.jsx (Step 13b).
   const { track: currentTrack, isPlaying, audioRef } = usePlaybackStatus();
   const { queueRef } = useQueueState();
-  const { setTrack: setCurrentTrack, setIsPlaying, enqueue, startSongRadio } = usePlayerActions();
-  // Downloads (Step 12): per-track state/actions via context; the queue card stays a prop above.
-  const { cachedSongIds, downloadingIds } = useDownloadState();
-  const {
-    downloadSong: handleDownloadSong,
-    exportSong: handleExportSong,
-    removeCachedSong,
-  } = useDownloadActions();
-  // Profiles (Step 12): list + fetch via context; startup/auth-gate state stays a prop above.
+  const { setTrack: setCurrentTrack, setIsPlaying } = usePlayerActions();
+  // Downloads/profile-actions context reads (cached/downloading ids, download/export/remove,
+  // fetchProfiles) moved to AppOverlays.jsx/TrackContextMenu.jsx (Step 13b).
   const { profiles } = useProfileState();
-  const { fetchProfiles } = useProfileActions();
 
   // ── App update lifecycle (see app/hooks/use-app-update.js) ──────────────────
   // Only consumed by Sidebar/SettingsPanel, both rendered here — moved wholesale off App.
@@ -2662,632 +2265,80 @@ export function AppShell({
             visible={queueOpen}
           />
         </div>
-        {/* Login Screen - shown when no profile exists */}
-        {showLogin && (
-          <LoginScreen
-            forcedProfileName={reauthName}
-            onSuccess={() => {
-              fetchProfiles();
-              setShowLogin(false);
-              setAddingProfile(false);
-              setReauthName(null);
-            }}
-            onCancel={
-              addingProfile
-                ? () => {
-                    setShowLogin(false);
-                    setAddingProfile(false);
-                    setReauthName(null);
-                  }
-                : undefined
-            }
-          />
-        )}
-
-        {/* LAN remote pairing / approval — top-level so it can pop up even with Settings closed. */}
-        {remoteEnabled && (
-          <RemotePairModal
-            isOpen={pairModalOpen}
-            onClose={() => setPairModalOpen(false)}
-            info={remoteInfo}
-            devices={remoteDevices}
-            onDevice={remoteDeviceAction}
-            onRemember={remoteRememberDevice}
-          />
-        )}
-
-        {(settingsOpen || settingsClosing) && (
-          <div
-            style={{
-              position: "absolute",
-              top: fullscreen ? 0 : 8,
-              left: fullscreen ? 0 : (sidebarCollapsed ? SIDEBAR_COLLAPSED : sidebarWidth) + 4,
-              right: fullscreen ? 0 : 8,
-              bottom: fullscreen ? 0 : 8,
-              zIndex: 150,
-              borderRadius: fullscreen ? 0 : "var(--r-xl)",
-              overflow: "hidden",
-              animation: animations
-                ? settingsClosing
-                  ? "fadeSlideOut 0.22s cubic-bezier(0.4,0,0.2,1) forwards"
-                  : "fadeSlideIn 0.28s cubic-bezier(0.4,0,0.2,1)"
-                : undefined,
-            }}
-          >
-            <SettingsPanel
-              onClose={closeSettings}
-              onOpenOverlayEditor={openOverlayEditor}
-              onResetShortcuts={setCustomShortcuts}
-              onSectionChange={setSettingsSectionStore}
-              language={language}
-              onLanguageChange={handleLanguageChange}
-              updateInfo={updateInfo}
-              onCheckUpdate={checkForUpdates}
-              updateDownloading={updateDownloading}
-              updateDownloadProgress={updateDownloadProgress}
-              updateDownloaded={updateDownloaded}
-              onDownloadUpdate={downloadUpdate}
-              onInstallUpdate={installUpdate}
-              onCancelDownload={cancelUpdateDownload}
-              tab={settingsTab}
-              setTab={setSettingsTab}
-              anonStats={anonStats}
-              onAnonStatsChange={handleAnonStatsChange}
-              hideUserHandle={hideUserHandle}
-              onToggleHideUserHandle={(v) => {
-                setHideUserHandle(v);
-                localStorage.setItem("kiyoshi-hide-handle", String(v));
-              }}
-            />
-          </div>
-        )}
-
-        {/* Debug Floating Window */}
-        {debugFloat && <DebugFloatingWindow onClose={() => setDebugFloat(false)} />}
-
-        {/* Create Playlist Modal */}
-        <ProfileSwitcherModal isOpen={showProfileSwitcher} onOpenChange={setShowProfileSwitcher} />
-        {newsOpen && (
-          <NewsModal
-            news={newsItems}
-            unreadIds={newsUnreadSnapshot}
-            onRefresh={loadNews}
-            onClose={() => setNewsOpen(false)}
-            t={(key) => translate(language, key)}
-          />
-        )}
-
-        {feedbackOpen && (
-          <BugReportModal
-            screenshot={feedbackShot}
-            onClose={() => setFeedbackOpen(false)}
-            t={(key) => translate(language, key)}
-            version={APP_VERSION}
-            currentTrack={
-              currentTrack ? { videoId: currentTrack.videoId, title: currentTrack.title } : null
-            }
-          />
-        )}
-
-        {createPlaylistOpen && (
-          <CreatePlaylistModal
-            t={(key) => translate(language, key)}
-            onClose={() => {
-              setCreatePlaylistOpen(false);
-              setCreatePlaylistForSelection(false);
-              setCreatePlaylistTracks(null);
-            }}
-            onCreated={async (id, title) => {
-              const pending = createPlaylistTracks;
-              if (pending && pending.length > 0) {
-                try {
-                  await fetch(`${API}/playlist/${id}/add`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      videoIds: pending.map((t) => t.videoId),
-                      tracks: pending,
-                    }),
-                  });
-                } catch {}
-                if (createPlaylistForSelection) clearSelection();
-              }
-              setCreatePlaylistTracks(null);
-              setCreatePlaylistForSelection(false);
-              openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
-            }}
-          />
-        )}
-
-        {/* Add to playlist — dedicated modal (search + rich playlist rows) */}
-        {addToPlaylistFor && (
-          <AddToPlaylistModal
-            tracks={addToPlaylistFor.tracks}
-            onClose={() => setAddToPlaylistFor(null)}
-            onNewPlaylist={() => {
-              setCreatePlaylistTracks(addToPlaylistFor.tracks || null);
-              if (addToPlaylistFor.fromSelection) setCreatePlaylistForSelection(true);
-              setCreatePlaylistOpen(true);
-            }}
-            onAdded={addToPlaylistFor.fromSelection ? clearSelection : undefined}
-          />
-        )}
-
-        {/* Download Queue — HeroUI toast-styled card with Spinner + ProgressBar */}
-        {downloadBatches.length > 0 && (
-          <DownloadQueueCard
-            batches={downloadBatches}
-            minimized={downloadQueueMin}
-            onToggleMinimize={() => setDownloadQueueMin((m) => !m)}
-            onCancelBatch={handleCancelBatch}
-            language={language}
-          />
-        )}
-
-        {/* Track context menu */}
-        {trackContextMenu &&
-          (() => {
-            const track = trackContextMenu.track;
-            const ctxLiked = likedIds.has(track.videoId);
-            const showRemovePl = trackContextMenu.playlistId && track.setVideoId;
-            const showRemoveHist = !!trackContextMenu.removeFromHistory;
-            const artistList = Array.isArray(track.artists)
-              ? track.artists.filter((a) => a?.browseId || a?.id)
-              : [];
-            const showAlbumNav = !!track.albumBrowseId;
-            const showArtistNav = artistList.length > 0 || !!track.artistBrowseId;
-            const isCached = cachedSongIds.has(track.videoId);
-
-            const copyShare = (url) => {
-              navigator.clipboard
-                .writeText(url)
-                .then(() => toast.success(translate(language, "linkCopied")))
-                .catch(() => {});
-            };
-            const copyLyrics = () => {
-              fetch(`${API}/lyrics/${track.videoId}`)
-                .then((r) => r.json())
-                .then((d) => {
-                  if (!d.lyrics) return;
-                  const text = d.lyrics
-                    .map((l) => {
-                      const main = l.wordSync
-                        ? (l.words || []).map((w) => w.text).join("")
-                        : l.text || "";
-                      const bg = (l.bgWords || []).map((w) => w.text).join("") || l.bgText || "";
-                      return bg ? `${main} ${bg}` : main;
-                    })
-                    .join("\n");
-                  navigator.clipboard.writeText(text).catch(() => {});
-                })
-                .catch(() => {});
-            };
-            const saveLrc = async () => {
-              try {
-                const d = await fetch(`${API}/lyrics/${track.videoId}`).then((r) => r.json());
-                if (!d.lyrics) return;
-                const lyrics = d.lyrics;
-                const isSync = lyrics.some((l) => l.time >= 0);
-                const lrcLineText = (l) => {
-                  const main = l.wordSync
-                    ? (l.words || []).map((w) => w.text).join("")
-                    : l.text || "";
-                  const bg = (l.bgWords || []).map((w) => w.text).join("") || l.bgText || "";
-                  return bg ? `${main} ${bg}` : main;
-                };
-                const lrcText = isSync
-                  ? lyrics
-                      .map((l) => {
-                        const lineText = lrcLineText(l);
-                        if (l.time < 0) return lineText;
-                        const mm = String(Math.floor(l.time / 60)).padStart(2, "0");
-                        const ss = String(Math.floor(l.time % 60)).padStart(2, "0");
-                        const cs = String(Math.floor((l.time % 1) * 100)).padStart(2, "0");
-                        return `[${mm}:${ss}.${cs}] ${lineText}`;
-                      })
-                      .join("\n")
-                  : lyrics.map(lrcLineText).join("\n");
-                const { save } = await import("@tauri-apps/plugin-dialog");
-                const { writeTextFile } = await import("@tauri-apps/plugin-fs");
-                const safeTitle = (track?.title || "lyrics").replace(/[<>:"/\\|?*]/g, "_");
-                const filePath = await save({
-                  title: translate(language, "saveLrc"),
-                  defaultPath: `${safeTitle}.lrc`,
-                  filters: [
-                    { name: "LRC", extensions: ["lrc"] },
-                    { name: "Text", extensions: ["txt"] },
-                  ],
-                });
-                if (!filePath) return;
-                await writeTextFile(filePath, lrcText);
-              } catch (e) {
-                console.error(e);
-              }
-            };
-            const removeFromPlaylist = async () => {
-              if (animations) {
-                try {
-                  particleBurst(
-                    document.querySelector(`[data-track-id="${CSS.escape(track.videoId)}"]`)
-                  );
-                } catch {}
-              }
-              setCollection((c) =>
-                c
-                  ? {
-                      ...c,
-                      tracks: c.tracks.filter(
-                        (t) => t.videoId !== track.videoId || t.setVideoId !== track.setVideoId
-                      ),
-                      total: Math.max(0, (c.total ?? c.tracks.length) - 1),
-                    }
-                  : c
-              );
-              try {
-                await fetch(`${API}/playlist/${trackContextMenu.playlistId}/remove`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    videos: [{ videoId: track.videoId, setVideoId: track.setVideoId }],
-                  }),
-                });
-              } catch {}
-            };
-            const removeDownload = () => removeCachedSong(track.videoId);
-
-            return (
-              <ContextMenu
-                x={trackContextMenu.x}
-                y={trackContextMenu.y}
-                zoom={uiZoom}
-                onClose={() => setTrackContextMenu(null)}
-                ariaLabel={track.title || "Track"}
-                minWidth={210}
-              >
-                <DropdownSection>
-                  {/* Add to playlist — opens a dedicated modal with search + rich rows */}
-                  <CtxItem
-                    icon={<Plus size={15} />}
-                    label={translate(language, "addToPlaylist")}
-                    onSelect={() => setAddToPlaylistFor({ tracks: [track] })}
-                  />
-
-                  <CtxItem
-                    icon={<Queue size={15} />}
-                    label={translate(language, "playNext")}
-                    onSelect={() => {
-                      enqueue(track, "next");
-                      addToast(
-                        translate(language, "addedNext") || "Als Nächstes eingereiht",
-                        "success"
-                      );
-                    }}
-                  />
-                  <CtxItem
-                    icon={<Queue size={15} />}
-                    label={translate(language, "addToQueue")}
-                    onSelect={() => {
-                      enqueue(track, "end");
-                      addToast(
-                        translate(language, "addedQueue") || "Zur Warteschlange hinzugefügt",
-                        "success"
-                      );
-                    }}
-                  />
-                  <CtxItem
-                    icon={<Radio size={15} />}
-                    label={translate(language, "startRadio")}
-                    onSelect={() => startSongRadio(track)}
-                  />
-
-                  <DropdownItem
-                    textValue={
-                      ctxLiked ? translate(language, "unlike") : translate(language, "like")
-                    }
-                    onAction={() => handleToggleLike(track)}
-                    className={
-                      ctxLiked
-                        ? "text-accent! data-[focused]:text-accent! data-[hovered]:text-accent!"
-                        : undefined
-                    }
-                  >
-                    <span className="w-4 flex justify-center shrink-0">
-                      <Heart size={15} weight={ctxLiked ? "fill" : "regular"} />
-                    </span>
-                    {ctxLiked ? translate(language, "unlike") : translate(language, "like")}
-                  </DropdownItem>
-
-                  {showRemovePl ? (
-                    <CtxItem
-                      icon={<X size={15} />}
-                      danger
-                      label={translate(language, "removeFromPlaylist")}
-                      onSelect={removeFromPlaylist}
-                    />
-                  ) : null}
-                  {showRemoveHist ? (
-                    <CtxItem
-                      icon={<X size={15} />}
-                      danger
-                      label={translate(language, "removeFromHistory")}
-                      onSelect={() => trackContextMenu.removeFromHistory()}
-                    />
-                  ) : null}
-                </DropdownSection>
-
-                {showAlbumNav || showArtistNav ? (
-                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                    {showAlbumNav ? (
-                      <CtxItem
-                        icon={<VinylRecord size={15} />}
-                        label={translate(language, "goToAlbum")}
-                        onSelect={() =>
-                          openAlbum({ browseId: track.albumBrowseId, title: track.album }, view)
-                        }
-                      />
-                    ) : null}
-                    {artistList.length > 0 ? (
-                      artistList.map((a, i) => {
-                        const browseId = a.browseId || a.id;
-                        const name = a.name || "";
-                        return (
-                          <CtxItem
-                            key={browseId || i}
-                            id={`artist-${browseId || i}`}
-                            icon={<Microphone size={15} />}
-                            label={`${translate(language, "goToArtist")}${name ? `: ${name}` : ""}`}
-                            textValue={`${translate(language, "goToArtist")} ${name}`}
-                            onSelect={() => openArtist({ browseId, artist: name }, view)}
-                          />
-                        );
-                      })
-                    ) : track.artistBrowseId ? (
-                      <CtxItem
-                        icon={<Microphone size={15} />}
-                        label={translate(language, "goToArtist")}
-                        onSelect={() => openArtist({ browseId: track.artistBrowseId }, view)}
-                      />
-                    ) : null}
-                  </DropdownSection>
-                ) : null}
-
-                <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                  <DropdownSubmenuTrigger>
-                    <DropdownItem textValue={translate(language, "share")}>
-                      <span className="w-4 flex justify-center shrink-0">
-                        <ShareNodes size={15} />
-                      </span>
-                      {translate(language, "share")}
-                      <DropdownSubmenuIndicator className="ml-auto" />
-                    </DropdownItem>
-                    <DropdownPopover className="min-w-56">
-                      <DropdownMenu aria-label={translate(language, "share")}>
-                        <DropdownSection>
-                          <CtxItem
-                            icon={<ShareNodes size={15} />}
-                            label={translate(language, "copyShareLink")}
-                            onSelect={() => copyShare(buildShareLink(track))}
-                          />
-                          <CtxItem
-                            icon={<Copy size={15} />}
-                            label={translate(language, "copyKodamaLink")}
-                            onSelect={() => copyShare(`kodama://song/${track.videoId}`)}
-                          />
-                          <CtxItem
-                            icon={<Copy size={15} />}
-                            label={translate(language, "copyYtMusicLink")}
-                            onSelect={() =>
-                              copyShare(`https://music.youtube.com/watch?v=${track.videoId}`)
-                            }
-                          />
-                          <CtxItem
-                            icon={<Copy size={15} />}
-                            label={translate(language, "copyYoutubeLink")}
-                            onSelect={() =>
-                              copyShare(`https://youtube.com/watch?v=${track.videoId}`)
-                            }
-                          />
-                        </DropdownSection>
-                      </DropdownMenu>
-                    </DropdownPopover>
-                  </DropdownSubmenuTrigger>
-                </DropdownSection>
-
-                <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                  {isCached ? (
-                    <CtxItem
-                      icon={<Trash size={15} />}
-                      danger
-                      label={translate(language, "removeDownload")}
-                      onSelect={removeDownload}
-                    />
-                  ) : !downloadingIds.has(track.videoId) ? (
-                    <CtxItem
-                      icon={<DownloadSimple size={15} />}
-                      label={translate(language, "download")}
-                      onSelect={() => handleDownloadSong(track)}
-                    />
-                  ) : null}
-                  <CtxItem
-                    icon={<MusicNote size={15} />}
-                    label={translate(language, "saveAsMp3")}
-                    onSelect={() => handleExportSong(track, "mp3")}
-                  />
-                  <CtxItem
-                    icon={<MusicNote size={15} />}
-                    label={translate(language, "saveAsOpus")}
-                    onSelect={() => handleExportSong(track, "opus")}
-                  />
-                </DropdownSection>
-
-                <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                  <CtxItem
-                    icon={<Copy size={15} />}
-                    label={translate(language, "copyLyrics")}
-                    onSelect={copyLyrics}
-                  />
-                  <CtxItem
-                    icon={<DownloadSimple size={15} />}
-                    label={translate(language, "saveLrc")}
-                    onSelect={saveLrc}
-                  />
-                </DropdownSection>
-              </ContextMenu>
-            );
-          })()}
-
-        {/* Global playlist context menu */}
-        {globalContextMenu &&
-          (() => {
-            const pl = globalContextMenu.playlist;
-            const isPinned = pinnedIds.includes(itemId(pl));
-            const showAlbumNav = pl?.browseId && pl?.type !== "artist";
-            const showArtistNav = !!pl?.artistBrowseId;
-            const isUserPlaylist = pl?.playlistId && pl?.type !== "album" && pl?.owned !== false;
-            const isPlaylistShare =
-              pl && pl.type !== "album" && pl.type !== "artist" && (pl.playlistId || pl.browseId);
-            const plShareId = (pl?.playlistId || pl?.browseId || "").replace(/^VL/, "");
-            return (
-              <ContextMenu
-                x={globalContextMenu.x}
-                y={globalContextMenu.y}
-                zoom={uiZoom}
-                onClose={() => setGlobalContextMenu(null)}
-                ariaLabel="Playlist"
-                minWidth={190}
-              >
-                <DropdownSection>
-                  <CtxItem
-                    icon={<PushPin size={15} />}
-                    label={isPinned ? translate(language, "unpin") : translate(language, "pin")}
-                    onSelect={() => togglePin(pl)}
-                  />
-                  <CtxItem
-                    icon={<DotsThreeVertical size={16} />}
-                    label={translate(language, "open")}
-                    onSelect={() => {
-                      if (pl?.type === "album") openAlbum(pl, view);
-                      else if (pl?.type === "artist") openArtist(pl, view);
-                      else openPlaylist(pl, view);
-                    }}
-                  />
-                </DropdownSection>
-                {isPlaylistShare && plShareId ? (
-                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                    <CtxItem
-                      icon={<ShareNodes size={15} />}
-                      label={translate(language, "copyYtMusicLink")}
-                      onSelect={() =>
-                        navigator.clipboard
-                          .writeText(`https://music.youtube.com/playlist?list=${plShareId}`)
-                          .then(() => toast.success(translate(language, "linkCopied")))
-                          .catch(() => {})
-                      }
-                    />
-                    <CtxItem
-                      icon={<Copy size={15} />}
-                      label={translate(language, "copyYoutubeLink")}
-                      onSelect={() =>
-                        navigator.clipboard
-                          .writeText(`https://youtube.com/playlist?list=${plShareId}`)
-                          .then(() => toast.success(translate(language, "linkCopied")))
-                          .catch(() => {})
-                      }
-                    />
-                  </DropdownSection>
-                ) : null}
-                {showAlbumNav || showArtistNav ? (
-                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                    {showAlbumNav ? (
-                      <CtxItem
-                        icon={<VinylRecord size={15} />}
-                        label={translate(language, "goToAlbum")}
-                        onSelect={() => openAlbum(pl, view)}
-                      />
-                    ) : null}
-                    {showArtistNav ? (
-                      <CtxItem
-                        icon={<Microphone size={15} />}
-                        label={translate(language, "goToArtist")}
-                        onSelect={() => openArtist({ browseId: pl.artistBrowseId }, view)}
-                      />
-                    ) : null}
-                  </DropdownSection>
-                ) : null}
-                {isUserPlaylist || !isPinned ? (
-                  <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-                    {isUserPlaylist ? (
-                      <CtxItem
-                        icon={<PencilSimple size={15} />}
-                        label={translate(language, "renamePlaylist")}
-                        onSelect={() =>
-                          setRenameDialog({ playlistId: pl.playlistId, title: pl.title })
-                        }
-                      />
-                    ) : null}
-                    {isUserPlaylist ? (
-                      <CtxItem
-                        icon={<Trash size={15} />}
-                        danger
-                        label={translate(language, "deletePlaylist")}
-                        onSelect={() =>
-                          setDeleteDialog({ playlistId: pl.playlistId, title: pl.title })
-                        }
-                      />
-                    ) : null}
-                    {!isPinned ? (
-                      <CtxItem
-                        icon={<X size={16} />}
-                        danger
-                        label={translate(language, "removeFromRecent")}
-                        onSelect={() => removeRecentPlaylist(itemId(pl))}
-                      />
-                    ) : null}
-                  </DropdownSection>
-                ) : null}
-              </ContextMenu>
-            );
-          })()}
-
-        {/* Rename Playlist Dialog */}
-        {renameDialog && (
-          <RenamePlaylistModal
-            dialog={renameDialog}
-            onClose={() => setRenameDialog(null)}
-            t={(key) => translate(language, key)}
-          />
-        )}
-
-        {/* Delete Playlist Confirm Dialog */}
-        {deleteDialog && (
-          <DeletePlaylistModal
-            dialog={deleteDialog}
-            onClose={() => setDeleteDialog(null)}
-            t={(key) => translate(language, key)}
-            onConfirm={async () => {
-              const pid = deleteDialog.playlistId;
-              const fromCollection = view === "collection" && collection?.playlistId === pid;
-              setDeleteDialog(null);
-              removeRecentPlaylist(pid);
-              if (!fromCollection) {
-                const remove = () =>
-                  window.dispatchEvent(new CustomEvent("kiyoshi-playlist-removed", { detail: pid }));
-                requestAnimationFrame(() => {
-                  const el = document.querySelector(`[data-card-id="${CSS.escape(pid)}"]`);
-                  if (animations && el) dissolve(el, remove);
-                  else remove();
-                });
-                fetch(`${API}/playlist/${pid}`, { method: "DELETE" }).catch(() => {});
-              } else {
-                try {
-                  await fetch(`${API}/playlist/${pid}`, { method: "DELETE" });
-                } catch {}
-                window.dispatchEvent(new Event("kiyoshi-library-updated"));
-                setView("library");
-              }
-            }}
-          />
-        )}
+        <AppOverlays
+          language={language}
+          addToast={addToast}
+          handleLanguageChange={handleLanguageChange}
+          uiZoom={uiZoom}
+          animations={animations}
+          fullscreen={fullscreen}
+          sidebarCollapsed={sidebarCollapsed}
+          sidebarWidth={sidebarWidth}
+          view={view}
+          setView={setView}
+          collection={collection}
+          setCollection={setCollection}
+          openAlbum={openAlbum}
+          openArtist={openArtist}
+          openPlaylist={openPlaylist}
+          removeRecentPlaylist={removeRecentPlaylist}
+          pinnedIds={pinnedIds}
+          togglePin={togglePin}
+          likedIds={likedIds}
+          handleToggleLike={handleToggleLike}
+          clearSelection={clearSelection}
+          auth={{ showLogin, setShowLogin, addingProfile, setAddingProfile, reauthName, setReauthName }}
+          remote={{
+            remoteEnabled,
+            pairModalOpen,
+            setPairModalOpen,
+            remoteInfo,
+            remoteDevices,
+            remoteDeviceAction,
+            remoteRememberDevice,
+          }}
+          settingsPanel={{
+            settingsOpen,
+            settingsClosing,
+            closeSettings,
+            settingsTab,
+            setSettingsTab,
+            setCustomShortcuts,
+            anonStats,
+            handleAnonStatsChange,
+            hideUserHandle,
+            setHideUserHandle,
+            updateInfo,
+            checkForUpdates,
+            updateDownloading,
+            updateDownloadProgress,
+            updateDownloaded,
+            downloadUpdate,
+            installUpdate,
+            cancelUpdateDownload,
+          }}
+          debugFloatState={{ debugFloat, setDebugFloat }}
+          profileSwitcher={{ showProfileSwitcher, setShowProfileSwitcher }}
+          news={{ newsOpen, newsItems, newsUnreadSnapshot, loadNews, setNewsOpen }}
+          feedback={{ feedbackOpen, feedbackShot, setFeedbackOpen }}
+          playlistDialogs={{
+            createPlaylistOpen,
+            setCreatePlaylistOpen,
+            createPlaylistForSelection,
+            setCreatePlaylistForSelection,
+            createPlaylistTracks,
+            setCreatePlaylistTracks,
+            addToPlaylistFor,
+            setAddToPlaylistFor,
+            renameDialog,
+            setRenameDialog,
+            deleteDialog,
+            setDeleteDialog,
+          }}
+          downloadQueueCard={{ downloadBatches, downloadQueueMin, setDownloadQueueMin, handleCancelBatch }}
+          trackMenu={{ trackContextMenu, setTrackContextMenu }}
+          playlistMenu={{ globalContextMenu, setGlobalContextMenu }}
+        />
       </div>
     </>
   );

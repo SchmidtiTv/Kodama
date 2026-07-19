@@ -873,8 +873,7 @@ requests, and native bridge events for the risky flows.
     are all landed. `ProfileContext`'s `activeProfile`/`hasProfile`/`currentProfile` split could
     still be revisited once profile modals move further, but that's a refinement, not open work.
 
-- [ ] Step 13: Compose AppShell and overlays *(scoped, not started — see findings below;
-  recommend slicing further before implementation)*
+- [x] Step 13: Compose AppShell and overlays
   - **Boundary decision (confirmed, still valid):** `AppShell` is a component `App` renders as a
     child inside the provider stack; `AppOverlays` is a component `AppShell` renders as *its*
     child. Because `App()`'s entire return is one JSX tree today (no existing sibling-tree
@@ -1081,8 +1080,68 @@ requests, and native bridge events for the risky flows.
     still owed for the same reasons as 13a-i — this pass is a pure prop-shape change with the same
     values flowing through, so it doesn't add new smoke-test surface, but the 13a-i checklist above
     still applies before either checkpoint can be called verified end-to-end.
-  - Remaining for Step 13: **13b** (`AppOverlays` + `TrackContextMenu`/`PlaylistContextMenu`
-    extraction out of `AppShell`'s body) is still open, per the plan above.
+  - **13b: done.** Extracted everything that floats above `AppShell`'s core layout (sidebar/
+    content/player/queue/cover-lyrics-overlay) into three new files, per the confirmed boundary
+    decision (straight parent→child, no new context):
+    - `src/app/TrackContextMenu.jsx` — the track context menu, taking `menu` (the
+      `{x,y,track,playlistId?,removeFromHistory?}` object `AppShell` still owns as
+      `trackContextMenu`) plus a handful of cross-cutting props (`language`/`uiZoom`/`animations`/
+      `likedIds`/`handleToggleLike`/`addToast`/`setCollection`/`openAlbum`/`openArtist`/`view`/
+      `onAddToPlaylist`). Reads `enqueue`/`startSongRadio` via `usePlayerActions()` and
+      `cachedSongIds`/`downloadingIds`/`downloadSong`/`exportSong`/`removeCachedSong` via
+      `useDownloadState()`/`useDownloadActions()` directly — those two context calls are now fully
+      gone from `AppShell.jsx`, since this menu was their only remaining consumer there.
+    - `src/app/PlaylistContextMenu.jsx` — the global playlist/album/artist context menu, same
+      `menu` + small-prop-list shape; `onRename`/`onDelete` replace the direct
+      `setRenameDialog`/`setDeleteDialog` calls so the component doesn't need to know the dialogs
+      are separate state.
+    - `src/app/AppOverlays.jsx` — composes every dialog and the two context-menu components above:
+      `LoginScreen` (+ its `LoginLogo`/`LoginBtn` helpers, moved here verbatim — same
+      circular-import reasoning as `Sidebar`/`LoginScreen` landing in `AppShell.jsx` in 13a-i, since
+      `App.jsx`/`AppShell.jsx` can't be imported back into a component they render), `RemotePairModal`,
+      the `SettingsPanel` overlay wrapper, `DebugFloatingWindow`, `ProfileSwitcherModal`,
+      `NewsModal`, `BugReportModal`, `CreatePlaylistModal`/`AddToPlaylistModal`/
+      `RenamePlaylistModal`/`DeletePlaylistModal`, and `DownloadQueueCard`. `openOverlayEditor` and
+      the `APP_VERSION` (Vite-injected) constant moved here too — both had exactly one consumer,
+      now inside this file. Props are bundled into 10 named objects (`auth`, `remote`,
+      `settingsPanel`, `debugFloatState`, `profileSwitcher`, `news`, `feedback`,
+      `playlistDialogs`, `downloadQueueCard`, `trackMenu`/`playlistMenu`) plus ~18 small
+      cross-cutting flat props (`language`, `uiZoom`, `view`, `openAlbum`, etc.) — same rationale
+      and pattern as 13a-ii's `AppShell` props, sized to this component's own prop surface.
+    - `buildShareLink`/`KODAMA_SHARE_BASE` moved out of `AppShell.jsx` into a new
+      `src/features/player/share-link.js` (a small pure module) rather than staying duplicated or
+      crossing as a prop — both `AppShell.jsx` (for the `Player` component's `buildShareLink` prop)
+      and `TrackContextMenu.jsx` (for the share submenu) need it, and it has no closures/state to
+      carry, making it a clean shared module rather than app-shell-specific code.
+    - `selectedTracks`/`SelectionActionBar` were confirmed to stay in `AppShell`'s own body, not
+      `AppOverlays` — the original boundary decision's reasoning held: selection state is read only
+      by the main content column and `SelectionActionBar` (both core layout), and neither context
+      menu touches it.
+  - Verified: `npx vite build` passes (`✓ built`; only the pre-existing dynamic-import/chunk-size
+    warnings). Targeted ESLint across all four touched/new files shows zero `no-undef` beyond the
+    pre-existing Vite-injected `__APP_VERSION__` carryover (now solely in `AppOverlays.jsx`) and
+    zero new `no-unused-vars` — cleaned up every import/context-destructure ESLint flagged as
+    newly-dead as a direct result of the move (the two `DownloadContext` hook calls, `fetchProfiles`,
+    `enqueue`/`startSongRadio`, and ~30 icon/HeroUI/modal imports only the extracted JSX had used);
+    left the same pre-existing `Sidebar`-internal dead code alone as in 13a-i/13a-ii.
+    `AppShell.jsx` net: 3,294 → 2,345 lines (moved ~950 lines of JSX/component definitions out,
+    replaced with a ~90-line `<AppOverlays/>` call and prop-bundle construction).
+    **Not yet done:** desktop smoke testing — still blocked for the same reason as 13a, and now the
+    single highest-priority item before Step 13 as a whole can be called verified: every dialog and
+    both context menus moved files this pass, so a subtle prop-wiring mistake (wrong bundle key, a
+    swapped `onRename`/`onDelete`, `onAddToPlaylist` failing to open the right modal) is exactly the
+    class of bug a build/lint pass cannot catch. Checklist: open/close every dialog moved here
+    (create/rename/delete playlist, add-to-playlist, settings panel from every entry point, debug
+    float window, feedback/bug-report screenshot + version string, news modal, login screen,
+    remote-pair modal), and specifically the two context menus — a track row's full menu (add to
+    playlist, queue actions, like, remove from playlist/history, album/artist nav, share submenu,
+    download/export, copy lyrics/save LRC) and a playlist/album/artist card's menu (pin, open,
+    share, album/artist nav, rename/delete/remove-from-recent) — against real data, since their
+    context-menu bodies read several optional fields (`playlistId`, `removeFromHistory`,
+    `artistBrowseId`, etc.) that only some call sites populate.
+  - **Step 13 is now fully done** (13a-i, 13a-ii, 13b). `App.jsx` is a genuine composition root:
+    startup/FFmpeg/langpicker gates, the provider stack, and a single `<AppShell/>` call. Step 14
+    (remove compatibility glue, final boundary audit) is next per the plan.
 
 - [ ] Step 14: Remove compatibility glue and audit boundaries
   - How: *(to be filled in when done)*
