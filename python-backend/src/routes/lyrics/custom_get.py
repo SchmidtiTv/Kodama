@@ -11,5 +11,8 @@ from src.type_defs import RouteResponse
 def get_custom_lyrics(video_id: str) -> RouteResponse:
     lyrics = lyrics_service().get_custom(video_id)
     if lyrics is None:
-        return jsonify({"error": "not found"}), 404
+        # This is a routine capability check before falling back to online lyric
+        # providers. Return an explicit empty result so WebKit does not log an
+        # expected 404 for every track without imported lyrics.
+        return jsonify({"found": False})
     return jsonify(lyrics)

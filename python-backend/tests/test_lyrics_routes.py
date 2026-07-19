@@ -14,7 +14,7 @@ class LyricsRouteTests(RouteTestCase):
         self.assertEqual(self.client.post("/lyrics/custom", json={"videoId": "vid", "content": "[00:00] hi", "format": "lrc"}).json, {"ok": True})
         self.assertEqual(self.client.get("/lyrics/custom/vid").json["content"], "[00:00] hi")
         self.assertEqual(self.client.delete("/lyrics/custom/vid").json, {"ok": True})
-        self.assertEqual(self.client.get("/lyrics/custom/vid").status_code, 404)
+        self.assertEqual(self.client.get("/lyrics/custom/vid").json, {"found": False})
 
         versions = self.client.get("/lyrics/unison/versions?videoId=vid&title=Song")
         self.assertEqual(versions.json["versions"][0]["videoId"], "vid")

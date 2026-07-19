@@ -130,6 +130,16 @@ class PlaylistRouteTests(RouteTestCase):
 
 
 class LibraryDetailRouteTests(RouteTestCase):
+    def test_song_seeded_radio_uses_video_id_and_radio_mode(self) -> None:
+        radio = self.client.get("/radio/_?videoId=vNIgpTYiGe0")
+
+        self.assertEqual(radio.status_code, 200)
+        self.assertEqual(radio.json["tracks"][0]["videoId"], "vid")
+        self.assertEqual(
+            self.music_session.client.watch_playlist_calls[-1],
+            {"videoId": "vNIgpTYiGe0", "playlistId": None, "limit": 50, "radio": True},
+        )
+
     def test_radio_album_artist_and_song_meta_routes(self) -> None:
         radio = self.client.get("/radio/pl")
         self.assertEqual(radio.status_code, 200)

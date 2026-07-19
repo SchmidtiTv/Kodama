@@ -173,6 +173,7 @@ class FakeYoutubeClient:
         self.deleted_playlists = []
         self.subscribed_artists = []
         self.unsubscribed_artists = []
+        self.watch_playlist_calls = []
 
     def search(self, query: object, filter: object="songs", limit: object=20) -> object:
         if filter == "artists":
@@ -251,7 +252,19 @@ class FakeYoutubeClient:
             "tracks": self.search("playlist"),
         }
 
-    def get_watch_playlist(self, playlistId: object, limit: object=50) -> object:
+    def get_watch_playlist(
+        self,
+        videoId: object=None,
+        playlistId: object=None,
+        limit: object=50,
+        radio: object=False,
+    ) -> object:
+        self.watch_playlist_calls.append({
+            "videoId": videoId,
+            "playlistId": playlistId,
+            "limit": limit,
+            "radio": radio,
+        })
         return {"tracks": self.search("radio")}
 
     def get_album(self, browse_id: object) -> object:

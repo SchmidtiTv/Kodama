@@ -8,6 +8,8 @@ class RootMusicRouteTests(RouteTestCase):
         self.assertEqual(self.client.get("/search?q=song").json["results"][0]["type"], "song")
         self.assertEqual(self.client.get("/search?q=artist&filter=artists").json["results"][0]["type"], "artist")
         self.assertEqual(self.client.get("/search?q=album&filter=albums").json["results"][0]["type"], "album")
+        self.assertEqual(self.client.get("/search/suggestions?q=song").json, {"suggestions": ["Song"]})
+        self.assertEqual(self.client.get("/search/suggestions?q=x").json, {"suggestions": []})
         self.assertEqual(self.client.get("/home").json["sections"][0]["items"][0]["videoId"], "vid")
         self.assertEqual(self.client.get("/artist_albums?channelId=UCartist&params=abc").json["albums"][0]["title"], "Album")
         self.assertEqual(self.client.get("/artist_albums").status_code, 400)

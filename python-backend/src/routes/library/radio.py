@@ -1,6 +1,6 @@
 """Radio (watch-playlist) endpoint."""
 
-from flask import jsonify
+from flask import jsonify, request
 
 from src.lib import YoutubeResponseMapper
 
@@ -12,7 +12,22 @@ from src.type_defs import RouteResponse
 @blueprint.route("/radio/<playlist_id>")
 def get_radio(playlist_id: str) -> RouteResponse:
     try:
-        watch = music_session().get_active_client().get_watch_playlist(playlistId=playlist_id, limit=50)
+        # A song-seeded radio has no playlist ID yet. The frontend uses "_" as the
+        # route placeholder and supplies the seed in the query string instead.
+        video_id = request.args.get("videoId", "").strip()
+        if playlist_id == "_":
+            if not video_id:
+                return jsonify({"error": "videoId required"}), 400
+            watch = music_session().get_active_client().get_watch_playlist(
+                videoId=video_id,
+                limit=50,
+                radio=True,
+            )
+        else:
+            watch = music_session().get_active_client().get_watch_playlist(
+                playlistId=playlist_id,
+                limit=50,
+            )
         raw_tracks = watch.get("tracks") if isinstance(watch, dict) else None
         tracks: list[dict[str, object]] = []
         for t in raw_tracks if isinstance(raw_tracks, list) else []:
