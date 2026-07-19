@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AmbientBackdrop } from "../shared/ui/ambient-backdrop.jsx";
 import { TitleBar } from "../shared/ui/title-bar.jsx";
 import { IS_MAC } from "../shared/lib/platform.js";
@@ -39,6 +39,9 @@ import {
   setSettingsSectionStore,
 } from "../features/settings/section-store.js";
 import { getInitialLang } from "../shared/lib/lang.js";
+
+const EMPTY_TRACK_SELECTION = new Map();
+const EMPTY_FAILED_LYRICS_PROVIDERS = new Set();
 
 export function AppShell({
   language,
@@ -83,7 +86,7 @@ export function AppShell({
     overlayOpen,
     setOverlayOpen,
     queueOpen,
-    setQueueOpen,
+    setQueueOpen: setQueueOpenState,
     showLyrics,
     setShowLyrics,
     uiZoom,
@@ -237,32 +240,33 @@ export function AppShell({
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
   const [createPlaylistForSelection, setCreatePlaylistForSelection] = useState(false);
   const [createPlaylistTracks, setCreatePlaylistTracks] = useState(null);
-  const [selectedTracks, setSelectedTracks] = useState(new Map());
+  const [trackSelection, setTrackSelection] = useState({ view: null, tracks: new Map() });
+  const selectedTracks =
+    trackSelection.view === view ? trackSelection.tracks : EMPTY_TRACK_SELECTION;
 
   const toggleTrackSelection = useCallback((track) => {
-    setSelectedTracks((prev) => {
-      const next = new Map(prev);
+    setTrackSelection((previous) => {
+      const next = new Map(previous.view === view ? previous.tracks : EMPTY_TRACK_SELECTION);
       if (next.has(track.videoId)) next.delete(track.videoId);
       else next.set(track.videoId, track);
-      return next;
+      return { view, tracks: next };
     });
+  }, [view]);
+  const clearSelection = useCallback(() => {
+    setTrackSelection((previous) =>
+      previous.tracks.size === 0 ? previous : { ...previous, tracks: new Map() }
+    );
   }, []);
-  const clearSelection = useCallback(() => setSelectedTracks(new Map()), []);
   const selectAllTracks = useCallback((tracks, allSelected) => {
-    if (allSelected) {
-      setSelectedTracks(new Map());
-    } else {
-      setSelectedTracks(new Map(tracks.map((tr) => [tr.videoId, tr])));
-    }
-  }, []);
+    setTrackSelection({
+      view,
+      tracks: allSelected ? new Map() : new Map(tracks.map((tr) => [tr.videoId, tr])),
+    });
+  }, [view]);
   const [trackContextMenu, setTrackContextMenu] = useState(null);
   const [addToPlaylistFor, setAddToPlaylistFor] = useState(null);
   const [renameDialog, setRenameDialog] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(null);
-
-  useEffect(() => {
-    clearSelection();
-  }, [view]);
 
   const [debugFloat, setDebugFloat] = useState(false);
   useEffect(() => {
@@ -305,33 +309,86 @@ export function AppShell({
   }, []);
 
   const [flashbang, setFlashbang] = useState(false);
-  flashbangTriggerRef.current = () => setFlashbang(true);
+  const triggerFlashbang = useCallback(() => setFlashbang(true), []);
+  useLayoutEffect(() => {
+    flashbangTriggerRef.current = triggerFlashbang;
+  }, [flashbangTriggerRef, triggerFlashbang]);
 
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
-  const [forcedLyricsProvider, setForcedLyricsProvider] = useState(null);
-  const [currentLyricsSource, setCurrentLyricsSource] = useState("");
-  const [failedLyricsProviders, setFailedLyricsProviders] = useState(new Set());
-
-  resetLyricsSessionRef.current = () => {
-    setForcedLyricsProvider(null);
-    setCurrentLyricsSource("");
-    setFailedLyricsProviders(new Set());
-  };
+  const lyricsTrackId = currentTrack?.videoId ?? null;
+  const [lyricsSession, setLyricsSession] = useState({
+    trackId: null,
+    forcedProvider: null,
+    source: "",
+    failedProviders: EMPTY_FAILED_LYRICS_PROVIDERS,
+  });
+  const updateLyricsSession = useCallback(
+    (update) => {
+      setLyricsSession((previous) => {
+        const session =
+          previous.trackId === lyricsTrackId
+            ? previous
+            : {
+                trackId: lyricsTrackId,
+                forcedProvider: null,
+                source: "",
+                failedProviders: EMPTY_FAILED_LYRICS_PROVIDERS,
+              };
+        return update(session);
+      });
+    },
+    [lyricsTrackId]
+  );
+  const activeLyricsSession = lyricsSession.trackId === lyricsTrackId ? lyricsSession : null;
+  const forcedLyricsProvider = activeLyricsSession?.forcedProvider ?? null;
+  const currentLyricsSource = activeLyricsSession?.source ?? "";
+  const failedLyricsProviders = activeLyricsSession?.failedProviders ?? EMPTY_FAILED_LYRICS_PROVIDERS;
+  const setForcedLyricsProvider = useCallback(
+    (value) => {
+      updateLyricsSession((session) => ({
+        ...session,
+        forcedProvider: typeof value === "function" ? value(session.forcedProvider) : value,
+      }));
+    },
+    [updateLyricsSession]
+  );
+  const setCurrentLyricsSource = useCallback(
+    (value) => {
+      updateLyricsSession((session) => ({
+        ...session,
+        source: typeof value === "function" ? value(session.source) : value,
+      }));
+    },
+    [updateLyricsSession]
+  );
+  const setFailedLyricsProviders = useCallback(
+    (value) => {
+      updateLyricsSession((session) => ({
+        ...session,
+        failedProviders:
+          typeof value === "function" ? value(session.failedProviders) : value,
+      }));
+    },
+    [updateLyricsSession]
+  );
+  const resetLyricsSession = useCallback(() => {
+    updateLyricsSession((session) => ({
+      ...session,
+      forcedProvider: null,
+      source: "",
+      failedProviders: EMPTY_FAILED_LYRICS_PROVIDERS,
+    }));
+  }, [updateLyricsSession]);
+  useLayoutEffect(() => {
+    resetLyricsSessionRef.current = resetLyricsSession;
+  }, [resetLyricsSessionRef, resetLyricsSession]);
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const importLyricsRef = useRef(null);
   const removeCustomLyricsRef = useRef(null);
 
-  useEffect(() => {
-    setFailedLyricsProviders(new Set());
-    setForcedLyricsProvider(null);
-    setCurrentLyricsSource("");
-  }, [currentTrack?.videoId]);
-
   const [splitView, setSplitView] = useState(false);
   const splitViewRef = useRef(splitView);
-  splitViewRef.current = splitView;
   const showLyricsRef = useRef(showLyrics);
-  showLyricsRef.current = showLyrics;
   const [splitRatio, setSplitRatio] = useState(() => {
     const saved = parseFloat(localStorage.getItem("kiyoshi-split-ratio"));
     return Number.isFinite(saved) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, saved)) : 0.5;
@@ -361,7 +418,11 @@ export function AppShell({
     window.addEventListener("mouseup", onUp);
   }, []);
   const instrumentalVizRef = useRef(instrumentalViz);
-  instrumentalVizRef.current = instrumentalViz;
+  useLayoutEffect(() => {
+    splitViewRef.current = splitView;
+    showLyricsRef.current = showLyrics;
+    instrumentalVizRef.current = instrumentalViz;
+  }, [splitView, showLyrics, instrumentalViz]);
   const lastInstSwitchRef = useRef(0);
   const setShowLyricsManual = useCallback(
     (v) => {
@@ -391,15 +452,25 @@ export function AppShell({
   );
 
   const [queueSettled, setQueueSettled] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const setQueueOpen = useCallback(
+    (value) => {
+      setQueueSettled(false);
+      setQueueOpenState(value);
+    },
+    [setQueueOpenState]
+  );
+  const [fullscreen, setFullscreenState] = useState(false);
   const [playerVisible, setPlayerVisible] = useState(true);
   const [cursorVisible, setCursorVisible] = useState(true);
+  const setFullscreen = useCallback((value) => {
+    setPlayerVisible(true);
+    setCursorVisible(true);
+    setFullscreenState(value);
+  }, []);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
     if (!fullscreen) {
-      setPlayerVisible(true);
-      setCursorVisible(true);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       return;
     }
@@ -426,10 +497,7 @@ export function AppShell({
   }, [fullscreen]);
 
   useEffect(() => {
-    if (!queueOpen) {
-      setQueueSettled(false);
-      return;
-    }
+    if (!queueOpen) return;
     const id = setTimeout(() => setQueueSettled(true), animations ? 320 : 0);
     return () => clearTimeout(id);
   }, [queueOpen, animations]);
