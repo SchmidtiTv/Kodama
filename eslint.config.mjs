@@ -32,5 +32,17 @@ export default [
     files: ["vite.config.js"],
     languageOptions: { globals: globals.node },
   },
+  {
+    files: ["e2e/**/*.{js,cjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        ...globals.mocha,
+        browser: "readonly",
+        $: "readonly",
+      },
+    },
+  },
   prettierConfig,
 ];
