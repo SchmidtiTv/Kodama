@@ -94,6 +94,7 @@ export function Sidebar({
   // Search autocomplete: debounced suggestion fetch + a dropdown under the field.
   const [suggestions, setSuggestions] = useState([]);
   const [sugOpen, setSugOpen] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const sugBlurRef = useRef(null);
   useEffect(() => {
     const q = query.trim();
@@ -217,7 +218,31 @@ export function Sidebar({
 
   const pickSuggestion = (s) => {
     setQuery(s);
+    setActiveSuggestion(-1);
     handleSubmit(s);
+  };
+  const handleSearchChange = (value) => {
+    setQuery(value);
+    setActiveSuggestion(-1);
+  };
+  const handleSearchKeyDown = (event) => {
+    if (event.nativeEvent.isComposing) return;
+
+    if (event.key === "ArrowDown" && suggestions.length > 0) {
+      event.preventDefault();
+      setSugOpen(true);
+      setActiveSuggestion((index) => (index + 1) % suggestions.length);
+    } else if (event.key === "ArrowUp" && suggestions.length > 0) {
+      event.preventDefault();
+      setSugOpen(true);
+      setActiveSuggestion((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      pickSuggestion(suggestions[activeSuggestion] || query);
+    } else if (event.key === "Escape") {
+      setSugOpen(false);
+      setActiveSuggestion(-1);
+    }
   };
   // Dropdown of live suggestions, positioned under the (relatively-positioned) field wrapper.
   const suggestionsBox =
@@ -252,12 +277,13 @@ export function Sidebar({
               cursor: "default",
               fontSize: "var(--t13)",
               color: "var(--text-secondary)",
+              background: activeSuggestion === i ? "var(--bg-hover)" : "transparent",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            onMouseEnter={() => setActiveSuggestion(i)}
+            onMouseLeave={() => setActiveSuggestion(-1)}
           >
             <MagnifyingGlass size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s}</span>
@@ -541,13 +567,19 @@ export function Sidebar({
         </div>
       )}
 
+      {/* Keep a dedicated, non-interactive drag strip above the macOS search row.
+          Putting the search itself in a drag region makes WebKit treat pointer gestures as
+          window drags and puts it underneath the native traffic lights. */}
+      {IS_MAC && !collapsed && (
+        <div data-tauri-drag-region aria-hidden="true" className="h-5 shrink-0" />
+      )}
+
       <div
-        {...(IS_MAC ? { "data-tauri-drag-region": true } : {})}
         className={cn(
           "flex items-center gap-2",
           IS_MAC && !collapsed ? "pb-3" : "pb-4",
           collapsed ? "justify-center px-3" : "justify-start",
-          !collapsed && (IS_MAC ? "pl-18 pr-2.5" : "px-3"),
+          !collapsed && "px-3",
           collapsed && IS_MAC && "pt-8"
         )}
       >
@@ -586,15 +618,19 @@ export function Sidebar({
               >
                 <SearchFieldRoot
                   value={query}
-                  onChange={setQuery}
-                  onSubmit={handleSubmit}
+                  onChange={handleSearchChange}
+                  onSubmit={() => handleSubmit(query)}
                   className="w-full"
                 >
                   <SearchFieldGroup>
                     <SearchFieldSearchIcon>
                       <MagnifyingGlass size={16} />
                     </SearchFieldSearchIcon>
-                    <SearchFieldInput data-testid="sidebar-search" placeholder={t("search")} />
+                    <SearchFieldInput
+                      data-testid="sidebar-search"
+                      placeholder={t("search")}
+                      onKeyDown={handleSearchKeyDown}
+                    />
                     <SearchFieldClearButton />
                   </SearchFieldGroup>
                 </SearchFieldRoot>
@@ -662,15 +698,19 @@ export function Sidebar({
         >
           <SearchFieldRoot
             value={query}
-            onChange={setQuery}
-            onSubmit={handleSubmit}
+            onChange={handleSearchChange}
+            onSubmit={() => handleSubmit(query)}
             className="w-full"
           >
             <SearchFieldGroup>
               <SearchFieldSearchIcon>
                 <MagnifyingGlass size={16} />
               </SearchFieldSearchIcon>
-              <SearchFieldInput data-testid="sidebar-search" placeholder={t("search")} />
+              <SearchFieldInput
+                data-testid="sidebar-search"
+                placeholder={t("search")}
+                onKeyDown={handleSearchKeyDown}
+              />
               <SearchFieldClearButton />
             </SearchFieldGroup>
           </SearchFieldRoot>
