@@ -1268,7 +1268,9 @@ export default function OverlayEditor({
   const [drawRect, setDrawRect] = useState(null); // live preview while drawing
   const [aspectLock, setAspectLock] = useState(false);
   const aspectLockRef = useRef(false);
-  aspectLockRef.current = aspectLock;
+  useLayoutEffect(() => {
+    aspectLockRef.current = aspectLock;
+  }, [aspectLock]);
   const [dragId, setDragId] = useState(null);
   const [dragOverId, setDragOverId] = useState(null);
   const dragIdRef = useRef(null); // stable refs for pointer event closures
@@ -1336,8 +1338,7 @@ export default function OverlayEditor({
 
   // Live edit: continuous edits (typing, color drag, sliders, nudging) coalesce
   // into ONE undo step (history captured at burst start) + one debounced POST.
-  const liveEditRef = useRef(null);
-  liveEditRef.current = (producer) => {
+  const liveEdit = useCallback((producer) => {
     const base = liveDocRef.current || doc;
     const next = producer(base);
     if (!next) return;
@@ -1355,8 +1356,7 @@ export default function OverlayEditor({
       liveDocRef.current = null;
       pushDoc(next);
     }, 350);
-  };
-  const liveEdit = (producer) => liveEditRef.current(producer);
+  }, [doc, liveToIframe, pushDoc]);
 
   // Commit: history + persist + push (used by add/delete, switches, undo).
   const commit = useCallback(
@@ -1422,7 +1422,9 @@ export default function OverlayEditor({
 
   // Stable ref so pointer-event closures always call the latest reorderLayers.
   const reorderLayersRef = useRef(null);
-  reorderLayersRef.current = reorderLayers;
+  useLayoutEffect(() => {
+    reorderLayersRef.current = reorderLayers;
+  }, [reorderLayers]);
 
   // Pointer-based drag sort (HTML5 drag-and-drop is unreliable in WebView2/WebKit).
   const onGripDown = useCallback((e, id) => {
