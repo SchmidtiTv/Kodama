@@ -13,20 +13,22 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
   ModalHeader,
   ModalIcon,
   ModalHeading,
   ModalBody,
   ModalCloseTrigger,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { Playlist, MagnifyingGlass, Plus } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { useZoom } from "@/features/settings/display-context.jsx";
 
 export function AddToPlaylistModal({ tracks, onClose, onNewPlaylist, onAdded }) {
   const t = useLang();
+  const zoom = useZoom();
   const [playlists, setPlaylists] = useState(null);
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState(null);
@@ -120,7 +122,7 @@ export function AddToPlaylistModal({ tracks, onClose, onNewPlaylist, onAdded }) 
                   {t("newPlaylist")}
                 </Button>
 
-                <div className="h-[46vh] overflow-y-auto -mx-1 px-1">
+                <div className="overflow-y-auto -mx-1 px-1" style={{ height: `${46 / zoom}vh` }}>
                   {playlists === null ? (
                     <div className="h-full flex items-center justify-center">
                       <Spinner size="sm" />

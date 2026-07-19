@@ -31,6 +31,7 @@ import {
   ZoomContext,
 } from "@/features/settings/display-context.jsx";
 import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
+import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { itemId, profileKey } from "@/features/music/lib/playlist-id.js";
 import { useMusicNavigation } from "@/features/music/hooks/use-music-navigation.js";
 import { useLikes } from "@/features/music/hooks/use-likes.js";
@@ -43,6 +44,7 @@ import { useLastfmClient } from "@/features/integrations/lastfm.js";
 import { SettingsProviders } from "@/features/settings/settings-context.jsx";
 import { DEFAULT_SHORTCUTS } from "@/features/settings/settings-constants.js";
 import { useIpv4First } from "@/features/settings/use-ipv4-first.js";
+import { useVideoSync } from "@/features/player/video-sync.jsx";
 
 const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
 
@@ -270,7 +272,12 @@ export default function App() {
 
   const resetLyricsSessionRef = useRef(null);
 
-  const playerIntegrationRef = useRef({ discordRpc: true, obsEnabled: false, obsPort: 9848 });
+  const playerIntegrationRef = useRef({
+    discordRpc: true,
+    discordStatusDisplay: "song",
+    obsEnabled: false,
+    obsPort: 9848,
+  });
   const lastfm = useLastfmClient();
   const player = usePlayerController({
     addToast,
@@ -295,6 +302,32 @@ export default function App() {
   } = player;
   const [discordRpc, setDiscordRpc] = useState(
     () => localStorage.getItem("kiyoshi-discord-rpc") !== "false"
+  );
+  const [discordStatusDisplay, setDiscordStatusDisplay] = useState(
+    () => localStorage.getItem("kiyoshi-discord-status-display") || "song"
+  );
+  const [ytmusicHistorySync, setYtmusicHistorySync] = useState(
+    () => localStorage.getItem("kiyoshi-ytmusic-history-sync") === "true"
+  );
+  const [videoSyncEnabled, setVideoSyncEnabled] = useState(
+    () => localStorage.getItem("kiyoshi-video-sync") === "true"
+  );
+  const [videoSyncQuality, setVideoSyncQuality] = useState(
+    () => localStorage.getItem("kiyoshi-video-sync-quality") || "auto"
+  );
+  const [videoLyricsStyle, setVideoLyricsStyle] = useState(
+    () => localStorage.getItem("kiyoshi-video-lyrics-style") || "split"
+  );
+  const [videoViewTrackId, setVideoViewTrackId] = useState(null);
+  const videoSync = useVideoSync(
+    currentTrack?.videoId,
+    videoSyncEnabled,
+    videoSyncQuality === "auto" ? null : Number(videoSyncQuality)
+  );
+  const showVideoView = videoSync.ready && videoViewTrackId === currentTrack?.videoId;
+  const setShowVideoView = useCallback(
+    (visible) => setVideoViewTrackId(visible ? currentTrack?.videoId || null : null),
+    [currentTrack?.videoId]
   );
 
   useEffect(() => {
@@ -360,6 +393,34 @@ export default function App() {
     };
   }, [isPlaying]);
 
+  const ytHistoryRef = useRef({ videoId: null, played: 0, sent: false });
+  useEffect(() => {
+    ytHistoryRef.current = {
+      videoId: currentTrack?.videoId || null,
+      played: 0,
+      sent: false,
+    };
+  }, [currentTrack?.videoId]);
+  useEffect(() => {
+    if (!ytmusicHistorySync || !isPlaying) return;
+    const id = setInterval(() => {
+      const state = ytHistoryRef.current;
+      if (!state.videoId || state.sent) return;
+      state.played += 1;
+      const duration = parseDurationToSeconds(currentTrack?.duration) || 0;
+      if (duration < 30) return;
+      if (state.played >= Math.min(duration / 2, 240)) {
+        state.sent = true;
+        fetch(`${API}/ytmusic/history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoId: state.videoId }),
+        }).catch(() => {});
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [ytmusicHistorySync, isPlaying, currentTrack?.videoId, currentTrack?.duration]);
+
   const [closeTray, setCloseTray] = useState(
     () => localStorage.getItem("kiyoshi-close-tray") !== "false"
   );
@@ -372,9 +433,14 @@ export default function App() {
   const { obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, saveObsPort } =
     useObsOverlay();
   useEffect(() => {
-    playerIntegrationRef.current = { discordRpc, obsEnabled, obsPort };
+    playerIntegrationRef.current = {
+      discordRpc,
+      discordStatusDisplay,
+      obsEnabled,
+      obsPort,
+    };
     refreshNativeIntegrations();
-  }, [discordRpc, obsEnabled, obsPort, refreshNativeIntegrations]);
+  }, [discordRpc, discordStatusDisplay, obsEnabled, obsPort, refreshNativeIntegrations]);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   const [showLyricsTranslation, setShowLyricsTranslation] = useState(
@@ -774,6 +840,22 @@ export default function App() {
       onRemoveCrossfadeOverride: removeCrossfadeOverride,
       playbackProgressive,
       onPlaybackProgressiveChange: setPlaybackProgressive,
+      videoSyncEnabled,
+      onToggleVideoSync: () => {
+        const next = !videoSyncEnabled;
+        setVideoSyncEnabled(next);
+        localStorage.setItem("kiyoshi-video-sync", String(next));
+      },
+      videoSyncQuality,
+      onVideoSyncQualityChange: (value) => {
+        setVideoSyncQuality(value);
+        localStorage.setItem("kiyoshi-video-sync-quality", value);
+      },
+      videoLyricsStyle,
+      onVideoLyricsStyleChange: (value) => {
+        setVideoLyricsStyle(value);
+        localStorage.setItem("kiyoshi-video-lyrics-style", value);
+      },
     }),
     [
       player.autoplay,
@@ -784,6 +866,9 @@ export default function App() {
       removeCrossfadeOverride,
       playbackProgressive,
       setPlaybackProgressive,
+      videoSyncEnabled,
+      videoSyncQuality,
+      videoLyricsStyle,
     ]
   );
 
@@ -865,6 +950,16 @@ export default function App() {
             invoke("clear_discord_rpc").catch(() => {})
           );
       },
+      discordStatusDisplay,
+      onDiscordStatusDisplayChange: (v) => {
+        setDiscordStatusDisplay(v);
+        localStorage.setItem("kiyoshi-discord-status-display", v);
+      },
+      ytmusicHistorySync,
+      onYtmusicHistorySyncChange: (v) => {
+        setYtmusicHistorySync(v);
+        localStorage.setItem("kiyoshi-ytmusic-history-sync", String(v));
+      },
       ipv4First,
       onIpv4FirstChange: toggleIpv4First,
       obsEnabled,
@@ -884,6 +979,8 @@ export default function App() {
     [
       closeTray,
       discordRpc,
+      discordStatusDisplay,
+      ytmusicHistorySync,
       ipv4First,
       toggleIpv4First,
       obsEnabled,
@@ -950,6 +1047,10 @@ export default function App() {
     setShowLyrics,
     uiZoom,
     setUiZoom,
+    videoSync,
+    showVideoView,
+    setShowVideoView,
+    videoLyricsStyle,
   };
   const appShellShortcuts = {
     customShortcutsRef,

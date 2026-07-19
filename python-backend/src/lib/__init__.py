@@ -14,6 +14,7 @@ from .music.export import ExportService
 from .music.lyrics import LyricsService
 from .music.playlist import Playlist
 from .music.stream import StreamService
+from .music.video_sync import VideoSyncService
 from .music.youtube_data import YoutubeResponseMapper
 from .music.youtube_music import YoutubeMusicSession, YoutubeMusicSessionState
 from .profiles.auth_headers import ProfileAuthHeaders
@@ -49,6 +50,7 @@ __all__ = [
     "RemoteControl",
     "SongCreditsCache",
     "StreamService",
+    "VideoSyncService",
     "YoutubeResponseMapper",
     "YoutubeMusicSession",
     "YoutubeMusicSessionState",

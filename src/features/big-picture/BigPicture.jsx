@@ -118,6 +118,16 @@ export function BigPicture() {
     return () => window.removeEventListener("keydown", onKey);
   }, [openMenu, cycleTab, closeBigPicture]);
 
+  useEffect(() => {
+    const onLaunch = () =>
+      setOpen((alreadyOpen) => {
+        if (!alreadyOpen) initSounds();
+        return true;
+      });
+    window.addEventListener("kodama-open-bigpicture", onLaunch);
+    return () => window.removeEventListener("kodama-open-bigpicture", onLaunch);
+  }, []);
+
   // UI sounds for main-screen navigation. This single listener catches BOTH real keyboard keys
   // and the synthetic key events the controller path dispatches, so one sound fires per input
   // (never both). The menu drives its own sounds, so skip while it's open.

@@ -9,7 +9,6 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
   ModalHeader,
   ModalIcon,
   ModalHeading,
@@ -20,6 +19,7 @@ import {
   InputRoot,
   TextArea,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { Lock, EyeSlash, Globe, Playlist, PencilSimple, Trash } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 

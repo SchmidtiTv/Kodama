@@ -199,9 +199,10 @@ export function Home({ chrome, onOpenCard }) {
   }, []);
 
   useEffect(() => {
+    if (!history.length && !sections.length) return;
     const t = setTimeout(() => focusSelf(), 0);
     return () => clearTimeout(t);
-  }, [focusSelf]);
+  }, [focusSelf, history.length, sections.length]);
 
   return (
     <FocusContext.Provider value={focusKey}>

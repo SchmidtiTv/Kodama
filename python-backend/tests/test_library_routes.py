@@ -5,6 +5,21 @@ from unittest.mock import patch
 from route_test_support import JsonValue, RouteTestCase, TestResponse
 
 
+class HistoryRouteTests(RouteTestCase):
+    def test_history_sync_requires_authentication_and_records_the_song(self) -> None:
+        missing = self.client.post("/ytmusic/history", json={})
+        self.assertEqual(missing.status_code, 400)
+
+        recorded = self.client.post("/ytmusic/history", json={"videoId": "vid"})
+        self.assertEqual(recorded.status_code, 200)
+        self.assertEqual(recorded.json, {"ok": True, "status": 204})
+        self.assertEqual(len(self.music_session.client.history_items), 1)
+
+        self.profile_repository.local_profiles.add("default")
+        local = self.client.post("/ytmusic/history", json={"videoId": "vid"})
+        self.assertEqual(local.status_code, 403)
+
+
 def sse_events(response: TestResponse) -> list[JsonValue]:
     events: list[JsonValue] = []
     for block in response.data.decode("utf-8").strip().split("\n\n"):

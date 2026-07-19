@@ -8,3 +8,11 @@ class StreamingRouteTests(RouteTestCase):
         self.assertEqual(self.client.get("/audio-stream/vid", headers={"Range": "bytes=0-1"}).data, b"audio")
         self.assertEqual(self.client.get("/audio-stream/error").status_code, 502)
         self.assertEqual(self.client.get("/audio-stream/vid/warm").json, {"ok": True})
+
+        offset = self.client.get("/video-sync/offset/vid")
+        self.assertEqual(offset.status_code, 200)
+        self.assertEqual(offset.json["counterpartVideoId"], "official-vid")
+
+        video = self.client.get("/video-sync/stream/official-vid?maxHeight=720")
+        self.assertEqual(video.status_code, 200)
+        self.assertEqual(video.json, {"url": "https://video/official-vid", "maxHeight": 720})

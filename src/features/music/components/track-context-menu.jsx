@@ -1,12 +1,12 @@
 import {
   DropdownItem,
-  DropdownMenu,
   DropdownPopover,
   DropdownSection,
   DropdownSubmenuIndicator,
   DropdownSubmenuTrigger,
   toast,
 } from "@heroui/react";
+import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 import { API } from "@/shared/api/client.js";
 import { ContextMenu, CtxItem } from "@/shared/ui/context-menu.jsx";
 import { translate } from "@/shared/i18n/i18n.js";

@@ -6,8 +6,10 @@ pub struct DiscordRpc(Mutex<Option<DiscordIpcClient>>);
 
 impl DiscordRpc {
     pub fn new() -> Self {
+        // discord-rich-presence 1.x: `new` is infallible (returns the client directly); only
+        // `connect` can fail. Keep the client only if the initial connect succeeds.
         let drpc: Option<DiscordIpcClient> = (|| {
-            let mut client = DiscordIpcClient::new("1483291004067909642").ok()?;
+            let mut client = DiscordIpcClient::new("1483291004067909642");
             client.connect().ok()?;
             Some(client)
         })();
@@ -26,14 +28,16 @@ pub fn update_discord_rpc(
     elapsed: f64,
     video_id: String,
     paused: bool,
+    // Which field drives the compact member-list status line, mirroring PreMiD's "Pick Status
+    // Display": "song" → details (song title), "artist" → state (artist), "app" → name (app name).
+    status_display: String,
 ) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
 
     if guard.is_none() {
-        if let Ok(mut client) = DiscordIpcClient::new("1483291004067909642") {
-            if client.connect().is_ok() {
-                *guard = Some(client);
-            }
+        let mut client = DiscordIpcClient::new("1483291004067909642");
+        if client.connect().is_ok() {
+            *guard = Some(client);
         }
     }
 
@@ -66,8 +70,17 @@ pub fn update_discord_rpc(
         artist_c.clone()
     };
 
+    // Map the user's choice to Discord's status_display_type (which field the compact member-list
+    // status line shows). "song"→Details, "artist"→State, "app"→Name (Discord's default).
+    let display_type = match status_display.as_str() {
+        "artist" => activity::StatusDisplayType::State,
+        "app" => activity::StatusDisplayType::Name,
+        _ => activity::StatusDisplayType::Details, // "song" (default)
+    };
+
     let mut act = activity::Activity::new()
         .activity_type(activity::ActivityType::Listening)
+        .status_display_type(display_type)
         .assets(assets)
         .buttons(vec![button]);
 

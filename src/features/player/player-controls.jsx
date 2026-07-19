@@ -3,7 +3,6 @@ import {
   cn,
   Dropdown,
   DropdownItem,
-  DropdownMenu,
   DropdownPopover,
   DropdownSection,
   DropdownTrigger,
@@ -12,15 +11,21 @@ import {
   SliderThumb,
   SliderTrack,
   Spinner,
+  SwitchControl,
+  SwitchRoot,
+  SwitchThumb,
 } from "@heroui/react";
+import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 
 import {
   ArrowsIn,
   ArrowsOut,
   CaretUp,
   ChatText,
+  ClapperboardPlay,
   Check,
   Heart,
+  HeadphonesSimple,
   Moon,
   Pause,
   Play,
@@ -66,6 +71,9 @@ export function PlayerControls(props) {
     language,
     likePulsing,
     loading,
+    videoAvailable,
+    showVideoView,
+    onSetVideoView,
     lyricsProviders,
     lyricsTranslationLang,
     nextBouncing,
@@ -74,6 +82,7 @@ export function PlayerControls(props) {
     onExpandToggle,
     onExportSong,
     onImportLyrics,
+    onOpenLyricsBrowser,
     onOpenAlbum,
     onOpenArtist,
     onRefetchLyrics,
@@ -558,6 +567,7 @@ export function PlayerControls(props) {
                 onExpandToggle,
                 onExportSong,
                 onImportLyrics,
+                onOpenLyricsBrowser,
                 onOpenAlbum,
                 onOpenArtist,
                 onRefetchLyrics,
@@ -602,6 +612,48 @@ export function PlayerControls(props) {
               <ChatText size={16} />
             </Button>
           </Tooltip>
+          <div
+            style={{
+              marginLeft: 4,
+              marginRight: 4,
+              opacity: videoAvailable ? 1 : 0.35,
+              transition: "opacity 0.2s ease",
+              width: 60,
+              height: 30,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Tooltip
+              text={
+                videoAvailable
+                  ? showVideoView
+                    ? t("audioViewTooltip")
+                    : t("videoViewTooltip")
+                  : t("videoViewUnavailableTooltip")
+              }
+            >
+              <SwitchRoot
+                size="lg"
+                isSelected={showVideoView}
+                isDisabled={!videoAvailable}
+                onChange={(value) => onSetVideoView?.(value)}
+                aria-label={t("videoViewTooltip")}
+                style={{ transform: "scale(1.25)" }}
+              >
+                <SwitchControl>
+                  <SwitchThumb>
+                    {showVideoView ? (
+                      <ClapperboardPlay size={13} weight="fill" />
+                    ) : (
+                      <HeadphonesSimple size={13} weight="fill" />
+                    )}
+                  </SwitchThumb>
+                </SwitchControl>
+              </SwitchRoot>
+            </Tooltip>
+          </div>
           {/* Expand toggle — hidden in fullscreen (overlay is always open there) */}
           {!fullscreen && (
             <Button

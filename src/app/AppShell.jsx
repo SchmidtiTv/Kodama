@@ -88,6 +88,10 @@ export function AppShell({
     setShowLyrics,
     uiZoom,
     setUiZoom,
+    videoSync,
+    showVideoView,
+    setShowVideoView,
+    videoLyricsStyle,
   } = shellUi;
   const {
     customShortcutsRef,
@@ -389,6 +393,7 @@ export function AppShell({
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const importLyricsRef = useRef(null);
   const removeCustomLyricsRef = useRef(null);
+  const openLyricsBrowserRef = useRef(null);
 
   const [splitView, setSplitView] = useState(false);
   const splitViewRef = useRef(splitView);
@@ -478,7 +483,14 @@ export function AppShell({
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       return;
     }
-    const onMove = () => {
+    let lastX = null;
+    let lastY = null;
+    const onMove = (event) => {
+      if (event.type === "mousemove") {
+        if (event.clientX === lastX && event.clientY === lastY) return;
+        lastX = event.clientX;
+        lastY = event.clientY;
+      }
       setPlayerVisible(true);
       setCursorVisible(true);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -752,6 +764,8 @@ export function AppShell({
                     setOverlayOpen(true);
                     setSplitView(false);
                     setShowLyricsManual(true);
+                  } else if (showVideoView) {
+                    setShowLyricsManual((shown) => !shown);
                   } else if (fullscreen) {
                     // Cycle: lyrics → cover → split → lyrics
                     autoCoverRef.current = false;
@@ -767,6 +781,13 @@ export function AppShell({
                     setShowLyricsManual((l) => !l);
                   }
                 }}
+                videoAvailable={videoSync.ready}
+                showVideoView={showVideoView}
+                onSetVideoView={(value) => {
+                  if (value && !overlayOpen) setOverlayOpen(true);
+                  setShowVideoView(value);
+                }}
+                videoSync={videoSync}
                 queueOpen={queueOpen}
                 onToggleQueue={() => setQueueOpen((q) => !q)}
                 remoteEnabled={remoteEnabled}
@@ -809,6 +830,7 @@ export function AppShell({
                 }}
                 isCustomLyrics={isCustomLyrics}
                 onImportLyrics={() => importLyricsRef.current?.()}
+                onOpenLyricsBrowser={() => openLyricsBrowserRef.current?.()}
                 onRemoveCustomLyrics={() => removeCustomLyricsRef.current?.()}
                 onCreatePlaylist={() => setCreatePlaylistOpen(true)}
                 onAddToPlaylist={(tracks) => setAddToPlaylistFor({ tracks })}
@@ -833,6 +855,9 @@ export function AppShell({
           splitResizing={splitResizing}
           startSplitResize={startSplitResize}
           showLyrics={showLyrics}
+          showVideoView={showVideoView}
+          videoSync={videoSync}
+          videoLyricsStyle={videoLyricsStyle}
           audioRef={audioRef}
           isPlaying={isPlaying}
           setOverlayOpen={setOverlayOpen}
@@ -852,6 +877,7 @@ export function AppShell({
           setIsCustomLyrics={setIsCustomLyrics}
           importLyricsRef={importLyricsRef}
           removeCustomLyricsRef={removeCustomLyricsRef}
+          openLyricsBrowserRef={openLyricsBrowserRef}
           showAgentTags={showAgentTags}
           ambientVisualizer={ambientVisualizer}
           syllableZoom={syllableZoom}

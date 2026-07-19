@@ -85,6 +85,7 @@ class ConfigDirs:
         self.SONG_CACHE_DIR = self.BASE_DIR / "song_cache"
         self.LYRICS_CACHE_DIR = self.BASE_DIR / "lyrics_cache"
         self.CUSTOM_LYRICS_DIR = self.BASE_DIR / "custom_lyrics"
+        self.VIDEO_SYNC_CACHE_DIR = self.BASE_DIR / "video_sync_cache"
         self.YTDLP_UPDATE_DIR = self.BASE_DIR / "ytdlp"
 
         for directory in (
@@ -95,6 +96,7 @@ class ConfigDirs:
             self.SONG_CACHE_DIR,
             self.LYRICS_CACHE_DIR,
             self.CUSTOM_LYRICS_DIR,
+            self.VIDEO_SYNC_CACHE_DIR,
             self.YTDLP_UPDATE_DIR,
         ):
             directory.mkdir(parents=True, exist_ok=True)

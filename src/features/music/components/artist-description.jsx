@@ -4,7 +4,6 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
   ModalHeader,
   ModalHeading,
   ModalBody,
@@ -12,6 +11,7 @@ import {
   ModalIcon,
   ModalCloseTrigger,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { Info, ArrowSquareOut } from "@/shared/icons/icons.jsx";

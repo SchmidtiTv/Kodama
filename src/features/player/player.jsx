@@ -19,12 +19,17 @@ import {
   usePlayerActions,
 } from "./player-context.jsx";
 import { useDownloadState, useDownloadActions } from "../downloads/download-context.jsx";
+import { hiResThumb } from "./cover-art.js";
 
 export function Player({
   expanded,
   onExpandToggle,
   showLyrics,
   onToggleLyrics,
+  videoAvailable = false,
+  showVideoView = false,
+  onSetVideoView,
+  videoSync,
   queueOpen,
   onToggleQueue,
   fullscreen,
@@ -43,6 +48,7 @@ export function Player({
   onSetLyricsTranslationLang,
   isCustomLyrics = false,
   onImportLyrics,
+  onOpenLyricsBrowser,
   onRemoveCustomLyrics,
   onAddToPlaylist,
   buildShareLink,
@@ -106,6 +112,12 @@ export function Player({
   const crossfadePendingTrackRef = useRef(null); // next track, set until Rust confirms "started"
   const crossfadeFailedTrackRef = useRef(null); // videoId a crossfade failed for (don't retry it)
   const skipStreamResetRef = useRef(false); // suppress audio_play after a crossfade advance
+  const videoModeActiveRef = useRef(false);
+  const videoModeTrackIdRef = useRef(null);
+  const showVideoViewRef = useRef(showVideoView);
+  useEffect(() => {
+    showVideoViewRef.current = showVideoView;
+  }, [showVideoView]);
   const _lastProgressTs = useRef(0); // throttle: last time setProgress was called
   useEffect(() => {
     repeatRef.current = repeat;
@@ -244,6 +256,69 @@ export function Player({
     [onPremiumDetected]
   );
 
+  const fetchUrlRef = useRef(fetchUrl);
+  useEffect(() => {
+    fetchUrlRef.current = fetchUrl;
+  }, [fetchUrl]);
+
+  const loadAndSeek = async (audio, url, targetPosition, wasPlaying) => {
+    audio.src = url;
+    await audio.play().catch((error) => console.error("[VideoSync] play error:", error));
+    await new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        audio.removeEventListener("canplay", finish);
+        resolve();
+      };
+      audio.addEventListener("canplay", finish);
+      setTimeout(finish, 4000);
+    });
+    audio.currentTime = targetPosition;
+    if (!wasPlaying) audio.pause();
+  };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    const current = trackRef.current;
+    if (!audio || !current) return;
+    const trackId = current.videoId;
+    const wasPlaying = !audio.paused;
+    let cancelled = false;
+
+    if (showVideoView) {
+      if (!videoSync?.ready || !videoSync.counterpartVideoId) return;
+      const offset = videoSync.offsetSeconds || 0;
+      (async () => {
+        const targetPosition = Math.max(0, audio.currentTime + offset);
+        const url = await fetchUrlRef.current(videoSync.counterpartVideoId);
+        if (cancelled || !url || trackRef.current?.videoId !== trackId || !showVideoViewRef.current)
+          return;
+        videoModeActiveRef.current = true;
+        videoModeTrackIdRef.current = trackId;
+        crossfadeActiveRef.current = false;
+        crossfadePendingTrackRef.current = null;
+        await loadAndSeek(audio, url, targetPosition, wasPlaying);
+        if (wasPlaying) setIsPlaying(true);
+      })();
+    } else if (videoModeActiveRef.current && videoModeTrackIdRef.current === trackId) {
+      const offset = videoSync?.offsetSeconds || 0;
+      (async () => {
+        const targetPosition = Math.max(0, audio.currentTime - offset);
+        const url = await fetchUrlRef.current(trackId);
+        if (cancelled || !url || trackRef.current?.videoId !== trackId) return;
+        videoModeActiveRef.current = false;
+        videoModeTrackIdRef.current = null;
+        await loadAndSeek(audio, url, targetPosition, wasPlaying);
+        if (wasPlaying) setIsPlaying(true);
+      })();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [showVideoView]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Preload upcoming tracks in the background so sequential listening (album/playlist/queue)
   // has near-instant transitions and "next". Warm the next TWO tracks (most listening is
   // in order) plus the previous one. Sequential (not concurrent) to avoid starving the
@@ -331,6 +406,8 @@ export function Player({
       crossfadeActiveRef.current = false;
       crossfadePendingTrackRef.current = null;
       crossfadeFailedTrackRef.current = null;
+      videoModeActiveRef.current = false;
+      videoModeTrackIdRef.current = null;
       a.src = streamUrl;
       a.volume = volCurve(volume);
       volumeRef.current = volume;
@@ -378,6 +455,7 @@ export function Player({
       // back to HTML5 audio (Rust binary missing), skip it entirely.
       if (audioRef.current?._fallback !== false) return;
       if (crossfadeActiveRef.current || repeatRef.current === "one") return;
+      if (videoModeActiveRef.current) return;
       // Don't keep retrying a crossfade that already failed for this very track.
       if (crossfadeFailedTrackRef.current === trackRef.current?.videoId) return;
 
@@ -491,7 +569,7 @@ export function Player({
   // emit a `media-control` event from Rust; drive the player from it. Subscribe once and read
   // the latest handlers through a ref so we don't re-bind the listener on every render.
   const mediaCtlRef = useRef({});
-  mediaCtlRef.current = { togglePlay, getAdjacentTrack, setTrack, setIsPlaying };
+  mediaCtlRef.current = { togglePlay, getAdjacentTrack, setTrack, setIsPlaying, queue };
   useEffect(() => {
     let unlisten;
     import("@tauri-apps/api/event").then(({ listen }) => {
@@ -548,8 +626,13 @@ export function Player({
 
   // LAN remote bridge: while enabled, push now-playing state to the backend and drain
   // commands the phone enqueued — executed through the same playback controls as media keys.
-  const runPlaybackAction = (action) => {
+  const cycleRepeat = () => {
+    setRepeat((value) => (value === "none" ? "all" : value === "all" ? "one" : "none"));
+  };
+
+  const runPlaybackAction = (command) => {
     const h = mediaCtlRef.current;
+    const action = typeof command === "string" ? command : command?.action;
     if (action === "playpause") h.togglePlay();
     else if (action === "next") {
       const tk = h.getAdjacentTrack("next");
@@ -559,13 +642,43 @@ export function Player({
       if (tk) h.setTrack(tk);
     } else if (action === "shuffle") setShuffle((s) => !s);
     else if (action === "repeat") cycleRepeat();
+    else if (action === "like") h.toggleLike?.();
+    else if (action === "seek" && typeof command.position === "number") {
+      const audio = audioRef.current;
+      if (audio) audio.currentTime = Math.max(0, command.position);
+    } else if (action === "volume" && typeof command.value === "number") {
+      const nextVolume = Math.max(0, Math.min(1, command.value / 100));
+      setVolume(nextVolume);
+      if (audioRef.current) audioRef.current.volume = volCurve(nextVolume);
+    } else if (action === "queueJump" && command.videoId) {
+      const selected = (h.queue || []).find((item) => item.videoId === command.videoId);
+      if (selected) h.setTrack(selected);
+    }
   };
   const remoteNpRef = useRef({});
-  remoteNpRef.current = { track, isPlaying, progress, duration, shuffle, repeat };
+  remoteNpRef.current = {
+    track,
+    isPlaying,
+    progress,
+    duration,
+    shuffle,
+    repeat,
+    volume,
+    isLiked,
+    queue,
+  };
   useEffect(() => {
     if (!remoteEnabled) return;
     // One combined request per tick (push state + receive pending commands) instead of two
     // separate polling loops — keeps background activity (and its GC churn) low.
+    const queueThumb = (url) => {
+      if (!url) return "";
+      if (url.includes("googleusercontent.com") || url.includes("ggpht.com")) {
+        if (/=[ws]\d+/.test(url)) return url.replace(/=[ws]\d+[^/]*$/, "=w120-h120-l90-rj");
+        return `${url}=w120-h120-l90-rj`;
+      }
+      return url;
+    };
     const sync = () => {
       const {
         track: t,
@@ -574,6 +687,9 @@ export function Player({
         duration: dur,
         shuffle: sh,
         repeat: rp,
+        volume: vol,
+        isLiked: liked,
+        queue: queueItems,
       } = remoteNpRef.current;
       const artists = Array.isArray(t?.artists)
         ? t.artists
@@ -581,6 +697,19 @@ export function Player({
             .filter(Boolean)
             .join(", ")
         : t?.artists || "";
+      const currentIndex = (queueItems || []).findIndex((item) => item.videoId === t?.videoId);
+      const upNext = currentIndex >= 0 ? queueItems.slice(currentIndex + 1) : queueItems || [];
+      const remoteQueue = upNext.slice(0, 100).map((item) => ({
+        videoId: item.videoId,
+        title: item.title || "",
+        artists: Array.isArray(item.artists)
+          ? item.artists
+              .map((artist) => artist?.name || artist)
+              .filter(Boolean)
+              .join(", ")
+          : item.artists || "",
+        thumbnail: queueThumb(item.thumbnail),
+      }));
       fetch(`${API}/remote/_sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -588,13 +717,16 @@ export function Player({
           state: {
             title: t?.title || "",
             artists,
-            thumbnail: t?.thumbnail || "",
+            thumbnail: hiResThumb(t?.thumbnail) || "",
             isPlaying: !!p,
             position: Math.floor(pos || 0),
             duration: Math.floor(dur || 0),
             hasTrack: !!t,
             shuffle: !!sh,
             repeat: rp || "none",
+            volume: Math.round((vol ?? 1) * 100),
+            isLiked: !!liked,
+            queue: remoteQueue,
           },
         }),
       })
@@ -681,10 +813,7 @@ export function Player({
       setIsLiked(isLiked); // revert on error
     }
   };
-
-  const cycleRepeat = () => {
-    setRepeat((r) => (r === "none" ? "all" : r === "all" ? "one" : "none"));
-  };
+  mediaCtlRef.current.toggleLike = toggleLike;
 
   const fmt = (s) => {
     if (!s || isNaN(s)) return "0:00";
@@ -720,6 +849,9 @@ export function Player({
         language,
         likePulsing,
         loading,
+        videoAvailable,
+        showVideoView,
+        onSetVideoView,
         lyricsProviders,
         lyricsTranslationLang,
         nextBouncing,
@@ -728,6 +860,7 @@ export function Player({
         onExpandToggle,
         onExportSong,
         onImportLyrics,
+        onOpenLyricsBrowser,
         onOpenAlbum,
         onOpenArtist,
         onRefetchLyrics,

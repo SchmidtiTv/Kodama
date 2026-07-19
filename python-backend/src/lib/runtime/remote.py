@@ -33,8 +33,9 @@ class RemoteControl:
             "title": "", "artists": "", "thumbnail": "",
             "isPlaying": False, "position": 0, "duration": 0, "hasTrack": False,
             "shuffle": False, "repeat": "none",
+            "volume": 100, "isLiked": False, "queue": [],
         }
-        self.cmds: list[str] = []
+        self.cmds: list[dict[str, object]] = []
         self.devices: dict[str, Device] = {}
         self._ips_cache: dict[str, object] = {"ips": None, "ts": 0.0}
         self._html_cache: Optional[str] = None
@@ -134,18 +135,18 @@ class RemoteControl:
         self.state.update({k: v for k, v in (data or {}).items() if k in self.state})
 
     # Old server.py: remote_poll
-    def poll(self) -> list[str]:
-        cmds, self.cmds = self.cmds, list[str]()
+    def poll(self) -> list[dict[str, object]]:
+        cmds, self.cmds = self.cmds, []
         return cmds
 
     # Old server.py: remote_sync
-    def sync(self, data: Mapping[str, object]) -> list[str]:
+    def sync(self, data: Mapping[str, object]) -> list[dict[str, object]]:
         """Combined push + poll — the app frontend sends now-playing state and
         receives any pending commands in one request."""
         st = (data or {}).get("state")
         if isinstance(st, dict):
             self.state.update({k: v for k, v in st.items() if k in self.state})
-        cmds, self.cmds = self.cmds, list[str]()
+        cmds, self.cmds = self.cmds, []
         return cmds
 
     # ── Phone-facing operations (token + device-approval gated) ──
@@ -185,7 +186,25 @@ class RemoteControl:
             return {"error": "not_allowed"}, 403
         d["last_seen"] = time.time()
         action = str(data.get("action") or "")
-        if action in ("playpause", "next", "prev", "shuffle", "repeat"):
-            self.cmds.append(action)
+        if action in ("playpause", "next", "prev", "shuffle", "repeat", "like"):
+            self.cmds.append({"action": action})
+            return {"ok": True}, 200
+        if action == "seek":
+            position = data.get("position")
+            if not isinstance(position, (int, float)):
+                return {"error": "bad_position"}, 400
+            self.cmds.append({"action": "seek", "position": position})
+            return {"ok": True}, 200
+        if action == "volume":
+            value = data.get("value")
+            if not isinstance(value, (int, float)):
+                return {"error": "bad_value"}, 400
+            self.cmds.append({"action": "volume", "value": value})
+            return {"ok": True}, 200
+        if action == "queueJump":
+            video_id = data.get("videoId")
+            if not isinstance(video_id, str) or not video_id:
+                return {"error": "bad_video_id"}, 400
+            self.cmds.append({"action": "queueJump", "videoId": video_id})
             return {"ok": True}, 200
         return {"error": "bad_action"}, 400

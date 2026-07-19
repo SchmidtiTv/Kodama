@@ -39,6 +39,7 @@ python-backend/song_cache/
 python-backend/lyrics_cache/
 python-backend/playlist_cache/
 python-backend/imgcache/
+python-backend/video_sync_cache/
 
 # Sensible Nutzerdaten (niemals ins Repo!)
 python-backend/profiles/

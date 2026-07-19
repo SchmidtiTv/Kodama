@@ -22,6 +22,7 @@ from src.lib import (
     RemoteControl,
     SongCreditsCache,
     StreamService,
+    VideoSyncService,
     YoutubeMusicSession,
     YTDLP,
     load_feedback_webhook,
@@ -89,6 +90,11 @@ def create_app() -> Flask:
 
         ffmpeg = FFmpeg()
         app.extensions["ffmpeg"] = ffmpeg
+        app.extensions["video_sync_service"] = VideoSyncService(
+            music_session=music_session,
+            ytdlp=ytdlp,
+            ffmpeg=ffmpeg,
+        )
         app.extensions["download_service"] = DownloadService(ytdlp=ytdlp)
         app.extensions["export_service"] = ExportService(ytdlp=ytdlp, ffmpeg=ffmpeg)
 

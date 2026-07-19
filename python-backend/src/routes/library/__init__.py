@@ -5,4 +5,4 @@ from flask import Blueprint
 
 blueprint = Blueprint("library", __name__)
 
-from . import library, playlist, radio, album, artist, song  # noqa: E402,F401
+from . import library, playlist, radio, album, artist, history, song  # noqa: E402,F401

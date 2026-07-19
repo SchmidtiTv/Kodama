@@ -174,6 +174,7 @@ class FakeYoutubeClient:
         self.subscribed_artists = []
         self.unsubscribed_artists = []
         self.watch_playlist_calls = []
+        self.history_items = []
 
     def search(self, query: object, filter: object="songs", limit: object=20) -> object:
         if filter == "artists":
@@ -301,6 +302,7 @@ class FakeYoutubeClient:
 
     def get_song(self, video_id: object) -> object:
         return {
+            "playbackTracking": {"videostatsPlaybackUrl": "https://history/track"},
             "videoDetails": {
                 "videoId": video_id,
                 "title": "Song",
@@ -310,6 +312,10 @@ class FakeYoutubeClient:
             },
             "microformat": {"microformatDataRenderer": {"uploadDate": "2024-05-12"}},
         }
+
+    def add_history_item(self, song: object) -> object:
+        self.history_items.append(song)
+        return SimpleNamespace(status_code=204)
 
     def get_podcast(self, playlist_id: object, limit: object=50) -> object:
         return {
@@ -533,6 +539,21 @@ class FakeStreamService:
     def warm(self, video_id: str) -> bool:
         self.warmed.append(video_id)
         return True
+
+
+class FakeVideoSyncService:
+    def resolve_offset(self, video_id: str) -> dict[str, object]:
+        return {
+            "available": True,
+            "counterpartVideoId": f"official-{video_id}",
+            "offsetSeconds": 1.25,
+            "confidence": 10.5,
+        }
+
+    def resolve_video_stream(
+        self, video_id: str, max_height: int | None
+    ) -> tuple[dict[str, object], int]:
+        return {"url": f"https://video/{video_id}", "maxHeight": max_height}, 200
 
 
 class FakeComposerBridge:
@@ -822,11 +843,11 @@ class FakeRemoteControl:
         self.pushed_states.append(dict(data or {}))
         self.state.update(data)
 
-    def poll(self) -> list[str]:
-        commands, self.commands = self.commands, cast(list[str], [])
+    def poll(self) -> list[dict[str, object]]:
+        commands, self.commands = self.commands, []
         return commands
 
-    def sync(self, data: Mapping[str, object]) -> list[str]:
+    def sync(self, data: Mapping[str, object]) -> list[dict[str, object]]:
         state = data.get("state")
         if isinstance(state, dict):
             self.state.update(state)
@@ -859,10 +880,19 @@ class FakeRemoteControl:
         if not device or device["status"] != "approved":
             return {"error": "not_allowed"}, 403
         action = data.get("action")
-        if not isinstance(action, str) or action not in ("playpause", "next", "prev", "shuffle", "repeat"):
-            return {"error": "bad_action"}, 400
-        self.commands.append(action)
-        return {"ok": True}, 200
+        if action in ("playpause", "next", "prev", "shuffle", "repeat", "like"):
+            self.commands.append({"action": action})
+            return {"ok": True}, 200
+        if action == "seek" and isinstance(data.get("position"), (int, float)):
+            self.commands.append({"action": action, "position": data["position"]})
+            return {"ok": True}, 200
+        if action == "volume" and isinstance(data.get("value"), (int, float)):
+            self.commands.append({"action": action, "value": data["value"]})
+            return {"ok": True}, 200
+        if action == "queueJump" and isinstance(data.get("videoId"), str):
+            self.commands.append({"action": action, "videoId": data["videoId"]})
+            return {"ok": True}, 200
+        return {"error": "bad_action"}, 400
 
     def page_html(self) -> object:
         return "<main>Remote</main>"
@@ -883,6 +913,7 @@ class RouteTestCase(unittest.TestCase):
         self.lyrics = FakeLyricsService()
         self.composer = FakeComposerBridge(self.root)
         self.stream = FakeStreamService()
+        self.video_sync = FakeVideoSyncService()
         self.playlist_cache = FakePlaylistCache()
         self.album_cache = FakeAlbumCache()
         self.song_credits_cache = FakeSongCreditsCache()
@@ -902,6 +933,7 @@ class RouteTestCase(unittest.TestCase):
                 "lyrics_service": self.lyrics,
                 "composer_bridge": self.composer,
                 "stream_service": self.stream,
+                "video_sync_service": self.video_sync,
                 "playlist_cache": self.playlist_cache,
                 "album_cache": self.album_cache,
                 "song_credits_cache": self.song_credits_cache,

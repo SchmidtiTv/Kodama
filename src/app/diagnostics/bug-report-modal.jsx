@@ -12,7 +12,6 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
   ModalHeader,
   ModalIcon,
   ModalHeading,
@@ -20,10 +19,12 @@ import {
   ModalFooter,
   ModalCloseTrigger,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { Bug, CheckCircle, Info, ImageSquare, PaperPlaneTilt } from "@/shared/icons/icons.jsx";
 import { Toggle } from "@/shared/ui/settings-controls.jsx";
 import { API } from "@/shared/api/client.js";
 import { getConsoleErrors } from "@/app/diagnostics/error-capture.js";
+import { useZoom } from "@/features/settings/display-context.jsx";
 
 // Short, human-readable OS string for bug-report diagnostics.
 const OS_INFO = (() => {
@@ -38,6 +39,7 @@ const OS_INFO = (() => {
 })();
 
 export function BugReportModal({ onClose, screenshot, t, version, currentTrack }) {
+  const zoom = useZoom();
   const CATS = [
     { value: "Bug", label: t("catBug") || "Bug" },
     { value: "Absturz", label: t("catCrash") || "Crash" },
@@ -190,7 +192,14 @@ export function BugReportModal({ onClose, screenshot, t, version, currentTrack }
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 max-h-[62vh] overflow-y-auto pr-1">
+                /* max-height in vh, divided by zoom: ModalDialog (the ancestor) has `zoom`
+                   applied via CSS, and a plain vh unit doesn't react to that — it'd stay
+                   pegged to the real viewport regardless of app zoom and grow past this cap
+                   once zoomed, forcing a second, redundant scrollbar on the dialog itself. */
+                <div
+                  className="flex flex-col gap-4 overflow-y-auto pr-1"
+                  style={{ maxHeight: `${62 / zoom}vh` }}
+                >
                   <div className="flex flex-col gap-2">
                     <label className={fieldLabel}>{t("reportTitle") || "Titel"}</label>
                     <TextFieldRoot

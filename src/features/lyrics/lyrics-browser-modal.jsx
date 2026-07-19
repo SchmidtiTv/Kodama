@@ -1,7 +1,9 @@
 // Community lyrics browser — list every available lyrics version for the track (all providers
 // + every Unison community submission), preview + sync type, vote/report, and apply one.
+// Two-pane layout: left is the source list (click = preview, doesn't apply yet), right shows
+// the full text of whichever version is currently previewed; Select applies it and closes.
 // Extracted from App.jsx.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   cn,
   Button,
@@ -10,31 +12,39 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
-  ModalHeader,
-  ModalIcon,
-  ModalHeading,
-  ModalBody,
-  ModalFooter,
-  ModalCloseTrigger,
   Dropdown,
   DropdownTrigger,
   DropdownPopover,
-  DropdownMenu,
   DropdownItem,
+  ScrollShadowRoot,
 } from "@heroui/react";
-import { Microphone, Flag, Check, CaretUp, CaretDown } from "@/shared/icons/icons.jsx";
+import { DropdownMenu, ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
+import {
+  MicrophoneStand,
+  Flag,
+  Check,
+  CaretUp,
+  CaretDown,
+  X,
+  Copy,
+} from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { openComposer } from "@/features/lyrics/composer-window.js";
 import { PROVIDER_SYNC } from "@/features/lyrics/providers.js";
 import { fetchLyrics } from "@/features/lyrics/fetch.js";
 import { parseTtml, parseLrc, parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { getUnisonIdentity, unisonVote, unisonReport } from "@/features/lyrics/community/api.js";
-import { CTX_POPOVER_ANIM } from "@/shared/ui/context-menu.jsx";
 
 // Browse every available lyrics version for the current track and apply the preferred
 // one. Fetches all providers on open and shows a preview + sync type per version.
 const UNISON_REPORT_REASONS = ["wrong_song", "bad_sync", "offensive", "spam", "other"];
+
+// Shared enter/exit animation for the report reasons popover (same as App.jsx's
+// CTX_POPOVER_ANIM, kept local — it's not exported and this is the only other consumer).
+const REPORT_POPOVER_ANIM =
+  "data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:slide-in-from-top-1 data-[entering]:duration-150 data-[entering]:ease-out " +
+  "data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:slide-out-to-top-1 data-[exiting]:duration-100 data-[exiting]:ease-in";
 
 function LyricsBrowserModal({
   track,
@@ -43,12 +53,12 @@ function LyricsBrowserModal({
   currentSubmitter,
   currentVersionId,
   onApply,
-  onOpenComposer,
   onClose,
 }) {
   const t = useLang();
   const [results, setResults] = useState(null); // null = loading, [] = none
   const [votes, setVotes] = useState({}); // { [versionId]: { my: -1|0|1, count } }
+  const [selectedIdx, setSelectedIdx] = useState(-1); // row currently previewed (right pane)
 
   const doVote = async (r, dir) => {
     if (r.id == null) return;
@@ -133,7 +143,7 @@ function LyricsBrowserModal({
             }
           }
         } catch {
-          /* intentionally ignored */
+          /* community lookup is best-effort */
         }
       }
       if (!cancelled) setResults(base);
@@ -141,7 +151,7 @@ function LyricsBrowserModal({
     return () => {
       cancelled = true;
     };
-  }, [providers, track.album, track.artists, track.duration, track.title, track.videoId]);
+  }, []);
 
   const lineText = (l) => (l.text || (l.words || []).map((w) => w.text).join("")).trim();
   const previewOf = (lrc) => (lrc || []).map(lineText).filter(Boolean).slice(0, 3).join(" / ");
@@ -178,6 +188,51 @@ function LyricsBrowserModal({
     );
   })();
 
+  // Default the preview to whichever version is currently playing (or the first result)
+  // once results come in.
+  useEffect(() => {
+    if (results && results.length && selectedIdx < 0) {
+      setSelectedIdx(activeIdx >= 0 ? activeIdx : 0);
+    }
+  }, [results]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selected = selectedIdx >= 0 && results ? results[selectedIdx] : null;
+
+  // Full plain-text lines for the preview pane, with a paragraph break wherever two
+  // consecutive timestamps are more than 6s apart (a soft heuristic for verse/chorus
+  // boundaries — the LRC/TTML data itself doesn't carry section markers).
+  const previewLines = useMemo(() => {
+    const lrc = selected?.lrc || [];
+    const out = [];
+    let lastTime = null;
+    for (const l of lrc) {
+      const text = lineText(l);
+      if (!text) continue;
+      if (lastTime != null && typeof l.time === "number" && l.time >= 0 && l.time - lastTime > 6) {
+        out.push({ gap: true, key: `g${out.length}` });
+      }
+      out.push({ text, key: `l${out.length}` });
+      if (typeof l.time === "number" && l.time >= 0) lastTime = l.time;
+    }
+    return out;
+  }, [selected]);
+
+  const handleSelect = () => {
+    if (!selected) return;
+    onApply(selected);
+    onClose();
+  };
+
+  const handleCopy = () => {
+    if (!selected) return;
+    const text = (selected.lrc || []).map(lineText).filter(Boolean).join("\n");
+    if (!text) return;
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success(t("lyricsCopied")))
+      .catch(() => {});
+  };
+
   return (
     <ModalRoot
       isOpen
@@ -186,176 +241,249 @@ function LyricsBrowserModal({
       }}
     >
       <ModalBackdrop className="z-[300]!">
-        <ModalContainer placement="center" size="lg" className="w-[520px] max-w-[92vw]">
-          <ModalDialog>
-            <ModalHeader>
-              <ModalIcon>
-                <Microphone size={18} />
-              </ModalIcon>
-              <ModalCloseTrigger />
-              <ModalHeading className="flex items-center gap-2">
-                {t("browseLyrics")}
-                <span className="text-t10 font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-accent-dim text-accent">
-                  Beta
+        <ModalContainer placement="center" className="max-w-[94vw]">
+          {/* w-[...]! directly on the dialog, not w-full on an ambiguous parent: HeroUI's
+              own .modal__container is `sm:w-fit` at desktop widths (sized to the dialog),
+              so giving the CONTAINER a fixed width while the dialog says "w-full" (100% of
+              that container) is circular — it resolved to the full backdrop width instead
+              (way too wide). The dialog owns its own explicit size here. */}
+          <ModalDialog className="p-3! gap-3! flex-row! w-[720px]! max-w-[94vw]! h-[560px] max-h-[85vh] overflow-hidden">
+            {/* Left pane — source list */}
+            <div className="flex flex-col w-[320px] shrink-0 min-h-0">
+              <div className="flex items-center gap-2 px-4 pt-4 pb-4 shrink-0">
+                <MicrophoneStand size={17} weight="fill" />
+                <span className="font-bold" style={{ fontSize: "var(--t14)" }}>
+                  {t("browseLyrics")}
                 </span>
-              </ModalHeading>
-            </ModalHeader>
-            <ModalBody>
-              <div className="h-[48vh] overflow-y-auto overflow-x-hidden px-0.5">
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 flex flex-col gap-1.5">
                 {results === null ? (
                   <div className="h-full flex items-center justify-center">
                     <Spinner size="sm" />
                   </div>
                 ) : results.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted text-t12">
+                  <div
+                    className="h-full flex items-center justify-center text-muted text-center px-3"
+                    style={{ fontSize: "var(--t12)" }}
+                  >
                     {t("noLyricsFound")}
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2">
-                    {results.map((r, i) => {
-                      const sync = syncFor(r);
-                      const isActive = i === activeIdx;
-                      const preview = previewOf(r.lrc);
-                      const isUnison = r.providerId === "unison" && r.id != null;
-                      const vState = votes[r.id];
-                      const count = vState ? vState.count : (r.voteCount ?? 0);
-                      const my = vState ? vState.my : 0;
-                      return (
-                        <div
-                          key={`${r.providerId}-${i}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => {
-                            onApply(r);
-                            onClose();
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              onApply(r);
-                              onClose();
-                            }
-                          }}
-                          className={cn(
-                            "flex flex-col gap-1.5 p-3 rounded-xl text-left border w-full min-w-0 cursor-default transition-colors duration-150",
-                            isActive
-                              ? "border-accent bg-accent-dim"
-                              : "border-border bg-transparent hover:bg-hover"
-                          )}
-                        >
-                          <div className="flex items-center gap-2 w-full min-w-0">
+                  results.map((r, i) => {
+                    const sync = syncFor(r);
+                    const isSelected = i === selectedIdx;
+                    const preview = previewOf(r.lrc);
+                    const isUnison = r.providerId === "unison" && r.id != null;
+                    const vState = votes[r.id];
+                    const count = vState ? vState.count : (r.voteCount ?? 0);
+                    const my = vState ? vState.my : 0;
+                    return (
+                      <div
+                        key={`${r.providerId}-${i}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedIdx(i)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") setSelectedIdx(i);
+                        }}
+                        className={cn(
+                          "flex flex-col gap-1.5 p-2.5 rounded-xl text-left border-2 w-full min-w-0 cursor-default transition-colors duration-150 shrink-0",
+                          isSelected
+                            ? "border-accent bg-accent-dim"
+                            : "border-transparent bg-transparent hover:bg-hover"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 w-full min-w-0">
+                          <span
+                            className={cn("font-semibold shrink-0", isSelected && "text-accent")}
+                            style={{ fontSize: "var(--t12)" }}
+                          >
+                            {r.source}
+                          </span>
+                          {r.submitterName ? (
                             <span
+                              className="text-muted truncate min-w-0"
+                              style={{ fontSize: "var(--t11)" }}
+                            >
+                              · {r.submitterName}
+                            </span>
+                          ) : null}
+                          {sync ? (
+                            <span
+                              className="ml-auto px-1.5 py-0.5 rounded shrink-0"
+                              style={{
+                                color: sync.color,
+                                background: sync.bg,
+                                fontSize: "var(--t10)",
+                              }}
+                            >
+                              {sync.label}
+                            </span>
+                          ) : (
+                            <span className="ml-auto" />
+                          )}
+                        </div>
+                        {preview ? (
+                          <div
+                            className="text-muted leading-relaxed line-clamp-2 break-words w-full"
+                            style={{ fontSize: "var(--t11)" }}
+                          >
+                            {preview}
+                          </div>
+                        ) : null}
+                        {isUnison ? (
+                          <div
+                            className="flex items-center gap-1 pt-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => doVote(r, 1)}
+                              title={t("upvote")}
                               className={cn(
-                                "text-t13 font-semibold shrink-0",
-                                isActive && "text-accent"
+                                "flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors",
+                                my === 1 ? "text-accent" : "text-muted"
                               )}
                             >
-                              {r.source}
-                            </span>
-                            {r.submitterName ? (
-                              <span className="text-t11 text-muted truncate min-w-0">
-                                · {r.submitterName}
-                              </span>
-                            ) : null}
-                            {sync ? (
-                              <span
-                                className="ml-auto text-t10 px-1.5 py-0.5 rounded shrink-0"
-                                style={{ color: sync.color, background: sync.bg }}
-                              >
-                                {sync.label}
-                              </span>
-                            ) : (
-                              <span className="ml-auto" />
-                            )}
-                            {isActive ? (
-                              <Check size={14} weight="bold" className="text-accent shrink-0" />
-                            ) : null}
-                          </div>
-                          {preview ? (
-                            <div className="text-t11 text-muted leading-relaxed line-clamp-2 break-words w-full">
-                              {preview}
-                            </div>
-                          ) : null}
-                          {isUnison ? (
-                            <div
-                              className="flex items-center gap-1 pt-0.5"
-                              onClick={(e) => e.stopPropagation()}
+                              <CaretUp size={13} weight="bold" />
+                            </button>
+                            <span
+                              className="tabular-nums min-w-[18px] text-center text-secondary"
+                              style={{ fontSize: "var(--t11)" }}
                             >
-                              <button
-                                onClick={() => doVote(r, 1)}
-                                title={t("upvote")}
-                                className={cn(
-                                  "flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors",
-                                  my === 1 ? "text-accent" : "text-muted"
-                                )}
+                              {count}
+                            </span>
+                            <button
+                              onClick={() => doVote(r, -1)}
+                              title={t("downvote")}
+                              className={cn(
+                                "flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors",
+                                my === -1 ? "text-[#e05252]" : "text-muted"
+                              )}
+                            >
+                              <CaretDown size={13} weight="bold" />
+                            </button>
+                            <Dropdown>
+                              <DropdownTrigger
+                                title={t("report")}
+                                className="ml-auto flex items-center justify-center size-6 rounded-md hover:bg-hover text-muted hover:text-[#e05252] transition-colors"
                               >
-                                <CaretUp size={13} weight="bold" />
-                              </button>
-                              <span className="text-t11 tabular-nums min-w-[18px] text-center text-secondary">
-                                {count}
-                              </span>
-                              <button
-                                onClick={() => doVote(r, -1)}
-                                title={t("downvote")}
-                                className={cn(
-                                  "flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors",
-                                  my === -1 ? "text-[#e05252]" : "text-muted"
-                                )}
-                              >
-                                <CaretDown size={13} weight="bold" />
-                              </button>
-                              <Dropdown>
-                                <DropdownTrigger
-                                  title={t("report")}
-                                  className="ml-auto flex items-center justify-center size-6 rounded-md hover:bg-hover text-muted hover:text-[#e05252] transition-colors"
+                                <Flag size={13} />
+                              </DropdownTrigger>
+                              <DropdownPopover className={cn("z-[400]!", REPORT_POPOVER_ANIM)}>
+                                <DropdownMenu
+                                  aria-label={t("report")}
+                                  onAction={(key) => doReport(r.id, String(key))}
                                 >
-                                  <Flag size={13} />
-                                </DropdownTrigger>
-                                <DropdownPopover className={cn("z-[400]!", CTX_POPOVER_ANIM)}>
-                                  <DropdownMenu
-                                    aria-label={t("report")}
-                                    onAction={(key) => doReport(r.id, String(key))}
-                                  >
-                                    {UNISON_REPORT_REASONS.map((rr) => (
-                                      <DropdownItem key={rr} id={rr} textValue={t("report_" + rr)}>
-                                        {t("report_" + rr)}
-                                      </DropdownItem>
-                                    ))}
-                                  </DropdownMenu>
-                                </DropdownPopover>
-                              </Dropdown>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
+                                  {UNISON_REPORT_REASONS.map((rr) => (
+                                    <DropdownItem key={rr} id={rr} textValue={t("report_" + rr)}>
+                                      {t("report_" + rr)}
+                                    </DropdownItem>
+                                  ))}
+                                </DropdownMenu>
+                              </DropdownPopover>
+                            </Dropdown>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
                 )}
               </div>
-            </ModalBody>
-            <ModalFooter>
-              <Button
-                variant="secondary"
-                fullWidth
-                className="justify-center gap-2"
-                onPress={() => {
-                  onOpenComposer().catch(console.error);
-                  onClose();
-                }}
+              <div className="px-4 pt-3 shrink-0">
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  className="justify-center gap-2"
+                  onPress={() => {
+                    openComposer(track?.videoId).catch(console.error);
+                    onClose();
+                  }}
+                >
+                  <img src="/Boidu Composer Icon.svg" style={{ width: 16, height: 16 }} alt="" />
+                  {t("openComposerBtn")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Right pane — the preview itself is a distinctly darker inset card (not just the
+                same tone as the dialog frame, so it actually reads as a separate panel); the
+                action buttons sit below it, outside the box, matching its width. */}
+            <div className="flex flex-col flex-1 min-w-0 min-h-0">
+              <div
+                className="flex flex-col flex-1 min-h-0 rounded-2xl overflow-hidden"
+                style={{ background: "var(--bg-base)" }}
               >
-                <img src="/Boidu Composer Icon.svg" style={{ width: 18, height: 18 }} alt="" />
-                {t("openComposerBtn")}
-              </Button>
-            </ModalFooter>
+                <div className="flex items-center justify-between px-4 pt-4 pb-2.5 shrink-0">
+                  <span className="font-bold" style={{ fontSize: "var(--t14)" }}>
+                    {t("lyricsPreview")}
+                  </span>
+                  <button
+                    onClick={onClose}
+                    title={t("close") || "Close"}
+                    className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors"
+                  >
+                    <X size={13} weight="bold" />
+                  </button>
+                </div>
+                <ScrollShadowRoot
+                  size={24}
+                  className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 text-secondary leading-relaxed"
+                  style={{ fontSize: "var(--t13)" }}
+                >
+                  {results === null ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Spinner size="sm" />
+                    </div>
+                  ) : !selected ? (
+                    <div
+                      className="h-full flex items-center justify-center text-muted"
+                      style={{ fontSize: "var(--t12)" }}
+                    >
+                      {t("noLyricsFound")}
+                    </div>
+                  ) : (
+                    previewLines.map((l) =>
+                      l.gap ? (
+                        <div key={l.key} className="h-3.5" />
+                      ) : (
+                        <div key={l.key}>{l.text}</div>
+                      )
+                    )
+                  )}
+                </ScrollShadowRoot>
+              </div>
+              <div className="flex items-center gap-2 pt-3 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  isDisabled={!selected}
+                  onPress={handleCopy}
+                >
+                  <Copy size={14} />
+                  {t("copyLyrics")}
+                </Button>
+                {/* Accent background kept, just the icon/text recoloured to a dark grey
+                    matching the modal's own background instead of the variant's default
+                    white (--button-fg is what the button's own CSS reads for its
+                    foreground colour). */}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  style={{ "--button-fg": "var(--bg-elevated)" }}
+                  isDisabled={!selected}
+                  onPress={handleSelect}
+                >
+                  <Check size={14} weight="bold" />
+                  {t("selectLyricsVersion")}
+                </Button>
+              </div>
+            </div>
           </ModalDialog>
         </ModalContainer>
       </ModalBackdrop>
     </ModalRoot>
   );
 }
-
-// Paint a word-synced line's per-syllable highlight directly onto its DOM spans.
-// Shared by the ACTIVE line and the TRAILING line (a line that handed over before its
-// endTime). Driving both from the same routine means a handed-over line keeps wiping its
-// remaining syllables to completion instead of snapping fully white on the line switch.
-
 export { LyricsBrowserModal };

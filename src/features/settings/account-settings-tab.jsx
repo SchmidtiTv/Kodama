@@ -7,7 +7,6 @@ import {
   ModalBody,
   ModalCloseTrigger,
   ModalContainer,
-  ModalDialog,
   ModalFooter,
   ModalHeader,
   ModalHeading,
@@ -16,6 +15,7 @@ import {
   TextFieldRoot,
   toast,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import {

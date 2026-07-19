@@ -8,6 +8,8 @@ import {
   ProgressBar,
   ProgressBarFill,
   ProgressBarTrack,
+  ToggleButton,
+  ToggleButtonGroupRoot,
 } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
@@ -17,6 +19,8 @@ import {
   ArrowClockwise,
   ArrowSquareOut,
   BrandBluesky,
+  BrandDiscord,
+  BrandGithub,
   BrandTiktok,
   BrandTwitch,
   BrandYoutube,
@@ -24,13 +28,17 @@ import {
   CaretDown,
   CaretUp,
   ChatText,
+  ClapperboardPlay,
   Check,
   CheckCircle,
   CircleHalf,
+  ClockCounterClockwise,
+  Columns,
   DownloadSimple,
   Eye,
   EyeSlash,
   Flask,
+  Gamepad,
   Globe,
   Info,
   Key,
@@ -40,6 +48,7 @@ import {
   LockOpen,
   MagnifyingGlass,
   MusicNote,
+  MugHot,
   PaintBrushBroad,
   PencilSimple,
   Play,
@@ -184,6 +193,12 @@ export function SettingsPanel({
     onRemoveCrossfadeOverride,
     playbackProgressive,
     onPlaybackProgressiveChange,
+    videoSyncEnabled,
+    onToggleVideoSync,
+    videoSyncQuality = "auto",
+    onVideoSyncQualityChange,
+    videoLyricsStyle = "split",
+    onVideoLyricsStyleChange,
   } = usePlaybackSettings();
   const {
     lyricsFontSize,
@@ -208,6 +223,10 @@ export function SettingsPanel({
     onCloseTrayChange,
     discordRpc,
     onDiscordRpcChange,
+    discordStatusDisplay = "song",
+    onDiscordStatusDisplayChange,
+    ytmusicHistorySync,
+    onYtmusicHistorySyncChange,
     ipv4First,
     onIpv4FirstChange,
     remoteEnabled = false,
@@ -1845,6 +1864,28 @@ export function SettingsPanel({
               >
                 <Toggle value={discordRpc} onChange={onDiscordRpcChange} />
               </SettingRow>
+              {discordRpc && (
+                <SettingRow
+                  label={t("discordStatusDisplay")}
+                  description={t("discordStatusDisplayDesc")}
+                  icon={<Info size={15} />}
+                >
+                  <ToggleButtonGroupRoot
+                    selectionMode="single"
+                    disallowEmptySelection
+                    selectedKeys={[discordStatusDisplay]}
+                    onSelectionChange={(keys) => {
+                      const value = [...keys][0];
+                      if (value) onDiscordStatusDisplayChange?.(value);
+                    }}
+                    size="sm"
+                  >
+                    <ToggleButton id="song">{t("discordStatusDisplaySong")}</ToggleButton>
+                    <ToggleButton id="artist">{t("discordStatusDisplayArtist")}</ToggleButton>
+                    <ToggleButton id="app">{t("discordStatusDisplayApp")}</ToggleButton>
+                  </ToggleButtonGroupRoot>
+                </SettingRow>
+              )}
               <SettingRow
                 label={t("ipv4First")}
                 description={t("ipv4FirstDesc")}
@@ -1853,6 +1894,13 @@ export function SettingsPanel({
                 <Toggle value={ipv4First} onChange={onIpv4FirstChange} />
               </SettingRow>
               <LastfmRow />
+              <SettingRow
+                label={t("ytmusicHistorySync")}
+                description={t("ytmusicHistorySyncDesc")}
+                icon={<ClockCounterClockwise />}
+              >
+                <Toggle value={ytmusicHistorySync} onChange={onYtmusicHistorySyncChange} />
+              </SettingRow>
               <SettingRow
                 label={
                   <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2497,15 +2545,68 @@ export function SettingsPanel({
               <SettingsSectionDesc style={{ marginTop: 0 }}>
                 {t("experimentalDesc")}
               </SettingsSectionDesc>
-              <div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
-                <Flask size={40} className="text-muted" />
-                <span className="text-t14 font-semibold text-secondary">
-                  {t("experimentalEmptyTitle")}
-                </span>
-                <span className="text-t12 text-muted max-w-sm leading-relaxed">
-                  {t("experimentalEmptyHint")}
-                </span>
-              </div>
+              <SettingRow
+                label={t("bigPictureMode")}
+                description={t("bigPictureModeDesc")}
+                icon={<Gamepad />}
+              >
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => window.dispatchEvent(new Event("kodama-open-bigpicture"))}
+                >
+                  {t("bigPictureLaunch")}
+                </Button>
+              </SettingRow>
+              <SettingRow
+                label={t("videoSyncMode")}
+                description={t("videoSyncModeDesc")}
+                icon={<ClapperboardPlay />}
+              >
+                <Toggle value={videoSyncEnabled} onChange={onToggleVideoSync} />
+              </SettingRow>
+              {videoSyncEnabled && (
+                <SettingRow
+                  label={t("videoSyncQuality")}
+                  description={t("videoSyncQualityDesc")}
+                  icon={<Sliders />}
+                >
+                  <ToggleButtonGroupRoot
+                    selectionMode="single"
+                    selectedKeys={[videoSyncQuality]}
+                    onSelectionChange={(keys) => {
+                      const value = [...keys][0];
+                      if (value) onVideoSyncQualityChange?.(value);
+                    }}
+                    size="sm"
+                  >
+                    <ToggleButton id="480">480p</ToggleButton>
+                    <ToggleButton id="720">720p</ToggleButton>
+                    <ToggleButton id="1080">1080p</ToggleButton>
+                    <ToggleButton id="auto">{t("videoSyncQualityAuto")}</ToggleButton>
+                  </ToggleButtonGroupRoot>
+                </SettingRow>
+              )}
+              {videoSyncEnabled && (
+                <SettingRow
+                  label={t("videoLyricsStyle")}
+                  description={t("videoLyricsStyleDesc")}
+                  icon={<Columns />}
+                >
+                  <ToggleButtonGroupRoot
+                    selectionMode="single"
+                    selectedKeys={[videoLyricsStyle]}
+                    onSelectionChange={(keys) => {
+                      const value = [...keys][0];
+                      if (value) onVideoLyricsStyleChange?.(value);
+                    }}
+                    size="sm"
+                  >
+                    <ToggleButton id="split">{t("videoLyricsStyleSplit")}</ToggleButton>
+                    <ToggleButton id="captions">{t("videoLyricsStyleCaptions")}</ToggleButton>
+                  </ToggleButtonGroupRoot>
+                </SettingRow>
+              )}
             </div>
           )}
 
@@ -2681,14 +2782,30 @@ export function SettingsPanel({
                 >
                   {t("aboutDesc")}
                 </div>
-                <div className="flex gap-2.5 flex-wrap">
+                <div className="flex gap-2.5 flex-wrap justify-center">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => openUrl("https://kiyoshithedevil.github.io/Kodama/")}
+                  >
+                    <Globe size={14} />
+                    Website
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
                     onPress={() => openUrl("https://github.com/KiyoshiTheDevil/Kodama")}
                   >
-                    <Globe size={14} />
+                    <BrandGithub size={14} />
                     GitHub
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#5865F2]! text-white! font-semibold"
+                    onPress={() => openUrl("https://discord.gg/PzSsPF7KW")}
+                  >
+                    <BrandDiscord size={14} />
+                    Discord
                   </Button>
                   <Button
                     size="sm"
@@ -2696,6 +2813,14 @@ export function SettingsPanel({
                     onPress={() => openUrl("https://buymeacoffee.com/kiyoshi_the_devil")}
                   >
                     ☕ Buy me a coffee
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-[#FF5E5B]! text-white! font-semibold"
+                    onPress={() => openUrl("https://ko-fi.com/kiyoshi_the_devil")}
+                  >
+                    <MugHot size={14} />
+                    Ko-fi
                   </Button>
                 </div>
               </div>

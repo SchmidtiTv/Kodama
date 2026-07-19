@@ -84,10 +84,10 @@ class OperationsRouteTests(RouteTestCase):
         self.assertEqual(self.client.post("/remote/_device", json={"id": "missing", "action": "approve"}).status_code, 404)
 
         self.assertEqual(self.client.post("/remote/_push", json={"title": "Song"}).json, {"ok": True})
-        self.remote_control.commands.append("next")
-        self.assertEqual(self.client.get("/remote/_poll").json, {"commands": ["next"]})
-        self.remote_control.commands.append("prev")
-        self.assertEqual(self.client.post("/remote/_sync", json={"state": {"title": "Synced"}}).json, {"commands": ["prev"]})
+        self.remote_control.commands.append({"action": "next"})
+        self.assertEqual(self.client.get("/remote/_poll").json, {"commands": [{"action": "next"}]})
+        self.remote_control.commands.append({"action": "prev"})
+        self.assertEqual(self.client.post("/remote/_sync", json={"state": {"title": "Synced"}}).json, {"commands": [{"action": "prev"}]})
         self.assertEqual(self.remote_control.state["title"], "Synced")
 
     def test_remote_phone_routes_and_page(self) -> None:
@@ -107,6 +107,21 @@ class OperationsRouteTests(RouteTestCase):
         self.assertIn("state", approved_state.json)
 
         self.assertEqual(self.client.post("/remote/cmd", json={"token": "tok", "deviceId": "phone", "action": "next"}).json, {"ok": True})
+        self.assertEqual(
+            self.client.post(
+                "/remote/cmd",
+                json={
+                    "token": "tok",
+                    "deviceId": "phone",
+                    "action": "seek",
+                    "position": 42.5,
+                },
+            ).json,
+            {"ok": True},
+        )
+        self.assertEqual(
+            self.remote_control.commands[-1], {"action": "seek", "position": 42.5}
+        )
         self.assertEqual(self.client.post("/remote/cmd", json={"token": "tok", "deviceId": "phone", "action": "bad"}).status_code, 400)
         page = self.client.get("/remote")
         self.assertEqual(page.status_code, 200)

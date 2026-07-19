@@ -5,7 +5,6 @@ import {
   ModalRoot,
   ModalBackdrop,
   ModalContainer,
-  ModalDialog,
   ModalHeader,
   ModalIcon,
   ModalHeading,
@@ -13,6 +12,7 @@ import {
   ModalFooter,
   ModalCloseTrigger,
 } from "@heroui/react";
+import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { Users, Check, UserPlus } from "@/shared/icons/icons.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useLang } from "@/shared/i18n/context.jsx";

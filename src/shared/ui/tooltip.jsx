@@ -1,6 +1,7 @@
 // Hover tooltip (delayed show, portalled to <body>). Extracted from App.jsx.
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useZoom } from "@/features/settings/display-context.jsx";
 
 export function Tooltip({ text, children }) {
   const [visible, setVisible] = useState(false);
@@ -8,6 +9,7 @@ export function Tooltip({ text, children }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const showTimer = useRef(null);
   const hideTimer = useRef(null);
+  const zoom = useZoom();
   if (!text) return children;
 
   const hide = () => {
@@ -44,21 +46,27 @@ export function Tooltip({ text, children }) {
               left: pos.x,
               top: pos.y - 6,
               transform: "translate(-50%, -100%)",
-              background: "var(--bg-elevated)",
-              color: "var(--text-primary)",
-              padding: "5px 9px",
-              borderRadius: 6,
-              fontSize: "var(--t11)",
-              fontWeight: 500,
               pointerEvents: "none",
               zIndex: 99999,
-              border: "0.5px solid var(--border)",
-              whiteSpace: "nowrap",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
               animation: `${leaving ? "tooltipOut" : "tooltipIn"} 0.12s ease forwards`,
             }}
           >
-            {text}
+            <div
+              style={{
+                zoom,
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                padding: "5px 9px",
+                borderRadius: 6,
+                fontSize: "var(--t11)",
+                fontWeight: 500,
+                border: "0.5px solid var(--border)",
+                whiteSpace: "nowrap",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              }}
+            >
+              {text}
+            </div>
           </div>,
           document.body
         )}

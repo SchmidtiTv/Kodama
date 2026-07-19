@@ -51,9 +51,11 @@ export function usePlayerNativeBridges({
           invoke("clear_discord_rpc").catch(() => {});
           return;
         }
-        invoke("update_discord_rpc", { ...payload, videoId: currentTrack.videoId || "" }).catch(
-          () => {}
-        );
+        invoke("update_discord_rpc", {
+          ...payload,
+          videoId: currentTrack.videoId || "",
+          statusDisplay: integrationsRef.current.discordStatusDisplay || "song",
+        }).catch(() => {});
       } catch {
         // Native bridges are optional when running outside Tauri.
       }

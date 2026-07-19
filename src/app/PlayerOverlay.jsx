@@ -2,6 +2,7 @@ import { LyricsOverlay } from "@/features/lyrics/LyricsOverlay.jsx";
 import { CoverView } from "@/features/player/player-ui.jsx";
 import { hiResThumb } from "@/features/player/cover-art.js";
 import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
+import { VideoSyncView } from "@/features/player/video-sync.jsx";
 
 // Expanding player overlay — the crossfaded cover backdrop plus the lyrics/cover panes that
 // slide up over the content area (and the fullscreen split view with its drag handle).
@@ -22,6 +23,9 @@ export function PlayerOverlay({
   splitResizing,
   startSplitResize,
   showLyrics,
+  showVideoView,
+  videoSync,
+  videoLyricsStyle,
   audioRef,
   isPlaying,
   setOverlayOpen,
@@ -41,6 +45,7 @@ export function PlayerOverlay({
   setIsCustomLyrics,
   importLyricsRef,
   removeCustomLyricsRef,
+  openLyricsBrowserRef,
   showAgentTags,
   ambientVisualizer,
   syllableZoom,
@@ -105,7 +110,11 @@ export function PlayerOverlay({
       )}
       {currentTrack &&
         (() => {
-          const splitActive = fullscreen && splitView;
+          const coverSplitActive = fullscreen && splitView && !showVideoView;
+          const videoLyricsOn = showVideoView && showLyrics;
+          const videoSplitActive = videoLyricsOn && videoLyricsStyle === "split";
+          const videoCaptionsActive = videoLyricsOn && videoLyricsStyle === "captions";
+          const splitActive = coverSplitActive || videoSplitActive;
           const coverPct = `${(splitRatio * 100).toFixed(2)}%`;
           const lyricsPct = `${((1 - splitRatio) * 100).toFixed(2)}%`;
           const widthTransition = splitResizing ? "none" : "width 0.4s cubic-bezier(0.4,0,0.2,1)";
@@ -119,9 +128,23 @@ export function PlayerOverlay({
                   bottom: 0,
                   right: 0,
                   width: splitActive ? lyricsPct : "100%",
-                  opacity: splitActive ? 1 : showLyrics ? 1 : 0,
+                  opacity: showVideoView
+                    ? videoSplitActive
+                      ? 1
+                      : 0
+                    : coverSplitActive
+                      ? 1
+                      : showLyrics
+                        ? 1
+                        : 0,
                   transition: paneTransition,
-                  pointerEvents: splitActive || showLyrics ? "all" : "none",
+                  pointerEvents: showVideoView
+                    ? videoSplitActive
+                      ? "all"
+                      : "none"
+                    : coverSplitActive || showLyrics
+                      ? "all"
+                      : "none",
                 }}
               >
                 <LyricsOverlay
@@ -144,6 +167,7 @@ export function PlayerOverlay({
                   onCustomLyricsStatusChange={setIsCustomLyrics}
                   importLyricsRef={importLyricsRef}
                   removeCustomLyricsRef={removeCustomLyricsRef}
+                  openLyricsBrowserRef={openLyricsBrowserRef}
                   showAgentTags={showAgentTags}
                   ambientVisualizer={ambientVisualizer}
                   syllableZoom={syllableZoom}
@@ -160,11 +184,15 @@ export function PlayerOverlay({
                   top: 0,
                   bottom: 0,
                   left: 0,
-                  width: splitActive ? coverPct : "100%",
-                  opacity: splitActive ? 1 : showLyrics ? 0 : 1,
+                  width: coverSplitActive ? coverPct : "100%",
+                  opacity: showVideoView ? 0 : coverSplitActive ? 1 : showLyrics ? 0 : 1,
                   transition: paneTransition,
-                  pointerEvents: splitActive || !showLyrics ? "all" : "none",
-                  borderRight: splitActive ? "1px solid rgba(255,255,255,0.08)" : "none",
+                  pointerEvents: showVideoView
+                    ? "none"
+                    : coverSplitActive || !showLyrics
+                      ? "all"
+                      : "none",
+                  borderRight: coverSplitActive ? "1px solid rgba(255,255,255,0.08)" : "none",
                 }}
               >
                 <CoverView
@@ -173,8 +201,35 @@ export function PlayerOverlay({
                   onClose={() => setOverlayOpen(false)}
                   ambientVisualizer={ambientVisualizer}
                   vizConfig={vizConfig}
-                  narrow={splitActive}
+                  narrow={coverSplitActive}
                 />
+              </div>
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: videoSplitActive ? coverPct : "100%",
+                  opacity: showVideoView ? 1 : 0,
+                  transition: paneTransition,
+                  pointerEvents: showVideoView ? "all" : "none",
+                }}
+              >
+                {showVideoView && (
+                  <VideoSyncView
+                    videoSync={videoSync}
+                    audioRef={audioRef}
+                    isPlaying={isPlaying}
+                    fullscreen={fullscreen}
+                    track={currentTrack}
+                    showCaptions={videoCaptionsActive}
+                    fluidCaptions={fluidLyrics}
+                    captionsTranslation={showLyricsTranslation}
+                    captionsTranslationLang={lyricsTranslationLang}
+                    captionsSyllableZoom={syllableZoom}
+                  />
+                )}
               </div>
               {/* Drag handle between the two panes (mirrors the sidebar/queue handles) */}
               {splitActive && (

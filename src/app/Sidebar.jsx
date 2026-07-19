@@ -11,7 +11,6 @@ import {
   DisclosureTrigger,
   Dropdown,
   DropdownItem,
-  DropdownMenu,
   DropdownPopover,
   DropdownSection,
   DropdownTrigger,
@@ -23,6 +22,7 @@ import {
   SearchFieldRoot,
   SearchFieldSearchIcon,
 } from "@heroui/react";
+import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { IS_MAC } from "@/shared/lib/platform.js";

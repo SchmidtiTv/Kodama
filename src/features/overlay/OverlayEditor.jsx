@@ -27,10 +27,10 @@ import {
   Dropdown,
   DropdownTrigger,
   DropdownPopover,
-  DropdownMenu,
   DropdownItem,
   DropdownSection,
 } from "@heroui/react";
+import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 import {
   ImageSquare,
   VinylRecord,

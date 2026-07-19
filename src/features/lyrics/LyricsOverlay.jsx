@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChipLabel, ChipRoot } from "@heroui/react";
+import { Button, ChipLabel, ChipRoot } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { CaretDown, UploadSimple } from "@/shared/icons/icons.jsx";
@@ -178,6 +178,7 @@ function LyricsOverlayContent({
   onCustomLyricsStatusChange,
   importLyricsRef,
   removeCustomLyricsRef,
+  openLyricsBrowserRef,
   showAgentTags = true,
   ambientVisualizer = true,
   syllableZoom = false,
@@ -233,6 +234,9 @@ function LyricsOverlayContent({
   const [, setInGap] = useState(false);
   const [trailingIdx, setTrailingIdx] = useState(-1); // previous line still visible after new line starts
   const [scrollActive, setScrollActive] = useState(false); // auto-hide scrollbar (hover + idle)
+  const [userScrollingTrackId, setUserScrollingTrackId] = useState(null);
+  const userScrolling = userScrollingTrackId === track?.videoId;
+  const userScrollingRef = useRef(false);
   const t = useLang();
   const lyricTextLines = useMemo(() => {
     if (!lyrics) return [];
@@ -622,10 +626,12 @@ function LyricsOverlayContent({
   useEffect(() => {
     if (importLyricsRef) importLyricsRef.current = importCustomLyrics;
     if (removeCustomLyricsRef) removeCustomLyricsRef.current = removeCustomLyrics;
+    if (openLyricsBrowserRef) openLyricsBrowserRef.current = () => setBrowserOpen(true);
   });
 
   useEffect(() => {
     if (!track) return;
+    let cancelled = false;
 
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
 
@@ -633,6 +639,7 @@ function LyricsOverlayContent({
     fetch(`${API}/lyrics/custom/${track.videoId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (cancelled) return;
         if (data?.content) {
           const parsed = data.format === "ttml" ? parseTtml(data.content) : parseLrc(data.content);
           if (parsed.length) {
@@ -647,7 +654,9 @@ function LyricsOverlayContent({
         // No custom lyrics — proceed with normal fetch
         continueWithProviders();
       })
-      .catch(() => continueWithProviders());
+      .catch(() => {
+        if (!cancelled) continueWithProviders();
+      });
 
     function continueWithProviders() {
       // Forced provider: skip cache, fetch only that one provider
@@ -664,6 +673,7 @@ function LyricsOverlayContent({
           singleProviders,
           track.videoId || ""
         ).then((res) => {
+          if (cancelled) return;
           if (res?.lrc) {
             setLyrics(res.lrc);
             setSource(res.source);
@@ -712,6 +722,7 @@ function LyricsOverlayContent({
                 providers,
                 track.videoId || ""
               ).then((res) => {
+                if (cancelled) return;
                 const ids = res?.failedIds || [];
                 ids.forEach((id) => onProviderFailed?.(id));
                 try {
@@ -751,6 +762,7 @@ function LyricsOverlayContent({
         providers,
         track.videoId || ""
       ).then((res) => {
+        if (cancelled) return;
         if (res?.lrc) {
           setLyrics(res.lrc);
           setSource(res.source);
@@ -776,6 +788,9 @@ function LyricsOverlayContent({
         setLoading(false);
       });
     } // end continueWithProviders
+    return () => {
+      cancelled = true;
+    };
   }, [track, refetchKey, forcedProvider, customLyricsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lyricsSynced = !!(lyrics && lyrics.some((l) => (l.time ?? -1) >= 0));
@@ -808,7 +823,6 @@ function LyricsOverlayContent({
     position: 0,
     velocity: 0,
     lastTime: 0,
-    userScrollUntil: 0,
     history: [],
     lastCenteredIdx: -1,
   });
@@ -818,7 +832,7 @@ function LyricsOverlayContent({
   }, [activeIdx]);
 
   useEffect(() => {
-    if (activeIdx < 0 || !containerRef.current) return;
+    if (userScrolling || activeIdx < 0 || !containerRef.current) return;
     const container = containerRef.current;
     let correctionFrame = 0;
     // Fluid wraps each line in a will-change:transform div (its own offsetParent), so the
@@ -870,7 +884,11 @@ function LyricsOverlayContent({
       cancelAnimationFrame(frame);
       cancelAnimationFrame(correctionFrame);
     };
-  }, [activeIdx, fluidLyrics]);
+  }, [activeIdx, fluidLyrics, userScrolling]);
+
+  useEffect(() => {
+    userScrollingRef.current = false;
+  }, [track?.videoId]);
 
   useEffect(() => {
     if (!fluidLyrics) return;
@@ -880,7 +898,10 @@ function LyricsOverlayContent({
     let raf = 0;
     let initializeFrame = 0;
     const onUserScroll = () => {
-      scrollStateRef.current.userScrollUntil = performance.now() + 2000;
+      if (!userScrollingRef.current) {
+        userScrollingRef.current = true;
+        setUserScrollingTrackId(track?.videoId || null);
+      }
       scrollStateRef.current.position = container.scrollTop;
       scrollStateRef.current.velocity = 0;
     };
@@ -911,7 +932,7 @@ function LyricsOverlayContent({
       const dt = Math.min((now - scrollStateRef.current.lastTime) / 1000, 0.04);
       scrollStateRef.current.lastTime = now;
 
-      if (now < scrollStateRef.current.userScrollUntil) {
+      if (userScrollingRef.current) {
         scrollStateRef.current.position = container.scrollTop;
       } else {
         const target = scrollStateRef.current.target;
@@ -943,7 +964,7 @@ function LyricsOverlayContent({
       const cur = scrollStateRef.current.position;
       for (let n = 0; n < wraps.length; n++) {
         const dist = Math.abs(n - ai);
-        if (dist === 0) {
+        if (userScrollingRef.current || dist === 0) {
           if (wraps[n].style.transform) wraps[n].style.transform = "";
           continue;
         }
@@ -971,6 +992,29 @@ function LyricsOverlayContent({
       });
     };
   }, [fluidLyrics, lyrics]);
+
+  useEffect(() => {
+    if (fluidLyrics) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const onUserScroll = () => {
+      if (!userScrollingRef.current) {
+        userScrollingRef.current = true;
+        setUserScrollingTrackId(track?.videoId || null);
+      }
+    };
+    container.addEventListener("wheel", onUserScroll, { passive: true });
+    container.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      container.removeEventListener("wheel", onUserScroll);
+      container.removeEventListener("touchmove", onUserScroll);
+    };
+  }, [fluidLyrics, track?.videoId]);
+
+  const resumeAutoscroll = useCallback(() => {
+    userScrollingRef.current = false;
+    setUserScrollingTrackId(null);
+  }, []);
 
   return (
     <div
@@ -1160,6 +1204,33 @@ function LyricsOverlayContent({
               </ChipRoot>
             );
           })}
+        </div>
+      )}
+
+      {userScrolling && (
+        <div
+          className="animate-[pillRiseIn_0.26s_cubic-bezier(0.22,1,0.36,1)]"
+          style={{
+            position: "absolute",
+            bottom: 64 + chipBottomLift,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            transition: "bottom 0.4s ease",
+          }}
+        >
+          <div className="relative rounded-full shadow-[0_6px_22px_rgba(0,0,0,0.45)]">
+            <div className="absolute inset-0 rounded-full bg-[rgba(255,255,255,0.13)] backdrop-blur-2xl" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={resumeAutoscroll}
+              className="relative gap-2 h-9! px-4 rounded-full text-t13 font-semibold text-primary! border-none! bg-transparent! hover:bg-[rgba(255,255,255,0.09)]!"
+            >
+              <CaretDown size={13} weight="bold" />
+              {t("resumeAutoscroll") || "Resume autoscroll"}
+            </Button>
+          </div>
         </div>
       )}
 

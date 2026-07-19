@@ -5,15 +5,20 @@ import "@kodama/e2e-bridge";
 import ReactDOM from "react-dom/client";
 import App from "@/app/App.jsx";
 import OverlayEditorApp from "@/features/overlay/OverlayEditorApp.jsx";
-// Big Picture mode + its gamepad spike are intentionally NOT mounted yet — the
-// feature is still WIP and kept out of releases (no F9/F10 entry point). The code
-// lives in features/big-picture/; re-enable the import + render below once it's ready.
-// import { GamepadTest } from "@/features/big-picture/GamepadTest.jsx";
-// import { BigPicture } from "@/features/big-picture/BigPicture.jsx";
+// Big Picture mode is reachable via F10 or Settings > Experimental. The old
+// gamepad spike remains intentionally unmounted.
+import { BigPicture } from "@/features/big-picture/BigPicture.jsx";
 import { installErrorCapture } from "@/app/diagnostics/error-capture.js";
 import "@/app/styles/index.css";
 
 installErrorCapture(); // capture frontend errors for the bug-report tool
+
+// Suppress WebView2/WebKit's native right-click menu (Back/Refresh/Save as/Print) in
+// packaged builds — it's a browser artifact that doesn't belong in a desktop app and has
+// no use for end users. Left enabled in dev so right-click → Inspect still works there.
+if (!import.meta.env.DEV) {
+  window.addEventListener("contextmenu", (e) => e.preventDefault());
+}
 
 console.log(
   "[boot] main.jsx executing at +" + (Date.now() - (window.__bootStart || Date.now())) + "ms"
@@ -22,7 +27,10 @@ console.log(
 const isOverlayEditor = new URLSearchParams(window.location.search).get("overlayEditor") === "1";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <>{isOverlayEditor ? <OverlayEditorApp /> : <App />}</>
+  <>
+    {isOverlayEditor ? <OverlayEditorApp /> : <App />}
+    <BigPicture />
+  </>
 );
 
 // Fade out the HTML boot splash now that React has taken over.

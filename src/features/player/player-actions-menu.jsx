@@ -2,7 +2,6 @@ import {
   cn,
   Dropdown,
   DropdownItem,
-  DropdownMenu,
   DropdownPopover,
   DropdownSection,
   DropdownSubmenuIndicator,
@@ -10,6 +9,7 @@ import {
   DropdownTrigger,
   toast,
 } from "@heroui/react";
+import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 
 import {
   ArrowClockwise,
@@ -28,34 +28,30 @@ import {
   VinylRecord,
 } from "@/shared/icons/icons.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
-import { PROVIDER_SYNC } from "@/features/lyrics/providers.js";
 
 export function PlayerActionsMenu(props) {
   const {
     buildShareLink,
     cachedSongIds,
-    currentLyricsSource,
     downloadingIds,
     expanded,
-    failedLyricsProviders,
     fetchMoreBrowseIds,
     fetchedBrowseIds,
     isCustomLyrics,
     isLiked,
     language,
-    lyricsProviders,
     lyricsTranslationLang,
     onAddToPlaylist,
     onDownloadSong,
     onExpandToggle,
     onExportSong,
     onImportLyrics,
+    onOpenLyricsBrowser,
     onOpenAlbum,
     onOpenArtist,
     onRefetchLyrics,
     onRemoveCustomLyrics,
     onSetLyricsTranslationLang,
-    onSwitchLyricsProvider,
     onToggleLyricsTranslation,
     showLyricsTranslation,
     t,
@@ -213,53 +209,15 @@ export function PlayerActionsMenu(props) {
             ) : null}
           </DropdownSection>
 
-          {/* Lyrics provider switcher */}
+          {/* Dedicated lyrics browser and preview. */}
           <DropdownSection className="w-full border-t border-border mt-1 pt-1">
-            {lyricsProviders
-              .filter((p) => p.enabled)
-              .map((p) => {
-                const sync = PROVIDER_SYNC[p.id];
-                const isActive = currentLyricsSource === p.label;
-                const isFailed = failedLyricsProviders.has(p.id);
-                return (
-                  <DropdownItem
-                    key={p.id}
-                    textValue={p.label}
-                    isDisabled={isFailed}
-                    onAction={() => {
-                      if (!isFailed) onSwitchLyricsProvider?.(p.id);
-                    }}
-                    className={cn("text-t12", isActive ? "text-primary" : "text-secondary")}
-                  >
-                    <span className="flex-1">{p.label}</span>
-                    {sync && (
-                      <span
-                        className="flex items-center gap-1.5 text-t10 px-1.5 py-0.5 rounded whitespace-nowrap"
-                        style={{ color: sync.color, background: sync.bg }}
-                      >
-                        {sync.icon && (
-                          <span
-                            className="inline-block w-4 h-4 shrink-0"
-                            style={{
-                              backgroundColor: "currentColor",
-                              maskImage: `url(${sync.icon})`,
-                              WebkitMaskImage: `url(${sync.icon})`,
-                              maskSize: "contain",
-                              WebkitMaskSize: "contain",
-                              maskRepeat: "no-repeat",
-                              WebkitMaskRepeat: "no-repeat",
-                              maskPosition: "center",
-                              WebkitMaskPosition: "center",
-                            }}
-                          />
-                        )}
-                        {sync.label}
-                      </span>
-                    )}
-                    {isActive && <Check size={12} className="text-accent shrink-0" />}
-                  </DropdownItem>
-                );
-              })}
+            <DropdownItem
+              textValue={translate(language, "browseLyrics")}
+              onAction={() => onOpenLyricsBrowser?.()}
+            >
+              <Microphone size={14} />
+              {translate(language, "browseLyrics")}
+            </DropdownItem>
           </DropdownSection>
 
           {/* Download / Export */}
