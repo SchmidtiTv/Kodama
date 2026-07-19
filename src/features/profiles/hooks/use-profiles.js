@@ -38,6 +38,7 @@ export function useProfiles({
   const sessionWarnedRef = useRef(null); // profile name we've already shown the "session expired" toast for
   const [showLangPicker, setShowLangPicker] = useState(() => !localStorage.getItem("kiyoshi-lang"));
   const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
+  const [switchingTo, setSwitchingTo] = useState(null);
   const [addingProfile, setAddingProfile] = useState(false);
   const [reauthName, setReauthName] = useState(null); // re-login an existing profile via OAuth under its own name
   const [currentProfile, setCurrentProfile] = useState(null);
@@ -136,25 +137,32 @@ export function useProfiles({
   //    side effects (reset view/queue, show login, etc.). ──────────────────────
   const handleAccountSwitch = useCallback(
     async (name) => {
-      await fetch(`${API}/profiles/switch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      await fetchProfiles();
-      setView("home");
-      stopPlayback();
-      setCurrentTrack(null);
-      setQueue([]);
-      setCollection(null);
-      setOverlayOpen(false);
-      setQueueOpen(false);
-      setSearchQuery("");
-      setAppKey((k) => k + 1);
-      window.__activeProfile = name;
-      window.dispatchEvent(new CustomEvent("profile-switched"));
+      setSwitchingTo(profiles.find((profile) => profile.name === name) || { name });
+      try {
+        await fetch(`${API}/profiles/switch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        await fetchProfiles();
+        setView("home");
+        stopPlayback();
+        setCurrentTrack(null);
+        setQueue([]);
+        setCollection(null);
+        setOverlayOpen(false);
+        setQueueOpen(false);
+        setSearchQuery("");
+        setAppKey((k) => k + 1);
+        window.__activeProfile = name;
+        window.dispatchEvent(new CustomEvent("profile-switched"));
+      } finally {
+        // Avoid a distracting flash for a fast switch while still clearing on an error.
+        window.setTimeout(() => setSwitchingTo(null), 450);
+      }
     },
     [
+      profiles,
       fetchProfiles,
       setView,
       stopPlayback,
@@ -412,6 +420,7 @@ export function useProfiles({
     setShowLangPicker,
     showProfileSwitcher,
     setShowProfileSwitcher,
+    switchingTo,
     addingProfile,
     setAddingProfile,
     reauthName,

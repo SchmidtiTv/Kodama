@@ -89,14 +89,14 @@ export function usePlayerNativeBridges({
         signal: AbortSignal.timeout(500),
         body: JSON.stringify(payload),
       }).catch(() => {});
-      if (integrationsRef.current.obsEnabled) {
-        fetch(`${API}/overlay/push`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(500),
-          body: JSON.stringify(payload),
-        }).catch(() => {});
-      }
+      // The editor preview consumes this state even when the user has not enabled the OBS
+      // server, so keep it fresh independently of the integration toggle.
+      fetch(`${API}/overlay/push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(500),
+        body: JSON.stringify(payload),
+      }).catch(() => {});
     };
 
     report();

@@ -601,6 +601,7 @@ export default function App() {
     setShowLangPicker,
     showProfileSwitcher,
     setShowProfileSwitcher,
+    switchingTo,
     addingProfile,
     setAddingProfile,
     reauthName,
@@ -988,6 +989,7 @@ export default function App() {
     setReauthName,
     showProfileSwitcher,
     setShowProfileSwitcher,
+    switchingTo,
   };
   const appShellRemote = {
     remoteEnabled,

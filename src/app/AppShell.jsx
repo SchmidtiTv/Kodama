@@ -127,6 +127,7 @@ export function AppShell({
     setReauthName,
     showProfileSwitcher,
     setShowProfileSwitcher,
+    switchingTo,
   } = authGate;
   const {
     remoteEnabled,
@@ -903,6 +904,7 @@ export function AppShell({
             setAddingProfile,
             reauthName,
             setReauthName,
+            switchingTo,
           }}
           remote={{
             remoteEnabled,

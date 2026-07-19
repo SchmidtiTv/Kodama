@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
   CardRoot,
@@ -12,6 +12,7 @@ import { ExplicitBadge } from "@/features/music/components/rows.jsx";
 import {
   CaretLeft,
   CaretRight,
+  ArrowsClockwise,
   CloudSun,
   Headphones,
   Moon,
@@ -49,25 +50,40 @@ export function HomeView({
   const [podcastLoading, setPodcastLoading] = useState(null); // playlistId being fetched
   const [speedDialPage, setSpeedDialPage] = useState(0);
   const t = useLang();
+  const homeCancelledRef = useRef(false);
 
-  const loadHome = () => {
+  const loadHome = useCallback(async (attempt = 0) => {
     setLoading(true);
     setError(null);
-    fetch(`${API}/home`)
-      .then(async (r) => {
-        const data = await r.json();
-        if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
-        return data;
-      })
-      .then((d) => setSections(d.sections || []))
-      .catch((cause) => {
-        setSections([]);
-        setError(cause.message || "Unable to load Home");
-      })
-      .finally(() => setLoading(false));
-  };
+    let lastError = null;
+    for (let retry = attempt; retry <= 6; retry += 1) {
+      try {
+        const response = await fetch(`${API}/home`);
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+        if (homeCancelledRef.current) return;
+        const nextSections = data.sections || [];
+        if (nextSections.length > 0 || retry === 6) {
+          setSections(nextSections);
+          setLoading(false);
+          return;
+        }
+      } catch (cause) {
+        if (homeCancelledRef.current) return;
+        lastError = cause;
+        if (retry === 6) {
+          setSections([]);
+          setError(lastError.message || "Unable to load Home");
+          setLoading(false);
+          return;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+  }, []);
 
   useEffect(() => {
+    homeCancelledRef.current = false;
     loadHome();
     fetch(`${API}/mood/categories`)
       .then((r) => r.json())
@@ -78,7 +94,10 @@ export function HomeView({
         if (firstKey) setActiveMoodTab(firstKey);
       })
       .catch(() => {});
-  }, []);
+    return () => {
+      homeCancelledRef.current = true;
+    };
+  }, [loadHome]);
 
   const handleMoodChipClick = (chip) => {
     if (activeMoodChip?.params === chip.params) {
@@ -446,8 +465,44 @@ export function HomeView({
 
   if (!allSections.length)
     return (
-      <div style={{ padding: 28, color: "var(--text-muted)", fontSize: "var(--t13)" }}>
-        {t("noSuggestions")}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          gap: 14,
+          height: "100%",
+          minHeight: 360,
+          padding: 28,
+        }}
+      >
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--bg-elevated)",
+          }}
+        >
+          <MusicNote size={24} className="text-muted" />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 360 }}>
+          <div style={{ fontSize: "var(--t14)", fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("noSuggestions")}
+          </div>
+          <div style={{ fontSize: "var(--t12)", color: "var(--text-muted)" }}>
+            {t("noSuggestionsHint")}
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onPress={() => loadHome(0)} className="gap-1.5 mt-1">
+          <ArrowsClockwise size={14} />
+          {t("refresh")}
+        </Button>
       </div>
     );
 

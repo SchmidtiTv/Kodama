@@ -40,6 +40,10 @@ export const GLOBAL_KEYFRAMES = `
     from { opacity: 1; transform: translateX(0); }
     to   { opacity: 0; transform: translateX(-18px); }
   }
+  @keyframes unfoldDown {
+    from { opacity: 0; transform: scaleY(0.4); }
+    to   { opacity: 1; transform: scaleY(1); }
+  }
   @keyframes toastOut {
     from { opacity: 1; transform: translateX(0) scale(1); }
     to   { opacity: 0; transform: translateX(16px) scale(0.96); }

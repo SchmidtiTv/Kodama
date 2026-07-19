@@ -104,7 +104,11 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
     const name = forcedProfileName || "account_" + Date.now();
     try {
       const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("open_login_window", { profileName: name });
+      await invoke("open_login_window", {
+        profileName: name,
+        confirmLabel: t("loginUseThisAccount"),
+        switchHint: t("loginSwitchAccountHint"),
+      });
       setStep("waiting");
     } catch (e) {
       console.error("open_login_window failed:", e);
@@ -421,8 +425,15 @@ export function AppOverlays({
   const { track: currentTrack } = usePlaybackStatus();
   const { fetchProfiles } = useProfileActions();
 
-  const { showLogin, setShowLogin, addingProfile, setAddingProfile, reauthName, setReauthName } =
-    auth;
+  const {
+    showLogin,
+    setShowLogin,
+    addingProfile,
+    setAddingProfile,
+    reauthName,
+    setReauthName,
+    switchingTo,
+  } = auth;
   const {
     remoteEnabled,
     pairModalOpen,
@@ -561,6 +572,44 @@ export function AppOverlays({
       {debugFloat && <DebugFloatingWindow onClose={() => setDebugFloat(false)} />}
 
       <ProfileSwitcherModal isOpen={showProfileSwitcher} onOpenChange={setShowProfileSwitcher} />
+      {switchingTo && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(10, 10, 12, 0.76)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 14,
+              minWidth: 220,
+              padding: "26px 32px",
+              borderRadius: 16,
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.42)",
+            }}
+          >
+            <Spinner size="lg" />
+            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+              {translate(language, "switchingTo", {
+                name: switchingTo.displayName || switchingTo.name || "…",
+              })}
+            </span>
+          </div>
+        </div>
+      )}
       {newsOpen && (
         <NewsModal
           news={newsItems}

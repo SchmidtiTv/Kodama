@@ -255,7 +255,7 @@ export function SettingsSidebarContent({
             // Discord-style sub-nav: when this page is active, list its sections as indented
             // children with a vertical tree line; the active one (scroll-spy) is highlighted.
             if (collapsed || tab !== item.id || !item.sections) return [parent];
-            const children = item.sections.map((sec) => (
+            const children = item.sections.map((sec, index) => (
               <ListBoxItem
                 key={"sec:" + sec.id}
                 id={"sec:" + sec.id}
@@ -264,6 +264,15 @@ export function SettingsSidebarContent({
                   "text-t12 min-h-8 rounded-lg pl-9 relative",
                   activeSection === sec.id ? "text-accent font-medium" : "text-secondary"
                 )}
+                style={
+                  anim
+                    ? {
+                        animation: "unfoldDown 0.22s cubic-bezier(0.4,0,0.2,1) both",
+                        animationDelay: `${index * 30}ms`,
+                        transformOrigin: "top",
+                      }
+                    : undefined
+                }
               >
                 <span
                   aria-hidden
