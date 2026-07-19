@@ -2,7 +2,8 @@ const path = require("node:path");
 
 const { startViteServer, stopViteServer, VITE_URL } = require("./support/vite-server.cjs");
 const { startFakeSidecar, stopFakeSidecar } = require("./support/fake-sidecar.cjs");
-const { assertE2eNetworkPolicy } = require("./support/network-policy.cjs");
+const { createAfterTestHook } = require("./support/failure-artifacts.cjs");
+const { resetRuntimeControls } = require("./support/runtime-controls.cjs");
 
 const root = path.resolve(__dirname, "..");
 
@@ -43,5 +44,6 @@ exports.config = {
     stopViteServer();
     await stopFakeSidecar();
   },
-  afterTest: assertE2eNetworkPolicy,
+  beforeTest: resetRuntimeControls,
+  afterTest: createAfterTestHook(path.join(root, ".e2e-artifacts", "browser", "failures")),
 };

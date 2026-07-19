@@ -24,7 +24,7 @@ async function startViteServer() {
   viteProcess = spawn(viteCommand, ["--host", "127.0.0.1"], {
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, VITE_E2E_NETWORK_GUARD: "true" },
+    env: { ...process.env, VITE_E2E_BROWSER: "true", VITE_E2E_NETWORK_GUARD: "true" },
   });
   viteProcess.stdout.on("data", appendOutput);
   viteProcess.stderr.on("data", appendOutput);

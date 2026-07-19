@@ -437,7 +437,7 @@ export function HomeView({
   })();
 
   return (
-    <div style={{ padding: "0 0 40px 0" }}>
+    <div data-testid="view-home" style={{ padding: "0 0 40px 0" }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
         @keyframes homeHeaderIcon{from{opacity:0;transform:translateY(-22px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}

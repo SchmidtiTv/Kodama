@@ -213,7 +213,7 @@ export function SearchView({
   );
 
   return (
-    <div style={{ padding: "20px 12px" }}>
+    <div data-testid="view-search" style={{ padding: "20px 12px" }}>
       {/* Header */}
       <div style={{ padding: "0 16px", marginBottom: 16 }}>
         <div style={{ fontSize: "var(--t18)", fontWeight: 500, marginBottom: 12 }}>

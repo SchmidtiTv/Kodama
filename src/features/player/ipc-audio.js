@@ -22,10 +22,16 @@ export class IpcAudio {
     // _fallback is set to a plain HTMLAudioElement and all calls route there.
     this._fallback = null; // null = not decided, false = Rust works, Audio = fallback
     this._probePromise = null; // dedup the one-time probe
+    this._e2eMedia = globalThis.__kodamaE2e?.media;
 
     // Resolve Tauri invoke/listen modules asynchronously on construction.
     import("@tauri-apps/api/core").then(({ invoke }) => {
       this._invoke = invoke;
+      if (this._e2eMedia) {
+        this._fallback = false;
+        this._probePromise = Promise.resolve();
+        return;
+      }
       // Probe immediately: try a harmless command to see if Rust audio exists.
       this._probe(invoke);
     });
@@ -97,6 +103,10 @@ export class IpcAudio {
 
   // ── Private helpers ────────────────────────────────────────────────────────
   _cmd(name, args) {
+    if (this._e2eMedia) {
+      this._e2eMedia.record(name, args || {});
+      return Promise.resolve();
+    }
     if (this._fallback) return Promise.resolve(); // Rust path disabled
     console.log("[IpcAudio] →", name, args?.url ? args.url.substring(0, 80) + "…" : "");
     const go = (invoke) =>

@@ -339,7 +339,9 @@ export function useProfiles({
             localStorage.removeItem("kiyoshi-profiles-cache");
           } catch {}
           if (expired) setReauthName(expired.name);
-          setShowLogin(true);
+          // Language selection is the first fresh-install decision. Defer the
+          // profile/login screen until it has been made, then App opens it.
+          if (localStorage.getItem("kiyoshi-lang")) setShowLogin(true);
         } else {
           fetchProfiles();
           // Re-fetch after a short delay to pick up background avatar writes
@@ -357,7 +359,7 @@ export function useProfiles({
             const p = JSON.parse(raw || "{}");
             hasCache = p.profiles?.length > 0 && p.current;
           } catch {}
-          if (!hasCache) setShowLogin(true);
+          if (!hasCache && localStorage.getItem("kiyoshi-lang")) setShowLogin(true);
           // Keep pinging in background; once backend responds, sync live data
           bgIntervalId = setInterval(async () => {
             try {

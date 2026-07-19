@@ -774,6 +774,7 @@ function Sidebar({
         <ListBoxItem
           key={item.id}
           id={item.id}
+          data-testid={`nav-${item.id}`}
           textValue={item.label}
           className={cn(
             "text-t13 min-h-10 rounded-xl",
@@ -1680,6 +1681,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
 
   return (
     <div
+      data-testid="login-screen"
       style={{
         position: "fixed",
         inset: 0,
@@ -1915,6 +1917,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
 
   return (
     <div
+      data-testid="language-picker"
       style={{
         position: "fixed",
         inset: 0,
@@ -1978,6 +1981,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
             return (
               <button
                 key={lang.code}
+                data-testid={`language-${lang.code}`}
                 onClick={() => setSelected(lang.code)}
                 style={{
                   display: "flex",
@@ -2029,6 +2033,7 @@ function LanguagePickerScreen({ currentLanguage, onConfirm }) {
         </div>
 
         <Button
+          data-testid="language-confirm"
           color="accent"
           variant="solid"
           fullWidth
@@ -3961,6 +3966,7 @@ export default function App() {
                               localStorage.setItem("kiyoshi-lang", lang);
                               setLanguage(lang);
                               setShowLangPicker(false);
+                              if (!profiles.length) setShowLogin(true);
                             }}
                           />
                         )}

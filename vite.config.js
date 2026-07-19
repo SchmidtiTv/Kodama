@@ -12,6 +12,7 @@ const appVersion = JSON.parse(
 ).version;
 const e2eNetworkGuard =
   process.env.VITE_E2E === "true" || process.env.VITE_E2E_NETWORK_GUARD === "true";
+const e2eBrowserMode = process.env.VITE_E2E_BROWSER === "true";
 const e2eContentSecurityPolicy =
   "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://localhost:9847 http://127.0.0.1:9847 ws://127.0.0.1:1421; img-src 'self' data: blob: http://localhost:9847 http://127.0.0.1:9847; media-src 'self' blob: http://localhost:9847 http://127.0.0.1:9847; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'";
 const e2eNoRemoteFonts = {
@@ -34,6 +35,16 @@ export default defineConfig({
       "@kodama/e2e-network-guard": e2eNetworkGuard
         ? fileURLToPath(new URL("./src/e2e/network-guard.js", import.meta.url))
         : fileURLToPath(new URL("./src/e2e/noop.js", import.meta.url)),
+      "@kodama/e2e-runtime-controls": e2eNetworkGuard
+        ? fileURLToPath(new URL("./src/e2e/runtime-controls.js", import.meta.url))
+        : fileURLToPath(new URL("./src/e2e/noop.js", import.meta.url)),
+      ...(e2eBrowserMode
+        ? {
+            "@tauri-apps/api/webviewWindow": fileURLToPath(
+              new URL("./src/e2e/browser-webview-window.js", import.meta.url)
+            ),
+          }
+        : {}),
     },
   },
   define: { __APP_VERSION__: JSON.stringify(appVersion) },

@@ -104,7 +104,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
   ];
 
   return (
-    <div style={{ padding: "24px 24px 0" }}>
+    <div data-testid="view-library" style={{ padding: "24px 24px 0" }}>
       {/* Header row: title left, tabs centered */}
       <div
         style={{

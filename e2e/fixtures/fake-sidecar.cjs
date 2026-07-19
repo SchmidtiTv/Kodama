@@ -31,6 +31,11 @@ function sendJson(response, status, body, headers = {}) {
   response.end(JSON.stringify(body));
 }
 
+function sendText(response, status, body, headers = {}) {
+  response.writeHead(status, { "access-control-allow-origin": "*", ...headers });
+  response.end(body);
+}
+
 function defaultResponse(state, request, url) {
   const { pathname } = url;
   const profiles = fixtures.profiles[state.preset] || fixtures.profiles.firstRun;
@@ -67,6 +72,14 @@ function defaultResponse(state, request, url) {
   if (pathname === "/ffmpeg/check-update" || pathname === "/ytdlp/check-update")
     return { body: { available: false } };
   if (pathname === "/cache/stats") return { body: { usedBytes: 0, files: 0 } };
+  if (pathname === "/song/cached/list") return { body: { songs: [] } };
+  if (pathname === "/operation/network/ipv4-first" || pathname === "/network/ipv4-first")
+    return { body: { enabled: true } };
+  if (pathname === "/imgproxy")
+    return {
+      text: '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>',
+      headers: { "content-type": "image/svg+xml" },
+    };
   if (pathname === "/api/local-fonts") return { body: { fonts: [] } };
   if (pathname === "/remote/_status") return { body: { enabled: false, devices: [] } };
   if (pathname === "/lastfm/status") return { body: { connected: false } };
@@ -104,7 +117,7 @@ function createFakeSidecar() {
       return;
     }
 
-    if (url.pathname.startsWith(CONTROL_PREFIX)) {
+    if (url.pathname.startsWith(CONTROL_PREFIX) && url.pathname !== `${CONTROL_PREFIX}external`) {
       if (url.pathname === `${CONTROL_PREFIX}health`) return sendJson(response, 200, { ok: true });
       const body = await readJson(request);
       if (url.pathname === `${CONTROL_PREFIX}reset`) {
@@ -143,10 +156,18 @@ function createFakeSidecar() {
 
     const configured = state.routes.get(routeKey(request.method, url.pathname));
     const responseSpec = configured || defaultResponse(state, request, url);
+    requestRecord.responseStatus = responseSpec.disconnect ? 0 : responseSpec.status || 200;
     if (responseSpec.disconnect) return request.socket.destroy();
     if (responseSpec.delayMs)
       await new Promise((resolve) => setTimeout(resolve, responseSpec.delayMs));
     if (responseSpec.sse) return sendSse(response, responseSpec.sse);
+    if (responseSpec.text)
+      return sendText(
+        response,
+        responseSpec.status || 200,
+        responseSpec.text,
+        responseSpec.headers
+      );
     return sendJson(
       response,
       responseSpec.status || 200,
