@@ -98,6 +98,9 @@ import {
   BrandLastfm,
   BrandBluesky,
   BrandTiktok,
+  BrandGithub,
+  BrandDiscord,
+  MugHot,
   UserCircle,
   Users,
   SignOut,
@@ -3303,7 +3306,7 @@ function AccountSettingsTab({ accounts, activeAccount, onSwitch, onAdd, onReauth
 
 function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accentDynamic, onAccentDynamicChange, accentSat, onAccentSatChange, accentLight, onAccentLightChange, appIcon = APP_ICON_DEFAULT, onAppIconChange,
   remoteEnabled = false, remoteDevices = [], remoteTrustedIds = new Set(), onToggleRemote, onRemoteDevice, onRememberDevice, onPairDevice,
-  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, ytmusicHistorySync, onYtmusicHistorySyncChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, videoSyncEnabled, onToggleVideoSync, videoSyncQuality = "auto", onVideoSyncQualityChange, videoLyricsStyle = "split", onVideoLyricsStyleChange, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
+  theme, onThemeChange, animations, onAnimationsChange, lyricsFontSize, onLyricsFontSizeChange, lyricsTranslationFontSize, onLyricsTranslationFontSizeChange, lyricsRomajiFontSize, onLyricsRomajiFontSizeChange, lyricsProviders, onLyricsProvidersChange, autoplay, onAutoplayChange, crossfade, onCrossfadeChange, crossfadeOverrides = {}, onRemoveCrossfadeOverride, playbackProgressive, onPlaybackProgressiveChange, closeTray, onCloseTrayChange, discordRpc, onDiscordRpcChange, discordStatusDisplay = "song", onDiscordStatusDisplayChange, ytmusicHistorySync, onYtmusicHistorySyncChange, language, onLanguageChange, updateInfo, onCheckUpdate, updateDownloading, updateDownloadProgress, updateDownloaded, onDownloadUpdate, onInstallUpdate, onCancelDownload, hideExplicit, onHideExplicitChange, showTrackNumbers, onTrackNumbersChange, anonStats, onAnonStatsChange, hideUserHandle, onToggleHideUserHandle, uiZoom, onUiZoomChange, appFontScale, onFontScaleChange, showRomaji, onToggleRomaji, showAgentTags, onToggleAgentTags, syllableZoom, onToggleSyllableZoom, fluidLyrics, onToggleFluidLyrics, videoSyncEnabled, onToggleVideoSync, videoSyncQuality = "auto", onVideoSyncQualityChange, videoLyricsStyle = "split", onVideoLyricsStyleChange, highContrast, onToggleHighContrast, appFont, onAppFontChange, ambientVisualizer, onToggleAmbientVisualizer, instrumentalViz, onToggleInstrumentalViz, vizConfig, onUpdateViz, vizPreviewTrack, vizPreviewPlaying, ambientBackground, onToggleAmbientBackground,
   obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, onObsPortSave,
   customShortcuts, shortcutLabels, recordingShortcut, setRecordingShortcut, getShortcutLabel, resetShortcut,
   accounts, activeAccount, onAccountSwitch, onAccountAdd, onAccountReauth, onAccountRemove, onAccountRename, onAccountLogout, onAccountAvatarChange,
@@ -4161,6 +4164,21 @@ function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accen
                 <SettingRow label={t("discordRpc")} description={t("discordRpcDesc")} icon={<ShareNodes />}>
                   <Toggle value={discordRpc} onChange={onDiscordRpcChange} />
                 </SettingRow>
+                {discordRpc && (
+                  <SettingRow label={t("discordStatusDisplay")} description={t("discordStatusDisplayDesc")} icon={<Info size={15} />}>
+                    <ToggleButtonGroupRoot
+                      selectionMode="single"
+                      disallowEmptySelection
+                      selectedKeys={[discordStatusDisplay]}
+                      onSelectionChange={(keys) => { const v = [...keys][0]; if (v) onDiscordStatusDisplayChange?.(v); }}
+                      size="sm"
+                    >
+                      <ToggleButton id="song">{t("discordStatusDisplaySong")}</ToggleButton>
+                      <ToggleButton id="artist">{t("discordStatusDisplayArtist")}</ToggleButton>
+                      <ToggleButton id="app">{t("discordStatusDisplayApp")}</ToggleButton>
+                    </ToggleButtonGroupRoot>
+                  </SettingRow>
+                )}
                 <LastfmRow />
                 <SettingRow label={t("ytmusicHistorySync")} description={t("ytmusicHistorySyncDesc")} icon={<ClockCounterClockwise />}>
                   <Toggle value={ytmusicHistorySync} onChange={onYtmusicHistorySyncChange} />
@@ -4685,16 +4703,26 @@ function SettingsPanel({ onClose, onSectionChange, accent, onAccentChange, accen
                   <div style={{ fontSize: "var(--t13)", color: "var(--text-secondary)", maxWidth: 420, lineHeight: 1.6, marginBottom: 20 }}>
                     {t("aboutDesc")}
                   </div>
-                  <div className="flex gap-2.5 flex-wrap">
-                    <Button variant="secondary" size="sm" onPress={() => openUrl("https://github.com/KiyoshiTheDevil/Kodama")}>
+                  <div className="flex gap-2.5 flex-wrap justify-center">
+                    <Button variant="secondary" size="sm" onPress={() => openUrl("https://kiyoshithedevil.github.io/Kodama/")}>
                       <Globe size={14} />
+                      Website
+                    </Button>
+                    <Button variant="secondary" size="sm" onPress={() => openUrl("https://github.com/KiyoshiTheDevil/Kodama")}>
+                      <BrandGithub size={14} />
                       GitHub
                     </Button>
-                    {/* Temporarily removed — re-enable by uncommenting.
+                    <Button size="sm" className="bg-[#5865F2]! text-white! font-semibold" onPress={() => openUrl("https://discord.gg/PzSsPF7KW")}>
+                      <BrandDiscord size={14} />
+                      Discord
+                    </Button>
                     <Button size="sm" className="bg-[#FFDD00]! text-black! font-semibold" onPress={() => openUrl("https://buymeacoffee.com/kiyoshi_the_devil")}>
                       ☕ Buy me a coffee
                     </Button>
-                    */}
+                    <Button size="sm" className="bg-[#FF5E5B]! text-white! font-semibold" onPress={() => openUrl("https://ko-fi.com/kiyoshi_the_devil")}>
+                      <MugHot size={14} />
+                      Ko-fi
+                    </Button>
                   </div>
                 </div>
 
@@ -10027,6 +10055,9 @@ export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [discordRpc, setDiscordRpc] = useState(() => localStorage.getItem("kiyoshi-discord-rpc") !== "false");
+  // Which field drives Discord's compact member-list status line (like PreMiD's "Pick Status
+  // Display"): "song" (title) / "artist" / "app" (the fixed "Kodama" app name).
+  const [discordStatusDisplay, setDiscordStatusDisplay] = useState(() => localStorage.getItem("kiyoshi-discord-status-display") || "song");
   // Opt-in (default off): register plays in the account's actual YT Music watch history
   // (via ytmusicapi's playbackTracking ping) so they count toward YT Music's own Recap/stats
   // — separate from Kodama's own local History list, which always works regardless of this.
@@ -10441,6 +10472,7 @@ export default function App() {
           elapsed: a?.currentTime || 0,
           videoId: currentTrack.videoId || "",
           paused: !isPlaying,
+          statusDisplay: discordStatusDisplay,
         }).catch(() => {});
       } catch {}
     };
@@ -10455,7 +10487,7 @@ export default function App() {
       clearTimeout(debounce);
       clearInterval(interval);
     };
-  }, [currentTrack, isPlaying, discordRpc]);
+  }, [currentTrack, isPlaying, discordRpc, discordStatusDisplay]);
 
   // Kimuco Bridge — report now-playing to the OBS overlay app (external, port 8888).
   // Also pushes to the built-in overlay server when enabled.
@@ -12185,6 +12217,8 @@ export default function App() {
             onCloseTrayChange={v => { setCloseTray(v); localStorage.setItem("kiyoshi-close-tray", String(v)); import("@tauri-apps/api/core").then(({ invoke }) => invoke("set_close_to_tray", { enabled: v }).catch(() => {})); }}
             discordRpc={discordRpc}
             onDiscordRpcChange={(v) => { setDiscordRpc(v); localStorage.setItem("kiyoshi-discord-rpc", v); if (!v) import("@tauri-apps/api/core").then(({ invoke }) => invoke("clear_discord_rpc").catch(() => {})); }}
+            discordStatusDisplay={discordStatusDisplay}
+            onDiscordStatusDisplayChange={(v) => { setDiscordStatusDisplay(v); localStorage.setItem("kiyoshi-discord-status-display", v); }}
             ytmusicHistorySync={ytmusicHistorySync}
             onYtmusicHistorySyncChange={(v) => { setYtmusicHistorySync(v); localStorage.setItem("kiyoshi-ytmusic-history-sync", String(v)); }}
             language={language}
