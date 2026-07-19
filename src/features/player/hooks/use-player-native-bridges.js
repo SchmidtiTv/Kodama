@@ -83,12 +83,6 @@ export function usePlayerNativeBridges({
         isPlaying: isPlaying && !!currentTrack,
       };
 
-      fetch("http://127.0.0.1:8888/api/source/kiyoshi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(500),
-        body: JSON.stringify(payload),
-      }).catch(() => {});
       // The editor preview consumes this state even when the user has not enabled the OBS
       // server, so keep it fresh independently of the integration toggle.
       fetch(`${API}/overlay/push`, {
