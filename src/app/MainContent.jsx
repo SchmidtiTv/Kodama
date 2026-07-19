@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { translate } from "../i18n.js";
 import { WifiX } from "../icons.jsx";
 import { CollectionView } from "../views/collection-view.jsx";
@@ -9,6 +8,18 @@ import { LibraryView } from "../features/music/views/library-view.jsx";
 import { SearchView } from "../features/music/views/search-view.jsx";
 import { HomeView } from "../features/music/views/home-view.jsx";
 import { ArtistView } from "../features/music/views/artist-view.jsx";
+
+function AnimatedView({ animations, children }) {
+  return (
+    <div
+      style={{
+        animation: animations ? "fadeSlideIn 0.28s cubic-bezier(0.22,1,0.36,1) both" : "none",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 // Scrollable main content area — routes the active `view` to its screen (wrapped in the
 // fade/slide AnimatedView transition), then the sticky offline banner and a spacer that
@@ -41,24 +52,10 @@ export function MainContent({
   isOffline,
   language,
 }) {
-  const AnimatedView = useCallback(
-    ({ children }) => (
-      <div
-        key={view}
-        style={{
-          animation: animations ? "fadeSlideIn 0.28s cubic-bezier(0.22,1,0.36,1) both" : "none",
-        }}
-      >
-        {children}
-      </div>
-    ),
-    [view, animations]
-  );
-
   return (
     <div key={appKey} className="scrollable" style={{ height: "100%", overflowY: "auto" }}>
               {view === "home" && (
-                <AnimatedView key={`home-${viewRefreshKey}`}>
+                <AnimatedView key={`home-${viewRefreshKey}`} animations={animations}>
                   <HomeView
                     displayName={profiles.find((p) => p.active)?.displayName}
                     onOpenPlaylist={(item) => openPlaylist(item, "home")}
@@ -73,7 +70,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "search" && (
-                <AnimatedView key={`search-${viewRefreshKey}`}>
+                <AnimatedView key={`search-${viewRefreshKey}`} animations={animations}>
                   <SearchView
                     query={searchQuery}
                     onOpenArtist={openArtist}
@@ -88,7 +85,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "liked" && (
-                <AnimatedView key={`liked-${viewRefreshKey}`}>
+                <AnimatedView key={`liked-${viewRefreshKey}`} animations={animations}>
                   <LikedView
                     onOpenArtist={openArtist}
                     onOpenAlbum={(item) => openAlbum(item, "liked")}
@@ -106,7 +103,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "history" && (
-                <AnimatedView key={`history-${viewRefreshKey}`}>
+                <AnimatedView key={`history-${viewRefreshKey}`} animations={animations}>
                   <HistoryView
                     onOpenArtist={openArtist}
                     onOpenAlbum={(item) => openAlbum(item, "history")}
@@ -124,7 +121,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "library" && (
-                <AnimatedView key={`library-${viewRefreshKey}`}>
+                <AnimatedView key={`library-${viewRefreshKey}`} animations={animations}>
                   <LibraryView
                     onOpenPlaylist={openPlaylist}
                     onOpenAlbum={openAlbum}
@@ -134,7 +131,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "collection" && collection && (
-                <AnimatedView key={`collection-${viewRefreshKey}`}>
+                <AnimatedView key={`collection-${viewRefreshKey}`} animations={animations}>
                   <CollectionView
                     title={collection.title}
                     thumbnail={collection.thumbnail}
@@ -191,7 +188,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "artist" && artistView && (
-                <AnimatedView key={`artist-${viewRefreshKey}`}>
+                <AnimatedView key={`artist-${viewRefreshKey}`} animations={animations}>
                   <ArtistView
                     browseId={artistView.browseId}
                     onOpenAlbum={(item) => openAlbum(item, "artist")}
@@ -206,7 +203,7 @@ export function MainContent({
                 </AnimatedView>
               )}
               {view === "downloads" && (
-                <AnimatedView key={`downloads-${viewRefreshKey}`}>
+                <AnimatedView key={`downloads-${viewRefreshKey}`} animations={animations}>
                   <DownloadsView
                     onTrackContextMenu={(e, track) =>
                       setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
