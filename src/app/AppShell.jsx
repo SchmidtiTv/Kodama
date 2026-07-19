@@ -38,21 +38,7 @@ import {
   lockSettingsSection,
   setSettingsSectionStore,
 } from "../features/settings/section-store.js";
-
-function detectSystemLang() {
-  const supported = ["de", "en"]; // extend when more locales are added
-  const candidates = navigator.languages?.length
-    ? navigator.languages
-    : [navigator.language || "en"];
-  for (const loc of candidates) {
-    const base = loc.split("-")[0].toLowerCase();
-    if (supported.includes(base)) return base;
-  }
-  return "en";
-}
-function getInitialLang() {
-  return localStorage.getItem("kiyoshi-lang") || detectSystemLang();
-}
+import { getInitialLang } from "../shared/lib/lang.js";
 
 export function AppShell({
   language,
@@ -274,11 +260,9 @@ export function AppShell({
   const [renameDialog, setRenameDialog] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState(null);
 
-
   useEffect(() => {
     clearSelection();
   }, [view]);
-
 
   const [debugFloat, setDebugFloat] = useState(false);
   useEffect(() => {
