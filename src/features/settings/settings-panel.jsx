@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, CardRoot, cn, InputRoot, KbdContent, KbdRoot, ProgressBar, ProgressBarFill, ProgressBarTrack, TextFieldRoot } from "@heroui/react";
+import { Button, CardRoot, cn, KbdContent, KbdRoot, ProgressBar, ProgressBarFill, ProgressBarTrack } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { ArrowsClockwise, ArrowCircleUp, ArrowClockwise, ArrowSquareOut, BrandBluesky, BrandTiktok, BrandTwitch, BrandYoutube, Bug, CaretDown, CaretUp, ChatText, Check, CheckCircle, CircleHalf, DownloadSimple, Eye, EyeSlash, Flask, Globe, Info, Key, Keyboard, Link, Lock, LockOpen, MagnifyingGlass, MusicNote, PaintBrushBroad, PencilSimple, Play, PlayCircle, PersonArmsSpread, ScreencastSimple, ShareNodes, Sliders, Sparkles, TextSize, Tag, Trash, Translate, UserCircle, Users, WifiHigh, DeviceMobile, HardDrives, WaveformLines, X } from "@/shared/icons/icons.jsx";
@@ -19,7 +19,9 @@ import {
   SettingsSectionLabel,
 } from "@/shared/ui/settings-controls.jsx";
 import { AccountSettingsTab } from "./account-settings-tab.jsx";
-import { AccentColorPicker, APP_VERSION, ComposerSettingsSection, DebugTab, FfmpegUpdateRow, LastfmRow, LyricsProviderList, StorageTab, UnisonIdentitySection, YtDlpUpdateRow } from "./settings-support.jsx";
+import { PinDots, PinKeypad, PasswordEntryInput } from "./pin-controls.jsx";
+import { APP_VERSION, ComposerSettingsSection, DebugTab, FfmpegUpdateRow, LyricsProviderList, StorageTab, UnisonIdentitySection, YtDlpUpdateRow } from "./settings-support.jsx";
+import { AccentColorPicker, LastfmRow } from "./settings-integration-controls.jsx";
 import { isSettingsSectionLocked } from "./section-store.js";
 import {
   APP_ICON_DEFAULT,
@@ -444,38 +446,6 @@ export function SettingsPanel({
     }
   };
 
-  const PinDots = ({ count, filled }) => (
-    <div className="flex gap-3.5 justify-center">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "w-3.5 h-3.5 rounded-full border-2 transition-colors",
-            i < filled ? "bg-primary border-primary" : "border-secondary"
-          )}
-        />
-      ))}
-    </div>
-  );
-
-  const PinKeypad = ({ onKey }) => (
-    <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(3, 68px)" }}>
-      {[1, 2, 3, 4, 5, 6, 7, 8, 9, "del", 0, null].map((k, i) => {
-        if (k === null) return <div key={i} />;
-        return (
-          <Button
-            key={i}
-            variant={k === "del" ? "ghost" : "secondary"}
-            onPress={() => onKey(k === "del" ? "del" : k)}
-            className="h-[58px] w-full rounded-xl text-t20 font-semibold"
-          >
-            {k === "del" ? "⌫" : k}
-          </Button>
-        );
-      })}
-    </div>
-  );
-
   // ── Keyboard support for PIN entry / setup ───────────────────────────────
   useEffect(() => {
     if (pinType !== "pin") return; // password mode uses native <input>
@@ -497,51 +467,6 @@ export function SettingsPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [pinType, pinEnabled, pinVerified, pinSetup, pinError]);
-
-  const PasswordEntryInput = ({
-    value,
-    onChange,
-    onSubmit,
-    show,
-    onToggleShow,
-    error,
-    autoFocus,
-  }) => (
-    <div className="flex flex-col items-center gap-3.5">
-      <div className="relative w-[260px]">
-        <TextFieldRoot aria-label="PIN" value={value} onChange={onChange} className="w-full">
-          <InputRoot
-            type={show ? "text" : "password"}
-            placeholder="••••••••"
-            autoFocus={autoFocus}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && value.length > 0) onSubmit(value);
-            }}
-            className={cn("pr-11", error && "border-[#f44336]!")}
-          />
-        </TextFieldRoot>
-        <button
-          onClick={onToggleShow}
-          tabIndex={-1}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 flex items-center text-muted hover:text-primary"
-        >
-          {show ? <EyeSlash size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-      {error && (
-        <div className="text-t12 font-medium" style={{ color: "#f44336" }}>
-          {error}
-        </div>
-      )}
-      <Button
-        variant="primary"
-        isDisabled={value.length === 0}
-        onPress={() => value.length > 0 && onSubmit(value)}
-      >
-        {t("pinSubmit")}
-      </Button>
-    </div>
-  );
 
   const navItems = [
     { id: "account", label: t("account"), iconEl: <UserCircle size={18} /> },
@@ -650,6 +575,7 @@ export function SettingsPanel({
                 onToggleShow={() => setShowPinPassword((v) => !v)}
                 error={pinError ? t("pinWrong") : ""}
                 autoFocus
+                submitLabel={t("pinSubmit")}
               />
             )}
           </div>
@@ -767,6 +693,7 @@ export function SettingsPanel({
               onToggleShow={() => setShowSetupPassword((v) => !v)}
               error={pinSetupError}
               autoFocus
+              submitLabel={t("pinSubmit")}
             />
           )}
 

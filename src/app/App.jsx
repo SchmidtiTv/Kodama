@@ -42,26 +42,9 @@ import { DownloadProvider } from "@/features/downloads/download-context.jsx";
 import { useLastfmClient } from "@/features/integrations/lastfm.js";
 import { SettingsProviders } from "@/features/settings/settings-context.jsx";
 import { DEFAULT_SHORTCUTS } from "@/features/settings/settings-constants.js";
+import { useIpv4First } from "@/features/settings/use-ipv4-first.js";
 
-const IPV4_FIRST_ENDPOINTS = ["/operation/network/ipv4-first", "/network/ipv4-first"];
 const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
-
-async function fetchIpv4FirstSetting(options = {}) {
-  let lastError = null;
-  for (const path of IPV4_FIRST_ENDPOINTS) {
-    try {
-      const res = await fetch(`${API}${path}`, options);
-      if (!res.ok) {
-        lastError = new Error(`HTTP ${res.status}`);
-        continue;
-      }
-      return res.json();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error("IPv4-first setting request failed");
-}
 
 // openOverlayEditor moved to src/app/AppShell.jsx (Step 13a-i).
 
@@ -620,35 +603,7 @@ export default function App() {
       return merged;
     });
   }, []);
-  const [ipv4First, setIpv4First] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    fetchIpv4FirstSetting()
-      .then((d) => {
-        if (!cancelled) setIpv4First(!!d.enabled);
-      })
-      .catch((e) => console.error("[Network] IPv4-first load failed:", e));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  const toggleIpv4First = useCallback(
-    (enabled) => {
-      const previous = ipv4First;
-      setIpv4First(enabled);
-      fetchIpv4FirstSetting({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
-      })
-        .then((d) => setIpv4First(!!d.enabled))
-        .catch((e) => {
-          console.error("[Network] IPv4-first toggle failed:", e);
-          setIpv4First(previous);
-        });
-    },
-    [ipv4First]
-  );
+  const { ipv4First, toggleIpv4First } = useIpv4First();
 
   // ── LAN remote control (see features/remote/hooks/use-remote-control.js) ──
   // Enabling starts the token-gated phone endpoints on the (already 0.0.0.0) backend.

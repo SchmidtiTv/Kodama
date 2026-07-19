@@ -535,8 +535,8 @@ requests, and native bridge events for the risky flows.
     expiry warning, and session-keeper start/stop) still needs to be run in the Tauri app —
     blocked here by the pre-existing missing `src-tauri/resources/node` build resource.
   - Remaining for Step 4: none. `ipv4First` (a connections/backend setting, not network
-    status) was intentionally left in App — it can ride with a future network/connections
-    hook or the settings extraction.
+    status) was intentionally left in App at this point; it subsequently moved into its own
+    settings hook in Step 16.
 
 - [x] Step 5: Extract shared presentational primitives
   - How: Moved self-contained UI out of App with unchanged behaviour/props:
@@ -1179,9 +1179,8 @@ requests, and native bridge events for the risky flows.
       `likedIds`/`handleToggleLike`. A likes hook/context is the eventual owner; it carries no
       profile-reset ordering risk but is a real feature still in the root. **(Extracted in
       Step 15 — see below.)**
-    - `App.jsx` still owns `ipv4First`/`fetchIpv4FirstSetting` (a connections/backend setting,
-      explicitly deferred at Step 4) and FFmpeg startup-gating fetches (`/ffmpeg/status`,
-      `/ffmpeg/check-update`) — the latter are legitimate startup gating.
+    - App owns only the FFmpeg startup-gating fetches (`/ffmpeg/status`,
+      `/ffmpeg/check-update`); they are legitimate composition-root responsibilities.
     - App's remaining `localStorage` writes are appearance/geometry/preference/history
       persistence that App still owns pending the settings extraction; none are feature glue.
   - Verified: `npx vite build` passes (`✓ built`; only the pre-existing chunk-size warning) after
@@ -1201,9 +1200,21 @@ requests, and native bridge events for the risky flows.
     unchanged. Behavior is byte-identical: likes load once on mount and only change through the
     toggle — there was and is no profile-switch reload, so no reset-ordering rule was touched.
   - Net: `App.jsx` no longer contains the likes state, effect, or mutation; `setLikedIds` is gone
-    from the root. The only feature fetches left in `App.jsx` are `ipv4First` (deferred at Step 4)
-    and the FFmpeg startup-gating checks.
+    from the root. At this point the only feature fetches left in `App.jsx` were `ipv4First`
+    (deferred at Step 4) and the FFmpeg startup-gating checks; IPv4-first subsequently moved in
+    Step 16.
   - Verified: `npx vite build` passes; App.jsx unused-import scan clean; `lastfm` is defined before
     the hook call. Native smoke testing owed: like/unlike from playlist rows, liked view, queue,
     and selection bar; optimistic update + revert on backend failure; Last.fm Loved mirror when
     connected (blocked by the pre-existing missing `src-tauri/resources/node` resource).
+
+- [x] Step 16: Extract the IPv4-first backend setting
+  - How: Moved the IPv4-first endpoint fallback, mount-time load, optimistic toggle, server
+    reconciliation, and rollback from `App.jsx` into
+    `features/settings/use-ipv4-first.js` (`useIpv4First()`). App now consumes only the hook's
+    `{ ipv4First, toggleIpv4First }` result to populate the existing integration settings slice;
+    the SettingsPanel interface and backend behavior are unchanged.
+  - Verified: `npm run build` and lint for the new hook pass. The focused App + hook lint check
+    reports only App's pre-existing lyrics-provider migration `set-state-in-effect` finding.
+    Manual smoke testing owed: toggle the setting with each backend route available, then force a
+    failed POST and confirm the UI rolls back to the prior value.

@@ -3,12 +3,6 @@ import { createPortal } from "react-dom";
 import {
   Button,
   CardRoot,
-  ColorAreaRoot,
-  ColorAreaThumb,
-  ColorSliderRoot,
-  ColorSliderThumb,
-  ColorSliderTrack,
-  ColorSwatchRoot,
   cn,
   InputRoot,
   ProgressBar,
@@ -16,12 +10,9 @@ import {
   ProgressBarTrack,
   Spinner,
   TextFieldRoot,
-  toast,
 } from "@heroui/react";
-import { parseColor } from "react-aria-components";
-import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { ArrowClockwise, ArrowSquareOut, BrandLastfm, Bug, CaretDown, Check, CheckCircle, Copy, DownloadSimple, Eyedropper, GripLines, HardDrives, ImageSquare, Microphone, MusicNote, Queue, UserCircle, VinylRecord, WarningCircle, X } from "@/shared/icons/icons.jsx";
+import { ArrowClockwise, ArrowSquareOut, Bug, CaretDown, Check, CheckCircle, Copy, DownloadSimple, GripLines, HardDrives, ImageSquare, Microphone, MusicNote, Queue, UserCircle, VinylRecord, WarningCircle, X } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { generateIdentity, importIdentityFile, exportIdentityFile } from "@/features/lyrics/community/identity.js";
@@ -39,215 +30,8 @@ import {
   SettingsSectionDesc,
 } from "@/shared/ui/settings-controls.jsx";
 import { frontendLogs } from "./debug-log-store.js";
-import { ACCENT_PRESETS } from "./settings-constants.js";
 
 export const APP_VERSION = __APP_VERSION__;
-
-export function AccentColorPicker({ value, onChange }) {
-  const safe = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#e040fb";
-  const [color, setColor] = useState(() => parseColor(safe).toFormat("hsb"));
-  useEffect(() => {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-      try {
-        setColor(parseColor(value).toFormat("hsb"));
-      } catch { /* intentionally ignored */ }
-    }
-  }, [value]);
-  const apply = (c) => {
-    const hsb = c.toFormat("hsb");
-    setColor(hsb);
-    onChange(hsb.toString("hex"));
-  };
-  const hex = color.toString("hex");
-  return (
-    <div className="flex gap-3 items-start mb-3.5">
-      {/* Left: preset swatches — HeroUI ColorSwatch filling a full-width grid,
-          fixed height + 4 equal rows so it lines up with the picker column. */}
-      <div className="grid grid-cols-9 grid-rows-4 gap-1.5 flex-1 min-w-0 h-[210px]">
-        {ACCENT_PRESETS.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => onChange(p.value)}
-            title={p.label}
-            className="w-full h-full rounded-md cursor-default transition-transform hover:scale-105 leading-[0]"
-            style={
-              value === p.value
-                ? { outline: `2.5px solid ${p.value}`, outlineOffset: 2, borderRadius: 6 }
-                : undefined
-            }
-          >
-            <ColorSwatchRoot color={p.value} shape="square" className="w-full! h-full!" />
-          </button>
-        ))}
-      </div>
-
-      {/* Divider between presets and the custom picker */}
-      <div className="w-px h-[210px] bg-border shrink-0" />
-
-      {/* Vertical hue slider */}
-      <ColorSliderRoot
-        aria-label="Hue"
-        value={color}
-        onChange={apply}
-        channel="hue"
-        colorSpace="hsb"
-        orientation="vertical"
-        className="w-7! h-[210px] shrink-0"
-      >
-        <ColorSliderTrack>
-          <ColorSliderThumb />
-        </ColorSliderTrack>
-      </ColorSliderRoot>
-
-      {/* Color area (saturation / brightness) + preview row */}
-      <div className="flex flex-col gap-2">
-        <ColorAreaRoot
-          aria-label="Saturation and brightness"
-          value={color}
-          onChange={apply}
-          colorSpace="hsb"
-          xChannel="saturation"
-          yChannel="brightness"
-          className="w-[210px] h-[210px] shrink-0 rounded-lg overflow-hidden"
-        >
-          <ColorAreaThumb />
-        </ColorAreaRoot>
-        <div className="flex items-center gap-1.5">
-          <ColorSwatchRoot color={color} shape="square" size="sm" className="shrink-0" />
-          <span className="text-t11 text-muted font-mono uppercase flex-1 truncate">{hex}</span>
-          {window.EyeDropper && (
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              title="Pipette"
-              onPress={async () => {
-                try {
-                  const { sRGBHex } = await new window.EyeDropper().open();
-                  if (/^#[0-9a-fA-F]{6}$/.test(sRGBHex)) onChange(sRGBHex);
-                } catch { /* intentionally ignored */ }
-              }}
-            >
-              <Eyedropper size={14} />
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Last.fm connect/disconnect row. Uses the desktop auth flow: connect → open browser
-// → user authorizes → "I've authorized" exchanges the token for a session key.
-export function LastfmRow() {
-  const t = useLang();
-  const [status, setStatus] = useState({ enabled: true, connected: false, username: "" });
-  const [phase, setPhase] = useState("idle"); // idle | awaiting | working
-  const tokenRef = useRef(null);
-
-  const loadStatus = useCallback(() => {
-    fetch(`${API}/lastfm/status`)
-      .then((r) => r.json())
-      .then(setStatus)
-      .catch(() => {});
-  }, []);
-  useEffect(() => {
-    loadStatus();
-  }, [loadStatus]);
-
-  const startConnect = async () => {
-    setPhase("working");
-    try {
-      const d = await fetch(`${API}/lastfm/connect`).then((r) => r.json());
-      if (d.error || !d.token) {
-        toast.danger(t("lastfmError"));
-        setPhase("idle");
-        return;
-      }
-      tokenRef.current = d.token;
-      await openUrl(d.authUrl).catch(() => {});
-      setPhase("awaiting");
-    } catch {
-      toast.danger(t("lastfmError"));
-      setPhase("idle");
-    }
-  };
-
-  const finishConnect = async () => {
-    setPhase("working");
-    try {
-      const d = await fetch(`${API}/lastfm/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: tokenRef.current }),
-      }).then((r) => r.json());
-      if (d.connected) {
-        setStatus((s) => ({ ...s, connected: true, username: d.username }));
-        window.dispatchEvent(new Event("lastfm-changed"));
-        toast.success(t("lastfmConnected"));
-      } else toast.danger(t("lastfmAuthFailed"));
-    } catch {
-      toast.danger(t("lastfmError"));
-    }
-    setPhase("idle");
-  };
-
-  const disconnect = async () => {
-    try {
-      await fetch(`${API}/lastfm/disconnect`, { method: "POST" });
-    } catch { /* intentionally ignored */ }
-    setStatus((s) => ({ ...s, connected: false, username: "" }));
-    window.dispatchEvent(new Event("lastfm-changed"));
-    toast.success(t("lastfmDisconnected"));
-  };
-
-  let control;
-  if (!status.enabled) {
-    control = <span className="text-t11 text-muted">{t("lastfmNotConfigured")}</span>;
-  } else if (status.connected) {
-    control = (
-      <div className="flex items-center gap-2">
-        <span className="text-t12 text-muted truncate max-w-[160px]">@{status.username}</span>
-        <Button variant="danger-soft" size="sm" onPress={disconnect}>
-          {t("disconnect")}
-        </Button>
-      </div>
-    );
-  } else if (phase === "awaiting") {
-    control = (
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onPress={() => setPhase("idle")}>
-          {t("cancel")}
-        </Button>
-        <Button variant="primary" size="sm" onPress={finishConnect}>
-          {t("lastfmIveAuthorized")}
-        </Button>
-      </div>
-    );
-  } else {
-    control = (
-      <Button variant="primary" size="sm" isDisabled={phase === "working"} onPress={startConnect}>
-        {phase === "working" ? <Spinner size="sm" /> : t("connect")}
-      </Button>
-    );
-  }
-
-  return (
-    <SettingRow
-      label="Last.fm"
-      description={
-        status.connected
-          ? t("lastfmConnectedDesc")
-          : phase === "awaiting"
-            ? t("lastfmAwaitingDesc")
-            : t("lastfmDesc")
-      }
-      icon={<BrandLastfm />}
-    >
-      {control}
-    </SettingRow>
-  );
-}
 
 export function fmtDuration(totalSec) {
   const s = Math.max(0, Math.floor(totalSec || 0));
