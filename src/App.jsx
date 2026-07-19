@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button, CardRoot, ProgressBar, ProgressBarFill, ProgressBarTrack, toast, ToastProvider } from "@heroui/react";
+import {
+  Button,
+  CardRoot,
+  ProgressBar,
+  ProgressBarFill,
+  ProgressBarTrack,
+  toast,
+  ToastProvider,
+} from "@heroui/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { API } from "./shared/api/client.js";
 import { thumb } from "./shared/api/thumbnails.js";
@@ -26,6 +34,7 @@ import {
 import { DEFAULT_LYRICS_PROVIDERS } from "./lyrics/providers.js";
 import { itemId, profileKey } from "./features/music/lib/playlist-id.js";
 import { useMusicNavigation } from "./features/music/hooks/use-music-navigation.js";
+import { useLikes } from "./features/music/hooks/use-likes.js";
 import { VIZ_DEFAULTS } from "./features/player/player-ui.jsx";
 import { usePlayerController } from "./features/player/use-player-controller.js";
 import { PlayerProvider } from "./features/player/player-context.jsx";
@@ -1143,7 +1152,6 @@ export default function App() {
   // Sidebar/queue resize geometry, split-view, selection state, context menus, and
   // playlist/settings/feedback/debug dialogs now live in src/app/AppShell.jsx (Step 13a-i).
   const [pinnedIds, setPinnedIds] = useState([]);
-  const [likedIds, setLikedIds] = useState(new Set());
 
   // ─── Toast Notifications (HeroUI toast system) ───────────────────────────────
   // Thin wrapper so all existing addToast(message, type) call sites keep working.
@@ -1743,71 +1751,12 @@ export default function App() {
 
   // Cached-song id loading now lives in features/downloads/hooks/use-download-manager.js.
 
-  // Load liked song IDs on mount
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API}/liked/ids`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setLikedIds(new Set(d.ids || []));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Liked-song loading + optimistic toggle now live in features/music/hooks/use-likes.js.
 
   // OBS overlay auto-start on mount lives in features/overlay/hooks/use-obs-overlay.js.
 
-  // Toggle like for a track from playlist rows
-  const handleToggleLike = useCallback(
-    async (track) => {
-      if (!track?.videoId) return;
-      const wasLiked = likedIds.has(track.videoId);
-      const newRating = wasLiked ? "INDIFFERENT" : "LIKE";
-      setLikedIds((prev) => {
-        const s = new Set(prev);
-        if (wasLiked) s.delete(track.videoId);
-        else s.add(track.videoId);
-        return s;
-      });
-      try {
-        await fetch(`${API}/like/${track.videoId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            rating: newRating,
-            title: track.title || "",
-            artists: track.artists || "",
-            album: track.album || "",
-            thumbnail: track.thumbnail || "",
-            duration: track.duration || "",
-          }),
-        });
-        // Last.fm Loved sync
-        if (lastfm.connectedRef.current) {
-          const lfArtist = (track.artists || "").replace(/\s*-\s*Topic$/i, "").trim();
-          const lfTitle = (track.title || "").trim();
-          if (lfArtist && lfTitle) {
-            fetch(`${API}/lastfm/${newRating === "LIKE" ? "love" : "unlove"}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ artist: lfArtist, track: lfTitle }),
-            }).catch(() => {});
-          }
-        }
-      } catch {
-        // revert on error
-        setLikedIds((prev) => {
-          const s = new Set(prev);
-          if (wasLiked) s.add(track.videoId);
-          else s.delete(track.videoId);
-          return s;
-        });
-      }
-    },
-    [likedIds, lastfm]
-  );
+  // ── Liked-songs domain (see features/music/hooks/use-likes.js) ──
+  const { likedIds, handleToggleLike } = useLikes({ lastfm });
 
   // ── Network status + offline mode (see app/hooks/use-network-status.js) ──
   const { offlineMode, isActuallyOffline, isOffline } = useNetworkStatus({

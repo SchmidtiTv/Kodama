@@ -1177,7 +1177,8 @@ requests, and native bridge events for the risky flows.
     - `App.jsx` still owns the **likes** feature (the `/liked/ids` load, `/like/:id` toggle, and
       the Last.fm love/unlove mirror in `handleToggleLike`), passed to AppShell as
       `likedIds`/`handleToggleLike`. A likes hook/context is the eventual owner; it carries no
-      profile-reset ordering risk but is a real feature still in the root.
+      profile-reset ordering risk but is a real feature still in the root. **(Extracted in
+      Step 15 — see below.)**
     - `App.jsx` still owns `ipv4First`/`fetchIpv4FirstSetting` (a connections/backend setting,
       explicitly deferred at Step 4) and FFmpeg startup-gating fetches (`/ffmpeg/status`,
       `/ffmpeg/check-update`) — the latter are legitimate startup gating.
@@ -1189,3 +1190,20 @@ requests, and native bridge events for the risky flows.
     resource): thumbnail rendering across the 19 migrated consumers (bigpicture tabs, playlist/
     add-to-playlist/profile-switcher modals, history/liked/downloads/track-table views), sidebar
     nav/offline-indicator, and the full player/queue/overlay interaction matrix.
+
+- [~] Step 15: Extract the likes domain (Step 14 audit follow-up)
+  - How: Moved the remaining likes feature out of `App.jsx` into
+    `features/music/hooks/use-likes.js` — `useLikes({ lastfm })` owns the `likedIds` set, the
+    mount-time `/liked/ids` load, and the optimistic `handleToggleLike` (immediate local update
+    → `POST /like/:id` → Last.fm love/unlove mirror when `lastfm.connectedRef` is connected →
+    revert on error). App now calls the hook once (`const { likedIds, handleToggleLike } =
+    useLikes({ lastfm })`, placed after `useLastfmClient()`) and passes the two values to AppShell
+    unchanged. Behavior is byte-identical: likes load once on mount and only change through the
+    toggle — there was and is no profile-switch reload, so no reset-ordering rule was touched.
+  - Net: `App.jsx` no longer contains the likes state, effect, or mutation; `setLikedIds` is gone
+    from the root. The only feature fetches left in `App.jsx` are `ipv4First` (deferred at Step 4)
+    and the FFmpeg startup-gating checks.
+  - Verified: `npx vite build` passes; App.jsx unused-import scan clean; `lastfm` is defined before
+    the hook call. Native smoke testing owed: like/unlike from playlist rows, liked view, queue,
+    and selection bar; optimistic update + revert on backend failure; Last.fm Loved mirror when
+    connected (blocked by the pre-existing missing `src-tauri/resources/node` resource).
