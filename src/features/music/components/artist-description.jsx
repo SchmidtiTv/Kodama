@@ -14,8 +14,8 @@ import {
 } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { Info, ArrowSquareOut } from "../../../icons.jsx";
-import { useLang } from "../../../context.jsx";
+import { Info, ArrowSquareOut } from "@/shared/icons/icons.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 
 export function ArtistDescription({ text, name, url }) {
   const [popupOpen, setPopupOpen] = useState(false);

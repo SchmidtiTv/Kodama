@@ -23,9 +23,9 @@ import {
   SearchFieldRoot,
   SearchFieldSearchIcon,
 } from "@heroui/react";
-import { API } from "../shared/api/client.js";
-import { thumb } from "../shared/api/thumbnails.js";
-import { IS_MAC } from "../shared/lib/platform.js";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { IS_MAC } from "@/shared/lib/platform.js";
 import {
   ArrowCircleUp,
   ArrowClockwise,
@@ -52,9 +52,9 @@ import {
   Users,
   VinylRecord,
   WifiX,
-} from "../icons.jsx";
-import { useLang } from "../context.jsx";
-import { useProfileState, useProfileActions } from "../features/profiles/profile-context.jsx";
+} from "@/shared/icons/icons.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
+import { useProfileState, useProfileActions } from "@/features/profiles/profile-context.jsx";
 
 // Navigation sidebar — search, main/secondary nav, pinned/recent playlists, and the account
 // menu. Extracted verbatim from AppShell.jsx (Step 13c). Profile list/active profile/logout

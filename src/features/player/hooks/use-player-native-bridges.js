@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { API } from "../../../shared/api/client.js";
+import { API } from "@/shared/api/client.js";
 
 /**
  * Native and local now-playing bridges driven by the player controller.

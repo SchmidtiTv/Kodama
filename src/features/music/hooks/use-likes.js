@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { API } from "../../../shared/api/client.js";
+import { API } from "@/shared/api/client.js";
 
 // Liked-songs domain — the set of liked video ids (loaded once on mount) plus the optimistic
 // like toggle: it updates local state immediately, POSTs the new rating to the backend,

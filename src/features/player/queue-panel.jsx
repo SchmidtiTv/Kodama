@@ -10,13 +10,14 @@ import {
   ToggleButtonGroupRoot,
 } from "@heroui/react";
 
-import { ArrowClockwise, CaretLineUp, GripLines, Heart, Sliders, Trash } from "../../icons.jsx";
-import { API } from "../../shared/api/client.js";
-import { thumb } from "../../shared/api/thumbnails.js";
-import { Tooltip } from "../../ui/tooltip.jsx";
-import { ExplicitBadge } from "../../ui/rows.jsx";
-import { dissolve } from "../../effects/particle-burst.js";
-import { useAnimations, useLang } from "../../context.jsx";
+import { ArrowClockwise, CaretLineUp, GripLines, Heart, Sliders, Trash } from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { Tooltip } from "@/shared/ui/tooltip.jsx";
+import { ExplicitBadge } from "@/features/music/components/rows.jsx";
+import { dissolve } from "@/shared/lib/particle-burst.js";
+import { useAnimations } from "@/features/settings/display-context.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { FadeEditorModal } from "./fade-editor-modal.jsx";
 import {
   usePlaybackStatus,

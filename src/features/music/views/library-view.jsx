@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-import { GridCard } from "../../../ui/rows.jsx";
-import { MagnifyingGlass, Microphone, Playlist, Sliders, VinylRecord } from "../../../icons.jsx";
-import { API } from "../../../shared/api/client.js";
-import { useLang } from "../../../context.jsx";
+import { GridCard } from "@/features/music/components/rows.jsx";
+import { MagnifyingGlass, Microphone, Playlist, Sliders, VinylRecord } from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { useLang } from "@/shared/i18n/context.jsx";
 
 export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu }) {
   const [tab, setTab] = useState("playlists");

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API } from "../../shared/api/client.js";
-import { translate } from "../../i18n.js";
+import { API } from "@/shared/api/client.js";
+import { translate } from "@/shared/i18n/i18n.js";
 import { IpcAudio } from "./ipc-audio.js";
-import { registerPlayerCommands as bpRegisterCommands } from "../../bigpicture/playerBridge.js";
+import { registerPlayerCommands as bpRegisterCommands } from "@/features/player/player-bridge.js";
 import { useLastfmScrobbling } from "../integrations/lastfm.js";
 import { usePlayerNativeBridges } from "./hooks/use-player-native-bridges.js";
 import { useWindowTitle } from "./hooks/use-window-title.js";

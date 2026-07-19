@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { API } from "../../shared/api/client.js";
-import { parseDurationToSeconds } from "../../lyrics/parse.js";
-import { useAnimations, useLang } from "../../context.jsx";
+import { API } from "@/shared/api/client.js";
+import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
+import { useAnimations } from "@/features/settings/display-context.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { useLyricsSettings } from "../settings/settings-context.jsx";
 import {
   registerAudio as bpRegisterAudio,
   registerPlayerCommands as bpRegisterCommands,
   setNowPlaying as bpSetNowPlaying,
-} from "../../bigpicture/playerBridge.js";
+} from "@/features/player/player-bridge.js";
 import { PlayerControls } from "./player-controls.jsx";
 import { useSleepTimer } from "./hooks/use-sleep-timer.js";
 import { useTrackMetadata } from "./hooks/use-track-metadata.js";

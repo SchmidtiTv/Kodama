@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Button, Skeleton } from "@heroui/react";
 
-import { TrackRow } from "../../../ui/rows.jsx";
-import { Tooltip } from "../../../ui/tooltip.jsx";
-import { useAccentColor } from "../../../ui/use-accent-color.js";
-import { ArrowLeft, Play, PushPin, Radio, Shuffle, UserCheck, UserPlus } from "../../../icons.jsx";
-import { API } from "../../../shared/api/client.js";
-import { thumb, hiResThumb } from "../../../shared/api/thumbnails.js";
-import { useLang } from "../../../context.jsx";
+import { TrackRow } from "@/features/music/components/rows.jsx";
+import { Tooltip } from "@/shared/ui/tooltip.jsx";
+import { useAccentColor } from "@/features/music/hooks/use-accent-color.js";
+import { ArrowLeft, Play, PushPin, Radio, Shuffle, UserCheck, UserPlus } from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb, hiResThumb } from "@/shared/api/thumbnails.js";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { ArtistDescription } from "../components/artist-description.jsx";
 import { MediaTile } from "../components/media-tile.jsx";
 import { usePlaybackStatus, usePlayerActions } from "../../player/player-context.jsx";

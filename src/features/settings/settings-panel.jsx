@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button, CardRoot, cn, InputRoot, KbdContent, KbdRoot, ProgressBar, ProgressBarFill, ProgressBarTrack, TextFieldRoot } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { ArrowsClockwise, ArrowCircleUp, ArrowClockwise, ArrowSquareOut, BrandBluesky, BrandTiktok, BrandTwitch, BrandYoutube, Bug, CaretDown, CaretUp, ChatText, Check, CheckCircle, CircleHalf, DownloadSimple, Eye, EyeSlash, Flask, Globe, Info, Key, Keyboard, Link, Lock, LockOpen, MagnifyingGlass, MusicNote, PaintBrushBroad, PencilSimple, Play, PlayCircle, PersonArmsSpread, ScreencastSimple, ShareNodes, Sliders, Sparkles, TextSize, Tag, Trash, Translate, UserCircle, Users, WifiHigh, DeviceMobile, HardDrives, WaveformLines, X } from "../../icons.jsx";
-import { thumb } from "../../shared/api/thumbnails.js";
-import { useAnimations, useLang } from "../../context.jsx";
-import { LANGUAGES, translationProgress } from "../../i18n.js";
-import { renderNewsBody } from "../../modals/news-modal.jsx";
-import { RemoteControlPanel } from "../../ui/remote-control.jsx";
-import { DEFAULT_LYRICS_PROVIDERS } from "../../lyrics/providers.js";
+import { ArrowsClockwise, ArrowCircleUp, ArrowClockwise, ArrowSquareOut, BrandBluesky, BrandTiktok, BrandTwitch, BrandYoutube, Bug, CaretDown, CaretUp, ChatText, Check, CheckCircle, CircleHalf, DownloadSimple, Eye, EyeSlash, Flask, Globe, Info, Key, Keyboard, Link, Lock, LockOpen, MagnifyingGlass, MusicNote, PaintBrushBroad, PencilSimple, Play, PlayCircle, PersonArmsSpread, ScreencastSimple, ShareNodes, Sliders, Sparkles, TextSize, Tag, Trash, Translate, UserCircle, Users, WifiHigh, DeviceMobile, HardDrives, WaveformLines, X } from "@/shared/icons/icons.jsx";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { useAnimations } from "@/features/settings/display-context.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
+import { LANGUAGES, translationProgress } from "@/shared/i18n/i18n.js";
+import { renderNewsBody } from "@/app/news-modal.jsx";
+import { RemoteControlPanel } from "@/features/remote/remote-control.jsx";
+import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
 import { CoverView, VIZ_DEFAULTS } from "../player/player-ui.jsx";
 import {
   Slider,
@@ -16,7 +17,7 @@ import {
   SettingRow,
   SettingsSectionDesc,
   SettingsSectionLabel,
-} from "../../ui/settings-controls.jsx";
+} from "@/shared/ui/settings-controls.jsx";
 import { AccountSettingsTab } from "./account-settings-tab.jsx";
 import { AccentColorPicker, APP_VERSION, ComposerSettingsSection, DebugTab, FfmpegUpdateRow, LastfmRow, LyricsProviderList, StorageTab, UnisonIdentitySection, YtDlpUpdateRow } from "./settings-support.jsx";
 import { isSettingsSectionLocked } from "./section-store.js";

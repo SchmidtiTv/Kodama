@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AmbientBackdrop } from "../shared/ui/ambient-backdrop.jsx";
-import { TitleBar } from "../shared/ui/title-bar.jsx";
-import { IS_MAC } from "../shared/lib/platform.js";
+import { AmbientBackdrop } from "@/shared/ui/ambient-backdrop.jsx";
+import { TitleBar } from "@/shared/ui/title-bar.jsx";
+import { IS_MAC } from "@/shared/lib/platform.js";
 import { Sidebar } from "./Sidebar.jsx";
-import { SelectionActionBar } from "./SelectionActionBar.jsx";
+import { SelectionActionBar } from "@/features/music/components/selection-action-bar.jsx";
 import { AppOverlays } from "./AppOverlays.jsx";
-import { buildShareLink } from "../features/player/share-link.js";
-import { usePersistedState } from "../shared/hooks/use-persisted-state.js";
+import { buildShareLink } from "@/features/player/share-link.js";
+import { usePersistedState } from "@/shared/hooks/use-persisted-state.js";
 import {
   QUEUE_DEFAULT,
   QUEUE_MAX,
@@ -26,19 +26,19 @@ import { useAppShortcuts } from "./hooks/use-app-shortcuts.js";
 import { MainContent } from "./MainContent.jsx";
 import { PlayerOverlay } from "./PlayerOverlay.jsx";
 import { QueueDock } from "./QueueDock.jsx";
-import { Player } from "../features/player/player-ui.jsx";
+import { Player } from "@/features/player/player";
 import {
   usePlaybackStatus,
   usePlayerActions,
   useQueueState,
-} from "../features/player/player-context.jsx";
-import { useProfileState } from "../features/profiles/profile-context.jsx";
-import { SettingsSidebarContent } from "../features/settings/settings-sidebar.jsx";
+} from "@/features/player/player-context.jsx";
+import { useProfileState } from "@/features/profiles/profile-context.jsx";
+import { SettingsSidebarContent } from "@/features/settings/settings-sidebar.jsx";
 import {
   lockSettingsSection,
   setSettingsSectionStore,
-} from "../features/settings/section-store.js";
-import { getInitialLang } from "../shared/lib/lang.js";
+} from "@/features/settings/section-store.js";
+import { getInitialLang } from "@/shared/lib/lang.js";
 
 const EMPTY_TRACK_SELECTION = new Map();
 const EMPTY_FAILED_LYRICS_PROVIDERS = new Set();

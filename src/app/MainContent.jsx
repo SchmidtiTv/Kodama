@@ -1,13 +1,13 @@
-import { translate } from "../i18n.js";
-import { WifiX } from "../icons.jsx";
-import { CollectionView } from "../views/collection-view.jsx";
-import { DownloadsView } from "../views/downloads-view.jsx";
-import { HistoryView } from "../views/history-view.jsx";
-import { LikedView } from "../views/liked-view.jsx";
-import { LibraryView } from "../features/music/views/library-view.jsx";
-import { SearchView } from "../features/music/views/search-view.jsx";
-import { HomeView } from "../features/music/views/home-view.jsx";
-import { ArtistView } from "../features/music/views/artist-view.jsx";
+import { translate } from "@/shared/i18n/i18n.js";
+import { WifiX } from "@/shared/icons/icons.jsx";
+import { CollectionView } from "@/features/music/views/collection-view.jsx";
+import { DownloadsView } from "@/features/downloads/downloads-view.jsx";
+import { HistoryView } from "@/features/music/views/history-view.jsx";
+import { LikedView } from "@/features/music/views/liked-view.jsx";
+import { LibraryView } from "@/features/music/views/library-view.jsx";
+import { SearchView } from "@/features/music/views/search-view.jsx";
+import { HomeView } from "@/features/music/views/home-view.jsx";
+import { ArtistView } from "@/features/music/views/artist-view.jsx";
 
 function AnimatedView({ animations, children }) {
   return (

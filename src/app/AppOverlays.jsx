@@ -7,29 +7,29 @@ import {
   TextFieldRoot,
 } from "@heroui/react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { API } from "../shared/api/client.js";
-import { useLang } from "../context.jsx";
-import { CheckCircle, X } from "../icons.jsx";
-import { translate } from "../i18n.js";
-import { usePlaybackStatus } from "../features/player/player-context.jsx";
-import { useProfileActions } from "../features/profiles/profile-context.jsx";
-import { SettingsPanel } from "../features/settings/settings-panel.jsx";
-import { DebugFloatingWindow } from "../features/settings/settings-support.jsx";
-import { setSettingsSectionStore } from "../features/settings/section-store.js";
-import { RemotePairModal } from "../ui/remote-control.jsx";
-import { NewsModal } from "../modals/news-modal.jsx";
-import { BugReportModal } from "../modals/bug-report-modal.jsx";
-import { ProfileSwitcherModal } from "../modals/profile-switcher-modal.jsx";
+import { API } from "@/shared/api/client.js";
+import { useLang } from "@/shared/i18n/context.jsx";
+import { CheckCircle, X } from "@/shared/icons/icons.jsx";
+import { translate } from "@/shared/i18n/i18n.js";
+import { usePlaybackStatus } from "@/features/player/player-context.jsx";
+import { useProfileActions } from "@/features/profiles/profile-context.jsx";
+import { SettingsPanel } from "@/features/settings/settings-panel.jsx";
+import { DebugFloatingWindow } from "@/features/settings/settings-support.jsx";
+import { setSettingsSectionStore } from "@/features/settings/section-store.js";
+import { RemotePairModal } from "@/features/remote/remote-control.jsx";
+import { NewsModal } from "@/app/news-modal.jsx";
+import { BugReportModal } from "@/app/diagnostics/bug-report-modal.jsx";
+import { ProfileSwitcherModal } from "@/features/profiles/profile-switcher-modal.jsx";
 import {
   CreatePlaylistModal,
   DeletePlaylistModal,
   RenamePlaylistModal,
-} from "../modals/playlist-modals.jsx";
-import { AddToPlaylistModal } from "../modals/add-to-playlist-modal.jsx";
-import { DownloadQueueCard } from "./DownloadQueueCard.jsx";
-import { TrackContextMenu } from "./TrackContextMenu.jsx";
-import { PlaylistContextMenu } from "./PlaylistContextMenu.jsx";
-import { dissolve } from "../effects/particle-burst.js";
+} from "@/features/music/modals/playlist-modals.jsx";
+import { AddToPlaylistModal } from "@/features/music/modals/add-to-playlist-modal.jsx";
+import { DownloadQueueCard } from "@/features/downloads/download-queue-card.jsx";
+import { TrackContextMenu } from "@/features/music/components/track-context-menu.jsx";
+import { PlaylistContextMenu } from "@/features/music/components/playlist-context-menu.jsx";
+import { dissolve } from "@/shared/lib/particle-burst.js";
 import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
 
 // ─── App Version ─────────────────────────────────────────────────────────────

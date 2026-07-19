@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
-import { thumb } from "../../shared/api/thumbnails.js";
-import { ExplicitBadge } from "../../ui/rows.jsx";
-import { audioLevels } from "../../audioLevels.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { ExplicitBadge } from "@/features/music/components/rows.jsx";
+import { audioLevels } from "@/features/player/audio-levels.js";
 import { hiResThumb } from "./cover-art.js";
 
 export const VIZ_DEFAULTS = {

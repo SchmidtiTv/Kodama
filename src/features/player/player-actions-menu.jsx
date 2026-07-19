@@ -26,9 +26,9 @@ import {
   Trash,
   UploadSimple,
   VinylRecord,
-} from "../../icons.jsx";
-import { translate } from "../../i18n.js";
-import { PROVIDER_SYNC } from "../../lyrics/providers.js";
+} from "@/shared/icons/icons.jsx";
+import { translate } from "@/shared/i18n/i18n.js";
+import { PROVIDER_SYNC } from "@/features/lyrics/providers.js";
 
 export function PlayerActionsMenu(props) {
   const {

@@ -32,6 +32,7 @@ export default defineConfig({
   plugins: [tailwindcss(), react(), ...(e2eNetworkGuard ? [e2eNoRemoteFonts] : [])],
   resolve: {
     alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
       // WDIO can intercept Tauri IPC only in E2E builds. Production resolves
       // this import to an empty module, so no test bridge is bundled or run.
       "@kodama/e2e-bridge":

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { API } from "../../../shared/api/client.js";
+import { API } from "@/shared/api/client.js";
 
 /**
  * LAN remote-control state. Enabling starts the token-gated phone endpoints on the

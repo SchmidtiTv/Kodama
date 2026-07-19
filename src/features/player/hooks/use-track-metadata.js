@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { API } from "../../../shared/api/client.js";
+import { API } from "@/shared/api/client.js";
 
 // Keeps player-only metadata requests out of the transport component. Song stats are
 // retained for the existing request/cache behavior even though no current control renders them.

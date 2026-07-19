@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-import { Minus, X } from "../../icons.jsx";
+import { Minus, X } from "@/shared/icons/icons.jsx";
 
 const appWindow = getCurrentWebviewWindow();
 

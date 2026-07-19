@@ -17,12 +17,12 @@ import {
   Trash,
   UserCircle,
   UserPlus,
-} from "../../icons.jsx";
-import { API } from "../../shared/api/client.js";
-import { thumb } from "../../shared/api/thumbnails.js";
-import { useLang } from "../../context.jsx";
+} from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { fmtDuration } from "./settings-support.jsx";
-import { SettingRow, Toggle } from "../../ui/settings-controls.jsx";
+import { SettingRow, Toggle } from "@/shared/ui/settings-controls.jsx";
 import { useProfileState, useProfileActions } from "../profiles/profile-context.jsx";
 
 function Avatar({ account, size }) {

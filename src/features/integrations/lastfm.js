@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { parseDurationToSeconds } from "../../lyrics/parse.js";
-import { API } from "../../shared/api/client.js";
+import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
+import { API } from "@/shared/api/client.js";
 
 /**
  * Shared Last.fm connection and request boundary.  It deliberately exposes the

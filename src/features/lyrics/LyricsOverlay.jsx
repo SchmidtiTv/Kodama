@@ -2,15 +2,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ChipLabel, ChipRoot } from "@heroui/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { CaretDown, UploadSimple } from "../../icons.jsx";
-import { API } from "../../shared/api/client.js";
-import { thumb } from "../../shared/api/thumbnails.js";
-import { translate } from "../../i18n.js";
-import { useLang } from "../../context.jsx";
-import { parseLrc, parseTtml, parseDurationToSeconds } from "../../lyrics/parse.js";
-import { fetchLyrics } from "../../lyrics/fetch.js";
-import { DEFAULT_LYRICS_PROVIDERS } from "../../lyrics/providers.js";
-import { LyricsBrowserModal } from "../../modals/lyrics-browser-modal.jsx";
+import { CaretDown, UploadSimple } from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { translate } from "@/shared/i18n/i18n.js";
+import { useLang } from "@/shared/i18n/context.jsx";
+import { parseLrc, parseTtml, parseDurationToSeconds } from "@/features/lyrics/parse.js";
+import { fetchLyrics } from "@/features/lyrics/fetch.js";
+import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
+import { LyricsBrowserModal } from "@/features/lyrics/lyrics-browser-modal.jsx";
 
 // Open Boidu's Composer (community-lyrics editor) in its own Kodama window, pre-filled
 // with the current track and pre-configured to use Kodama as its audio bridge. Window

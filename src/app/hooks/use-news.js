@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { API } from "../../shared/api/client.js";
-import { compareVersions } from "../../shared/lib/version.js";
+import { API } from "@/shared/api/client.js";
+import { compareVersions } from "@/shared/lib/version.js";
 
 const APP_VERSION = __APP_VERSION__;
 

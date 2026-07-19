@@ -1,6 +1,6 @@
-import { LyricsOverlay } from "../features/lyrics/LyricsOverlay.jsx";
-import { CoverView } from "../features/player/player-ui.jsx";
-import { hiResThumb } from "../features/player/cover-art.js";
+import { LyricsOverlay } from "@/features/lyrics/LyricsOverlay.jsx";
+import { CoverView } from "@/features/player/player-ui.jsx";
+import { hiResThumb } from "@/features/player/cover-art.js";
 import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
 
 // Expanding player overlay — the crossfaded cover backdrop plus the lyrics/cover panes that

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { GridCard, TrackRow } from "../../../ui/rows.jsx";
-import { API } from "../../../shared/api/client.js";
-import { thumb } from "../../../shared/api/thumbnails.js";
-import { useLang } from "../../../context.jsx";
+import { GridCard, TrackRow } from "@/features/music/components/rows.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { usePlaybackStatus, usePlayerActions } from "../../player/player-context.jsx";
 
 export function SearchView({

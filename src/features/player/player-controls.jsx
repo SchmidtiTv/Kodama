@@ -34,11 +34,11 @@ import {
   SpeakerLow,
   SpeakerX,
   X,
-} from "../../icons.jsx";
-import { thumb } from "../../shared/api/thumbnails.js";
-import { translate } from "../../i18n.js";
-import { Tooltip } from "../../ui/tooltip.jsx";
-import { ArtistLinks, ExplicitBadge } from "../../ui/rows.jsx";
+} from "@/shared/icons/icons.jsx";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { translate } from "@/shared/i18n/i18n.js";
+import { Tooltip } from "@/shared/ui/tooltip.jsx";
+import { ArtistLinks, ExplicitBadge } from "@/features/music/components/rows.jsx";
 import { hiResThumb } from "./cover-art.js";
 import { PlayerActionsMenu } from "./player-actions-menu.jsx";
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { API } from "../../../shared/api/client.js";
-import { normalizeOverlayDoc } from "../../../overlay/schema.js";
+import { API } from "@/shared/api/client.js";
+import { normalizeOverlayDoc } from "@/features/overlay/schema.js";
 
 /**
  * OBS browser-source overlay server state. Owns the enabled/port preferences,

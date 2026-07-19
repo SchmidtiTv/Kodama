@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, cn, ListBox, ListBoxItem } from "@heroui/react";
 
-import { ArrowLeft, ArrowsClockwise, Bug, ChatText, Flask, HardDrives, Info, Keyboard, Link, Lock, PaintBrushBroad, PersonArmsSpread, Play, ScreencastSimple, Translate, UserCircle, WaveformLines } from "../../icons.jsx";
-import { useAnimations, useLang } from "../../context.jsx";
+import { ArrowLeft, ArrowsClockwise, Bug, ChatText, Flask, HardDrives, Info, Keyboard, Link, Lock, PaintBrushBroad, PersonArmsSpread, Play, ScreencastSimple, Translate, UserCircle, WaveformLines } from "@/shared/icons/icons.jsx";
+import { useAnimations } from "@/features/settings/display-context.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { APP_VERSION } from "./settings-support.jsx";
 import { getSettingsSection, subscribeSettingsSection } from "./section-store.js";
 

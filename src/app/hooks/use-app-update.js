@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { translate } from "../../i18n.js";
+import { translate } from "@/shared/i18n/i18n.js";
 
 /**
  * Tauri plugin-updater lifecycle: silent startup check, manual re-check with

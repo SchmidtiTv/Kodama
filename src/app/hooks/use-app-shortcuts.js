@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { matchesShortcut, serializeShortcut } from "../../shared/lib/shortcuts.js";
+import { matchesShortcut, serializeShortcut } from "@/shared/lib/shortcuts.js";
 
 // Stepped values for the zoom slider (mirrors the copy in App.jsx, which owns the persisted state).
 const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];

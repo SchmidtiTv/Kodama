@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button, CardRoot, ProgressBar, ProgressBarFill, ProgressBarTrack } from "@heroui/react";
-import { API } from "../shared/api/client.js";
-import { LANGUAGES, translate } from "../i18n.js";
-import { ArrowClockwise, Check, CheckCircle, X } from "../icons.jsx";
-import { useLang } from "../context.jsx";
+import { API } from "@/shared/api/client.js";
+import { LANGUAGES, translate } from "@/shared/i18n/i18n.js";
+import { ArrowClockwise, Check, CheckCircle, X } from "@/shared/icons/icons.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 
 // Startup-gate screens rendered by App over the main layout: the first-run language picker,
 // the FFmpeg setup/download screen, the FFmpeg update banner, and the splash. Extracted from

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { API } from "../../../shared/api/client.js";
-import { translate } from "../../../i18n.js";
+import { API } from "@/shared/api/client.js";
+import { translate } from "@/shared/i18n/i18n.js";
 
 const MAX_CONCURRENT_DOWNLOADS = 5;
 

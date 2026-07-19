@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { API } from "../../../shared/api/client.js";
+import { API } from "@/shared/api/client.js";
 import { itemId, profileKey } from "../lib/playlist-id.js";
 
 /**

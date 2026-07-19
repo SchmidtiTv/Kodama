@@ -8,7 +8,7 @@ import {
   ToggleButtonGroupRoot,
 } from "@heroui/react";
 
-import { ExplicitBadge } from "../../../ui/rows.jsx";
+import { ExplicitBadge } from "@/features/music/components/rows.jsx";
 import {
   CaretLeft,
   CaretRight,
@@ -21,10 +21,10 @@ import {
   PodcastIcon,
   Sun,
   SunHorizon,
-} from "../../../icons.jsx";
-import { API } from "../../../shared/api/client.js";
-import { thumb } from "../../../shared/api/thumbnails.js";
-import { useLang } from "../../../context.jsx";
+} from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { thumb } from "@/shared/api/thumbnails.js";
+import { useLang } from "@/shared/i18n/context.jsx";
 import { Carousel } from "../components/carousel.jsx";
 import { usePlayerActions } from "../../player/player-context.jsx";
 

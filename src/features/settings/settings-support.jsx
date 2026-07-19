@@ -21,23 +21,23 @@ import {
 import { parseColor } from "react-aria-components";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-import { ArrowClockwise, ArrowSquareOut, BrandLastfm, Bug, CaretDown, Check, CheckCircle, Copy, DownloadSimple, Eyedropper, GripLines, HardDrives, ImageSquare, Microphone, MusicNote, Queue, UserCircle, VinylRecord, WarningCircle, X } from "../../icons.jsx";
-import { API } from "../../shared/api/client.js";
-import { useLang } from "../../context.jsx";
-import { generateIdentity, importIdentityFile, exportIdentityFile } from "../../unison/identity.js";
-import { PROVIDER_SYNC } from "../../lyrics/providers.js";
+import { ArrowClockwise, ArrowSquareOut, BrandLastfm, Bug, CaretDown, Check, CheckCircle, Copy, DownloadSimple, Eyedropper, GripLines, HardDrives, ImageSquare, Microphone, MusicNote, Queue, UserCircle, VinylRecord, WarningCircle, X } from "@/shared/icons/icons.jsx";
+import { API } from "@/shared/api/client.js";
+import { useLang } from "@/shared/i18n/context.jsx";
+import { generateIdentity, importIdentityFile, exportIdentityFile } from "@/features/lyrics/community/identity.js";
+import { PROVIDER_SYNC } from "@/features/lyrics/providers.js";
 import {
   unisonSetNickname,
   unisonResetNickname,
   unisonFetchDisplayName,
-} from "../../unison/api.js";
+} from "@/features/lyrics/community/api.js";
 import {
   Slider,
   Toggle,
   SettingRow,
   SettingsSectionLabel,
   SettingsSectionDesc,
-} from "../../ui/settings-controls.jsx";
+} from "@/shared/ui/settings-controls.jsx";
 import { frontendLogs } from "./debug-log-store.js";
 import { ACCENT_PRESETS } from "./settings-constants.js";
 

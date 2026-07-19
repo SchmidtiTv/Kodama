@@ -3,15 +3,15 @@ import "@kodama/e2e-runtime-controls";
 import "@kodama/e2e-bridge";
 
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import OverlayEditorApp from "./OverlayEditorApp.jsx";
+import App from "@/app/App.jsx";
+import OverlayEditorApp from "@/features/overlay/OverlayEditorApp.jsx";
 // Big Picture mode + its gamepad spike are intentionally NOT mounted yet — the
 // feature is still WIP and kept out of releases (no F9/F10 entry point). The code
-// lives in ./bigpicture/; re-enable the import + render below once it's ready.
-// import { GamepadTest } from "./bigpicture/GamepadTest.jsx";
-// import { BigPicture } from "./bigpicture/BigPicture.jsx";
-import { installErrorCapture } from "./bug-diagnostics.js";
-import "./index.css";
+// lives in features/big-picture/; re-enable the import + render below once it's ready.
+// import { GamepadTest } from "@/features/big-picture/GamepadTest.jsx";
+// import { BigPicture } from "@/features/big-picture/BigPicture.jsx";
+import { installErrorCapture } from "@/app/diagnostics/error-capture.js";
+import "@/app/styles/index.css";
 
 installErrorCapture(); // capture frontend errors for the bug-report tool
 

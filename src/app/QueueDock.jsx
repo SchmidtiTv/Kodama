@@ -1,4 +1,4 @@
-import { QueuePanel } from "../features/player/player-ui.jsx";
+import { QueuePanel } from "@/features/player/player-ui.jsx";
 
 // Sliding queue panel docked to the right edge, with its ambient-blur background and the
 // left-edge resize handle. Extracted verbatim from AppShell.jsx (Step 13c).

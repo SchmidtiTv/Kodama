@@ -1,4 +1,4 @@
-import { storageCodecs } from "../shared/hooks/use-persisted-state.js";
+import { storageCodecs } from "@/shared/hooks/use-persisted-state.js";
 
 // Shell layout geometry — sidebar / queue / fullscreen-split dimensions and the persisted-width
 // codecs that clamp them. Shared by AppShell and the layout pieces extracted from it (Step 13c).

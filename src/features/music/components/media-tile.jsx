@@ -1,7 +1,7 @@
 import { CardRoot } from "@heroui/react";
 
-import { Microphone, MusicNote, Play } from "../../../icons.jsx";
-import { thumb } from "../../../shared/api/thumbnails.js";
+import { Microphone, MusicNote, Play } from "@/shared/icons/icons.jsx";
+import { thumb } from "@/shared/api/thumbnails.js";
 
 // Reusable media tile matching the Home-page card behavior (hover image-scale,
 // play overlay, CardRoot). shape: "square" | "circle" | "video".
