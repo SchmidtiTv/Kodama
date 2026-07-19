@@ -43,6 +43,9 @@ pub fn set_app_icon(app: tauri::AppHandle, file: String) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
+// `objc` 0.2's message macros still probe its historical `cargo-clippy` feature.
+// Keep the compatibility warning contained to this legacy Cocoa interop.
+#[allow(unexpected_cfgs)]
 unsafe fn set_macos_icon(png_path: &str) {
     use cocoa::base::{id, nil};
     use cocoa::foundation::NSString;
