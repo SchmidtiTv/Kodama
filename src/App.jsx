@@ -44,6 +44,7 @@ import { SettingsProviders } from "./features/settings/settings-context.jsx";
 import { DEFAULT_SHORTCUTS } from "./features/settings/settings-constants.js";
 
 const IPV4_FIRST_ENDPOINTS = ["/operation/network/ipv4-first", "/network/ipv4-first"];
+const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
 
 async function fetchIpv4FirstSetting(options = {}) {
   let lastError = null;
@@ -137,7 +138,7 @@ export default function App() {
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);
     };
-  }, []);
+  }, [theme]);
 
   // Sidebar/queue resize geometry, split-view, selection state, context menus, and
   // playlist/settings/feedback/debug dialogs now live in src/app/AppShell.jsx (Step 13a-i).
@@ -157,7 +158,7 @@ export default function App() {
   // Start Rust audio-level collection on mount.
   useEffect(() => {
     startAudioLevels();
-  }, []);
+  }, [theme]);
 
   const togglePin = useCallback((pl) => {
     const stored = (() => {
@@ -293,7 +294,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-  }, []);
+  }, [theme]);
   const [searchQuery, setSearchQuery] = useState("");
   // Music navigation domain (see features/music/hooks/use-music-navigation.js): view, back-nav
   // history, the open collection/artist, and the open*/navigateTo/goBack commands. Consumed here
@@ -424,7 +425,7 @@ export default function App() {
     import("@tauri-apps/api/core").then(({ invoke }) =>
       invoke("set_close_to_tray", { enabled: closeTray }).catch(() => {})
     );
-  }, []);
+  }, [closeTray]);
 
   // ── OBS overlay server (see features/overlay/hooks/use-obs-overlay.js) ──
   const { obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, saveObsPort } =
@@ -573,7 +574,6 @@ export default function App() {
     });
   }, []);
 
-  const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
   const [appFontScale, setAppFontScale] = usePersistedState(
     "kiyoshi-font-scale",
     1.0,
@@ -896,7 +896,9 @@ export default function App() {
       appFont,
       handleAppFontChange,
       appFontScale,
+      setAppFontScale,
       uiZoom,
+      setUiZoom,
       showTrackNumbers,
       handleTrackNumbersChange,
       hideExplicit,
@@ -1046,6 +1048,7 @@ export default function App() {
       toggleRemote,
       remoteDeviceAction,
       remoteRememberDevice,
+      setPairModalOpen,
     ]
   );
 

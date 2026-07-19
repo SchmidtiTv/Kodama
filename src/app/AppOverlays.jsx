@@ -104,7 +104,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
       if (unlistenComplete) unlistenComplete();
       if (unlistenCancelled) unlistenCancelled();
     };
-  }, []);
+  }, [onSuccess]);
 
   const startLogin = async () => {
     const name = forcedProfileName || "account_" + Date.now();

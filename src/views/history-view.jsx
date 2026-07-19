@@ -1,10 +1,12 @@
 // Recently-played history view (local, per-profile). Rendered via PlaylistLayout, with a
 // particle burst on entry removal. Extracted from App.jsx.
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLang, useAnimations } from "../context.jsx";
 import { PlaylistLayout } from "./track-table.jsx";
 import { particleBurst } from "../effects/particle-burst.js";
 import { Trash } from "../icons.jsx";
+
+const profileKey = () => `kiyoshi-history-${window.__activeProfile || "default"}`;
 
 export function HistoryView({
   onOpenArtist,
@@ -15,21 +17,20 @@ export function HistoryView({
 }) {
   const t = useLang();
   const anim = useAnimations();
-  const profileKey = () => `kiyoshi-history-${window.__activeProfile || "default"}`;
-  const load = () => {
+  const load = useCallback(() => {
     try {
       return JSON.parse(localStorage.getItem(profileKey()) || "[]");
     } catch {
       return [];
     }
-  };
+  }, []);
   const [tracks, setTracks] = useState(load);
 
   useEffect(() => {
     const sync = () => setTracks(load());
     window.addEventListener("kiyoshi-history-updated", sync);
     return () => window.removeEventListener("kiyoshi-history-updated", sync);
-  }, []);
+  }, [load]);
 
   const clearHistory = () => {
     localStorage.removeItem(profileKey());
