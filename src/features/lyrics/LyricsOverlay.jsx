@@ -194,7 +194,15 @@ function paintLineWords(line, els, wordIdxRef, t, zoomMaxRef = null, glow = fals
   );
 }
 
-export function LyricsOverlay({
+// A different track or explicit refetch is a new lyrics session. Resetting at this boundary
+// keeps transient fetch/animation state local to the session instead of synchronously clearing
+// several state values from an effect.
+export function LyricsOverlay(props) {
+  const sessionKey = `${props.track?.videoId ?? "none"}:${props.refetchKey ?? 0}:${props.forcedProvider ?? "all"}`;
+  return <LyricsOverlayContent key={sessionKey} {...props} />;
+}
+
+function LyricsOverlayContent({
   track,
   audioRef,
   fontSize = 32,
@@ -256,16 +264,33 @@ export function LyricsOverlay({
       );
     } catch { /* intentionally ignored */ }
   };
-  const [tick, setTick] = useState(0);
-  const [translations, setTranslations] = useState(null); // array of strings, one per lyric line
-  const [, setTranslating] = useState(false);
-  const [romajiLines, setRomajiLines] = useState(null); // array of romaji strings
+  // The active line affects the React tree. Per-word timing stays in refs so the rAF loop can
+  // paint syllables without turning every animation frame into a React render.
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [translationResult, setTranslationResult] = useState(null);
+  const [romajiResult, setRomajiResult] = useState(null);
   const [isCustomLyrics, setIsCustomLyrics] = useState(false);
   const [customLyricsKey, setCustomLyricsKey] = useState(0);
   const [, setInGap] = useState(false);
   const [trailingIdx, setTrailingIdx] = useState(-1); // previous line still visible after new line starts
   const [scrollActive, setScrollActive] = useState(false); // auto-hide scrollbar (hover + idle)
   const t = useLang();
+  const lyricTextLines = useMemo(() => {
+    if (!lyrics) return [];
+    return lyrics.map((line) => {
+      const main = line.wordSync ? (line.words || []).map((w) => w.text).join("") : line.text || "";
+      const bg = (line.bgWords || []).map((w) => w.text).join("") || line.bgText || "";
+      return bg ? `${main} ${bg}` : main;
+    });
+  }, [lyrics]);
+  const translationKey = useMemo(
+    () => `${translationLang}\u001f${lyricTextLines.join("\u001e")}`,
+    [translationLang, lyricTextLines]
+  );
+  const romajiKey = useMemo(() => lyricTextLines.join("\u001e"), [lyricTextLines]);
+  const translations =
+    showTranslation && translationResult?.key === translationKey ? translationResult.lines : null;
+  const romajiLines = showRomaji && romajiResult?.key === romajiKey ? romajiResult.lines : null;
   const containerRef = useRef(null);
   const scrollIdleRef = useRef(null);
 
@@ -288,8 +313,10 @@ export function LyricsOverlay({
   );
   // Briefly reveal the source badge (+ scrollbar) once lyrics have loaded, then let it idle-hide.
   useEffect(() => {
-    if (source) wakeScrollbar();
-  }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!source) return;
+    const frame = requestAnimationFrame(wakeScrollbar);
+    return () => cancelAnimationFrame(frame);
+  }, [source, wakeScrollbar]);
   const rafRef = useRef(null);
   const lyricsDataRef = useRef(null); // rAF loop reads lyrics without closure
   const syncedRef = useRef(false); // whether the current lyrics have real timestamps (not plain)
@@ -329,52 +356,47 @@ export function LyricsOverlay({
 
   // Fetch translations when showTranslation is enabled, lyrics change, or target language changes
   useEffect(() => {
-    if (!showTranslation || !lyrics || lyrics.length === 0) {
-      if (!showTranslation) setTranslations(null);
-      return;
-    }
-    const lines = lyrics.map((line) => {
-      const main = line.wordSync ? (line.words || []).map((w) => w.text).join("") : line.text || "";
-      const bg = (line.bgWords || []).map((w) => w.text).join("") || line.bgText || "";
-      return bg ? `${main} ${bg}` : main;
-    });
-    setTranslating(true);
-    setTranslations(null);
+    if (!showTranslation || lyricTextLines.length === 0) return;
+    let cancelled = false;
     fetch("http://localhost:9847/translate-lyrics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines, target_lang: translationLang }),
+      body: JSON.stringify({ lines: lyricTextLines, target_lang: translationLang }),
     })
       .then((r) => r.json())
       .then((d) => {
-        setTranslations(d.translations || null);
+        if (cancelled) return;
+        setTranslationResult({ key: translationKey, lines: d.translations || null });
       })
-      .catch(() => setTranslations(null))
-      .finally(() => setTranslating(false));
-  }, [showTranslation, lyrics, translationLang]);
+      .catch(() => {
+        if (!cancelled) setTranslationResult({ key: translationKey, lines: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showTranslation, lyricTextLines, translationLang, translationKey]);
 
   // Fetch Romaji when toggle is enabled or lyrics change
   useEffect(() => {
-    if (!showRomaji || !lyrics || lyrics.length === 0) {
-      if (!showRomaji) setRomajiLines(null);
-      return;
-    }
-    const lines = lyrics.map((line) => {
-      const main = line.wordSync ? (line.words || []).map((w) => w.text).join("") : line.text || "";
-      const bg = (line.bgWords || []).map((w) => w.text).join("") || line.bgText || "";
-      return bg ? `${main} ${bg}` : main;
-    });
+    if (!showRomaji || lyricTextLines.length === 0) return;
+    let cancelled = false;
     fetch("http://localhost:9847/romanize-lyrics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines }),
+      body: JSON.stringify({ lines: lyricTextLines }),
     })
       .then((r) => r.json())
       .then((d) => {
-        setRomajiLines(d.romanizations || null);
+        if (cancelled) return;
+        setRomajiResult({ key: romajiKey, lines: d.romanizations || null });
       })
-      .catch(() => setRomajiLines(null));
-  }, [showRomaji, lyrics]);
+      .catch(() => {
+        if (!cancelled) setRomajiResult({ key: romajiKey, lines: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showRomaji, lyricTextLines, romajiKey]);
 
   // Sync audio snap so the rAF loop can interpolate currentTime at 60 fps
   useEffect(() => {
@@ -418,11 +440,11 @@ export function LyricsOverlay({
       // Landing before the first line snaps to the top; landing on a line lets the centring
       // effect treat it as a jump (instant). A normal forward mid-song gap is unaffected.
       if (t < prevTRef.current - 1) {
-        lastCenteredIdxRef.current = -1;
+        scrollStateRef.current.lastCenteredIdx = -1;
         if (newIdx < 0) {
           // Glide back to the top instead of a hard cut.
-          scrollTargetRef.current = 0;
-          scrollHistRef.current = [];
+          scrollStateRef.current.target = 0;
+          scrollStateRef.current.history = [];
           if (!fluidLyricsRef.current)
             containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
           // Fluid: leave scrollPos/velocity so the spring glides smoothly to the new target.
@@ -457,12 +479,12 @@ export function LyricsOverlay({
           activeTrailWordIdxRef.bgCurrent = -1;
         }
         lastIdxRef.current = displayIdx;
+        setActiveIdx(displayIdx);
         activeWordIdxRef.current = -1;
         activeWordIdxRef.bgCurrent = -1;
         activeWordMaxRef.current = -1; // reset zoom dedupe for the new active line
         wordElsRef.current = []; // cleared until useLayoutEffect repopulates after render
         bgContainerRef.current = null; // clear so RAF doesn't update the old line's element
-        setTick((n) => n + 1);
       }
 
       // Expire trailing line once its endTime is reached
@@ -543,7 +565,7 @@ export function LyricsOverlay({
 
   // After React renders, cache word span elements and bg-vocals container for the active line
   useLayoutEffect(() => {
-    const idx = lastIdxRef.current;
+    const idx = activeIdx;
     if (idx >= 0) {
       // Scope to this instance's own container — Big Picture mounts a second LyricsOverlay while
       // the desktop one may still be in the DOM, and a global querySelector would grab the wrong
@@ -581,7 +603,7 @@ export function LyricsOverlay({
     } else {
       trailWordElsRef.current = [];
     }
-  }, [tick, trailingIdx]);
+  }, [activeIdx, trailingIdx]);
 
   // Sync isCustomLyrics to parent
   useEffect(() => {
@@ -643,9 +665,6 @@ export function LyricsOverlay({
 
   useEffect(() => {
     if (!track) return;
-    setLoading(true);
-    setLyrics(null);
-    setIsCustomLyrics(false);
 
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
 
@@ -790,7 +809,6 @@ export function LyricsOverlay({
     } // end continueWithProviders
   }, [track, refetchKey, forcedProvider, customLyricsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeIdx = lastIdxRef.current;
   const lyricsSynced = !!(lyrics && lyrics.some((l) => (l.time ?? -1) >= 0));
 
   // Unique agents in order of first appearance (only when ≥2 distinct named agents)
@@ -813,42 +831,27 @@ export function LyricsOverlay({
   // Centre the active line. Fluid mode drives scrollTop with a critically-damped spring
   // (SmoothDamp) — soft, no overshoot, and velocity-continuous so rapid line changes carry
   // their momentum (organic Apple-Music glide); otherwise the browser's native smooth scroll.
-  const scrollTargetRef = useRef(0);
-  const scrollPosRef = useRef(0);
-  const scrollVelRef = useRef(0);
-  const scrollLastTimeRef = useRef(0);
-  const userScrollUntilRef = useRef(0);
-  const scrollHistRef = useRef([]); // recent {t,s} scroll positions for the staggered drift
+  // This state belongs entirely to the imperative scroll animation. Keeping it in one
+  // private object makes that boundary explicit: React state owns the active line, while the
+  // animator owns sub-frame position, velocity, and history.
+  const scrollStateRef = useRef({
+    target: 0,
+    position: 0,
+    velocity: 0,
+    lastTime: 0,
+    userScrollUntil: 0,
+    history: [],
+    lastCenteredIdx: -1,
+  });
   const activeIdxRef = useRef(activeIdx);
-  activeIdxRef.current = activeIdx; // read live in the scroll rAF (which doesn't re-run per line)
-  const lastCenteredIdxRef = useRef(-1); // last line we centred on — used to detect jumps
-
-  // On song change, snap back to the top and reset the spring state — otherwise the new
-  // lyrics inherit the previous song's scroll offset until the first active line appears.
-  // Also neutralise the time snapshot + last index: when the new track's lyrics are cached
-  // they render instantly, and a stale (advanced) time from the previous song would
-  // otherwise resolve to a mid-song line and scroll there before the real time arrives.
-  useEffect(() => {
-    const c = containerRef.current;
-    if (c) c.scrollTop = 0;
-    scrollPosRef.current = 0;
-    scrollTargetRef.current = 0;
-    scrollVelRef.current = 0;
-    scrollHistRef.current = [];
-    userScrollUntilRef.current = 0;
-    lastIdxRef.current = -1;
-    lastCenteredIdxRef.current = -1;
-    prevTRef.current = 0;
-    // Reset to t=0 (new track) but keep the prior playing state so the interpolated time keeps
-    // advancing instead of freezing at 0 until the next audio event corrects it.
-    audioSnapRef.current = { ct: 0, pt: performance.now(), playing: audioSnapRef.current.playing };
-    instVizRef.current = false;
-    onInstChangeRef.current?.(false);
-  }, [track?.videoId]);
+  useLayoutEffect(() => {
+    activeIdxRef.current = activeIdx;
+  }, [activeIdx]);
 
   useEffect(() => {
     if (activeIdx < 0 || !containerRef.current) return;
     const container = containerRef.current;
+    let correctionFrame = 0;
     // Fluid wraps each line in a will-change:transform div (its own offsetParent), so the
     // inner [data-lyric] offsetTop is ~0 — measure the wrapper for positioning instead.
     const sel = fluidLyrics ? "[data-lyricdrift]" : "[data-lyric]";
@@ -860,55 +863,57 @@ export function LyricsOverlay({
         activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2
       );
     };
-    let target = measure();
-    if (target == null) return;
-    // A jump (song change, seek, or skipping >1 line) snaps instantly so it lands centred;
-    // sequential line advances scroll smoothly. lastCenteredIdxRef is -1 right after a reset.
-    const prev = lastCenteredIdxRef.current;
-    const jump = prev < 0 || Math.abs(activeIdx - prev) > 1;
-    lastCenteredIdxRef.current = activeIdx;
-    if (!fluidLyrics) {
-      container.scrollTo({ top: target, behavior: jump ? "auto" : "smooth" });
-    } else {
-      scrollTargetRef.current = target;
-      if (jump) {
-        scrollPosRef.current = target;
-        scrollVelRef.current = 0;
-        container.scrollTop = target;
+    const frame = requestAnimationFrame(() => {
+      const target = measure();
+      if (target == null) return;
+      // A jump (song change, seek, or skipping >1 line) snaps instantly so it lands centred;
+      // sequential line advances scroll smoothly. lastCenteredIdx is -1 right after a reset.
+      const prev = scrollStateRef.current.lastCenteredIdx;
+      const jump = prev < 0 || Math.abs(activeIdx - prev) > 1;
+      scrollStateRef.current.lastCenteredIdx = activeIdx;
+      if (!fluidLyrics) {
+        container.scrollTo({ top: target, behavior: jump ? "auto" : "smooth" });
+      } else {
+        scrollStateRef.current.target = target;
+        if (jump) {
+          scrollStateRef.current.position = target;
+          scrollStateRef.current.velocity = 0;
+          container.scrollTop = target;
+        }
       }
-    }
-    // On a jump the new lyrics/line may still be settling (fonts, translations, wrapping) —
-    // re-measure on the next frame and correct so it lands exactly centred.
-    if (jump) {
-      requestAnimationFrame(() => {
+      // On a jump the new lyrics/line may still be settling (fonts, translations, wrapping) —
+      // re-measure on the next frame and correct so it lands exactly centred.
+      if (!jump) return;
+      correctionFrame = requestAnimationFrame(() => {
         if (!containerRef.current || activeIdxRef.current !== activeIdx) return;
         const t2 = measure();
         if (t2 == null || Math.abs(t2 - target) < 1) return;
         if (!fluidLyrics) container.scrollTo({ top: t2, behavior: "auto" });
         else {
-          scrollTargetRef.current = t2;
-          scrollPosRef.current = t2;
-          scrollVelRef.current = 0;
+          scrollStateRef.current.target = t2;
+          scrollStateRef.current.position = t2;
+          scrollStateRef.current.velocity = 0;
           container.scrollTop = t2;
         }
       });
-    }
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(correctionFrame);
+    };
   }, [activeIdx, fluidLyrics]);
 
   useEffect(() => {
     if (!fluidLyrics) return;
     const container = containerRef.current;
     if (!container) return;
-    scrollPosRef.current = container.scrollTop;
-    scrollVelRef.current = 0;
-    scrollLastTimeRef.current = performance.now();
-    scrollHistRef.current = [];
     const wraps = container.querySelectorAll("[data-lyricdrift]");
     let raf = 0;
+    let initializeFrame = 0;
     const onUserScroll = () => {
-      userScrollUntilRef.current = performance.now() + 2000;
-      scrollPosRef.current = container.scrollTop;
-      scrollVelRef.current = 0;
+      scrollStateRef.current.userScrollUntil = performance.now() + 2000;
+      scrollStateRef.current.position = container.scrollTop;
+      scrollStateRef.current.velocity = 0;
     };
     container.addEventListener("wheel", onUserScroll, { passive: true });
     container.addEventListener("touchmove", onUserScroll, { passive: true });
@@ -919,7 +924,7 @@ export function LyricsOverlay({
       C = 20,
       STAGGER = 0.05; // s of lag per line of distance (elastic chain)
     const histAt = (hist, t) => {
-      if (hist.length === 0) return scrollPosRef.current;
+      if (hist.length === 0) return scrollStateRef.current.position;
       if (t <= hist[0].t) return hist[0].s;
       for (let i = hist.length - 1; i >= 0; i--) {
         if (hist[i].t <= t) {
@@ -934,15 +939,15 @@ export function LyricsOverlay({
     const tick = () => {
       raf = requestAnimationFrame(tick);
       const now = performance.now();
-      const dt = Math.min((now - scrollLastTimeRef.current) / 1000, 0.04);
-      scrollLastTimeRef.current = now;
+      const dt = Math.min((now - scrollStateRef.current.lastTime) / 1000, 0.04);
+      scrollStateRef.current.lastTime = now;
 
-      if (now < userScrollUntilRef.current) {
-        scrollPosRef.current = container.scrollTop;
+      if (now < scrollStateRef.current.userScrollUntil) {
+        scrollStateRef.current.position = container.scrollTop;
       } else {
-        const target = scrollTargetRef.current;
-        let p = scrollPosRef.current,
-          v = scrollVelRef.current;
+        const target = scrollStateRef.current.target;
+        let p = scrollStateRef.current.position,
+          v = scrollStateRef.current.velocity;
         const steps = Math.max(1, Math.ceil(dt / 0.008)); // sub-step for stability
         const h = dt / steps;
         for (let s = 0; s < steps; s++) {
@@ -953,20 +958,20 @@ export function LyricsOverlay({
           p = target;
           v = 0;
         }
-        scrollPosRef.current = p;
-        scrollVelRef.current = v;
+        scrollStateRef.current.position = p;
+        scrollStateRef.current.velocity = v;
         container.scrollTop = p;
       }
 
       // Scroll-position history (for the staggered drift lookup).
-      const hist = scrollHistRef.current;
-      hist.push({ t: now, s: scrollPosRef.current });
+      const hist = scrollStateRef.current.history;
+      hist.push({ t: now, s: scrollStateRef.current.position });
       while (hist.length > 2 && hist[0].t < now - 600) hist.shift();
 
       // Staggered positional drift ("rubber-band" chain): each line is shifted to the scroll
       // position from (distance × STAGGER) ago → it lags behind and catches up elastically.
       const ai = activeIdxRef.current;
-      const cur = scrollPosRef.current;
+      const cur = scrollStateRef.current.position;
       for (let n = 0; n < wraps.length; n++) {
         const dist = Math.abs(n - ai);
         if (dist === 0) {
@@ -980,8 +985,15 @@ export function LyricsOverlay({
         wraps[n].style.transform = Math.abs(drift) > 0.1 ? `translateY(${drift.toFixed(2)}px)` : "";
       }
     };
-    raf = requestAnimationFrame(tick);
+    initializeFrame = requestAnimationFrame(() => {
+      scrollStateRef.current.position = container.scrollTop;
+      scrollStateRef.current.velocity = 0;
+      scrollStateRef.current.lastTime = performance.now();
+      scrollStateRef.current.history = [];
+      raf = requestAnimationFrame(tick);
+    });
     return () => {
+      cancelAnimationFrame(initializeFrame);
       cancelAnimationFrame(raf);
       container.removeEventListener("wheel", onUserScroll);
       container.removeEventListener("touchmove", onUserScroll);
