@@ -10,6 +10,14 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "security": {
+      "capabilities": [
+        "main-capability",
+        "sidecar-capability",
+        "composer-capability"
+      ],
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' ipc: http://ipc.localhost http://localhost:9847 http://127.0.0.1:9847 http://127.0.0.1:8888 https://translate.googleapis.com https://api.github.com https://raw.githubusercontent.com https://kodama-stats.kiyoshidesign.workers.dev; img-src 'self' data: https: http: blob:; media-src 'self' file: blob: https:; font-src 'self' tauri: data: https://fonts.gstatic.com; frame-src http://localhost:*"
+    },
     "windows": [
       {
         "label": "main",
@@ -22,10 +30,7 @@
         "resizable": true,
         "decorations": false
       }
-    ],
-    "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' ipc: http://ipc.localhost http://localhost:9847 http://127.0.0.1:9847 http://127.0.0.1:8888 https://translate.googleapis.com https://api.github.com https://raw.githubusercontent.com https://kodama-stats.kiyoshidesign.workers.dev; img-src 'self' data: https: http: blob:; media-src 'self' file: blob: https:; font-src 'self' tauri: data: https://fonts.gstatic.com; frame-src http://localhost:*"
-    }
+    ]
   },
   "plugins": {
     "deep-link": {

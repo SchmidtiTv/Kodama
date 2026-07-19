@@ -100,6 +100,7 @@ fn update_tray_labels(app: tauri::AppHandle, show_label: String, quit_label: Str
 /// (Kodama). Runs at the very start of `main()` — BEFORE WebView2 initializes — so
 /// the whole data folder (profiles, caches AND the WebView2/localStorage store with
 /// pinned playlists & settings) is carried over before the new store gets created.
+#[cfg(not(feature = "e2e"))]
 fn migrate_legacy_data_dir() {
     let roots: Vec<std::path::PathBuf> = {
         #[cfg(windows)]
@@ -124,10 +125,84 @@ fn migrate_legacy_data_dir() {
     }
 }
 
+#[cfg(feature = "e2e")]
+fn e2e_worker_id() -> String {
+    let worker_id = std::env::var("KODAMA_E2E_WORKER_ID")
+        .expect("KODAMA_E2E_WORKER_ID must be set for an E2E build");
+
+    if worker_id.is_empty()
+        || !worker_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        panic!("KODAMA_E2E_WORKER_ID must contain only ASCII letters, numbers, '-' or '_'");
+    }
+
+    worker_id
+}
+
+#[cfg(feature = "e2e")]
+fn e2e_data_store_identifier(worker_id: &str) -> [u8; 16] {
+    // A deterministic 128-bit FNV-1a-style value keeps every worker's persistent
+    // WebView store isolated without using a developer-owned app data directory.
+    let mut state = 0xcbf29ce484222325u64;
+    for byte in worker_id.bytes() {
+        state ^= u64::from(byte);
+        state = state.wrapping_mul(0x100000001b3);
+    }
+
+    let mut identifier = [0u8; 16];
+    identifier[..8].copy_from_slice(&state.to_le_bytes());
+    identifier[8..].copy_from_slice(&state.rotate_left(17).to_le_bytes());
+    identifier
+}
+
+#[cfg(feature = "e2e")]
+fn configure_e2e_webview_storage(context: &mut tauri::Context<tauri::Wry>) {
+    let worker_id = e2e_worker_id();
+
+    for window in &mut context.config_mut().app.windows {
+        #[cfg(target_os = "macos")]
+        {
+            // WKWebView does not support custom data directories. Its persistent
+            // data store identifier provides the equivalent isolation instead.
+            window.data_store_identifier = Some(e2e_data_store_identifier(&worker_id));
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            // Tauri resolves this safe relative path under the platform's local
+            // data directory, separately from Kodama's production application ID.
+            window.data_directory = Some(
+                std::path::PathBuf::from("kodama-e2e-workers").join(&worker_id),
+            );
+        }
+    }
+}
+
 fn main() {
+    #[cfg(not(feature = "e2e"))]
     migrate_legacy_data_dir();
 
-    tauri::Builder::default()
+    #[cfg(feature = "e2e")]
+    let context = {
+        let mut context = tauri::generate_context!();
+        configure_e2e_webview_storage(&mut context);
+        context
+    };
+    #[cfg(not(feature = "e2e"))]
+    let context = tauri::generate_context!();
+
+    let builder = tauri::Builder::default();
+
+    // These plugins expose test-only WebDriver and IPC-mocking endpoints. They
+    // are compiled and registered exclusively by `--features e2e`.
+    #[cfg(feature = "e2e")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second instance was started — focus the existing window instead
             if let Some(win) = app.get_webview_window("main") {
@@ -235,7 +310,7 @@ fn main() {
             capture_screenshot,
             ensure_session_keeper, rotate_session_cookies, stop_session_keeper,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             match event {

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // Single source of truth for the app version: src-tauri/tauri.conf.json (the file tauri-action
 // reads when building a release). Injected at build time so the in-app version can never drift
@@ -12,6 +13,16 @@ const appVersion = JSON.parse(
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      // WDIO can intercept Tauri IPC only in E2E builds. Production resolves
+      // this import to an empty module, so no test bridge is bundled or run.
+      "@kodama/e2e-bridge":
+        process.env.VITE_E2E === "true"
+          ? "@wdio/tauri-plugin"
+          : fileURLToPath(new URL("./src/e2e/noop.js", import.meta.url)),
+    },
+  },
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
   clearScreen: false,
   server: {

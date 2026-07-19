@@ -116,6 +116,16 @@ fn auth_data_dir(profile: &str) -> std::path::PathBuf {
         .chars()
         .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
         .collect();
+    #[cfg(feature = "e2e")]
+    {
+        let worker_id = crate::e2e_worker_id();
+        return std::env::temp_dir()
+            .join("kodama-e2e-auth-webview")
+            .join(worker_id)
+            .join(safe);
+    }
+
+    #[cfg(not(feature = "e2e"))]
     std::env::temp_dir().join("kodama-auth-webview").join(safe)
 }
 
@@ -442,4 +452,3 @@ pub async fn open_composer_window(
 
     Ok(())
 }
-

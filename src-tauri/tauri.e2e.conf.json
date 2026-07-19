@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "dev.kodama.music.e2e",
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "main-capability",
+        "sidecar-capability",
+        "composer-capability",
+        {
+          "identifier": "e2e-wdio-capability",
+          "description": "Test-only WebDriver, IPC mocking, and log-forwarding permissions.",
+          "windows": ["main", "overlay-editor"],
+          "permissions": ["wdio:default", "wdio-webdriver:default"]
+        }
+      ]
+    }
+  }
+}
