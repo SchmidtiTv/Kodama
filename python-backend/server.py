@@ -4376,10 +4376,23 @@ def delete_cached_songs_batch():
 
 _export_status = {}  # video_id -> "exporting" | "done" | "error"
 
+def _managed_ffmpeg_dir():
+    """User-writable dir where we place an auto-downloaded ffmpeg on macOS/Linux
+    (the .app bundle / install dir isn't reliably writable). Lives under the same
+    per-user data root as the caches, so an uninstall cleans it up too."""
+    return os.path.join(_base_dir, "bin")
+
+
 def _find_ffmpeg():
-    """Find ffmpeg binary — check bundled location first, then PATH."""
+    """Find ffmpeg binary — check bundled/managed location first, then PATH."""
     bin_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
     candidates = []
+
+    # macOS/Linux: our own auto-downloaded copy takes precedence — if the user hit the
+    # in-app download, that's the ffmpeg they chose. (Windows ships it next to the exe.)
+    if sys.platform != "win32":
+        candidates.append(os.path.join(_managed_ffmpeg_dir(), bin_name))
+
     if getattr(sys, 'frozen', False):
         # Next to the server executable (primary install-dir location)
         candidates.append(os.path.join(os.path.dirname(sys.executable), bin_name))
@@ -4393,7 +4406,7 @@ def _find_ffmpeg():
         candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), bin_name))
 
     # macOS: also probe the app bundle's Resources and the common Homebrew locations
-    # (most Mac users get ffmpeg via `brew install ffmpeg`).
+    # (Mac users who already ran `brew install ffmpeg` get picked up here too).
     if sys.platform == "darwin":
         if getattr(sys, 'frozen', False):
             candidates.append(os.path.join(os.path.dirname(sys.executable), "..", "Resources", bin_name))
@@ -4435,16 +4448,41 @@ def _ffmpeg_version():
         return None
 
 
+# macOS auto-download: static per-arch ffmpeg builds (GPL, license-compatible with our AGPL).
+# The `latest/download/<asset>` URL always resolves to the newest release, so no version is
+# hardcoded. Asset names are stable across releases.
+FFMPEG_MAC_REPO = "eugeneware/ffmpeg-static"
+
+def _ffmpeg_mac_asset():
+    """The eugeneware/ffmpeg-static asset name for this Mac's architecture."""
+    import platform
+    arch = "arm64" if platform.machine() == "arm64" else "x64"
+    return f"ffmpeg-darwin-{arch}"
+
+def _ffmpeg_mac_download_url():
+    return f"https://github.com/{FFMPEG_MAC_REPO}/releases/latest/download/{_ffmpeg_mac_asset()}"
+
+
 _FFMPEG_LATEST = {"ts": 0.0, "ver": None}
 def _ffmpeg_latest_version():
-    """Latest gyan.dev release version (cached 1h), or None on failure."""
+    """Latest upstream ffmpeg version for this platform (cached 1h), or None on failure.
+    Windows tracks gyan.dev; macOS tracks the static-build repo we actually download from,
+    so the update check compares like-for-like instead of against a Windows version."""
     now = time.time()
     if _FFMPEG_LATEST["ver"] and now - _FFMPEG_LATEST["ts"] < 3600:
         return _FFMPEG_LATEST["ver"]
     try:
-        r = requests.get("https://www.gyan.dev/ffmpeg/builds/release-version", timeout=10)
-        r.raise_for_status()
-        ver = (r.text or "").strip()
+        if sys.platform == "darwin":
+            # Release tags look like "b6.1.1" → the ffmpeg version is the numeric part.
+            r = requests.get(f"https://api.github.com/repos/{FFMPEG_MAC_REPO}/releases/latest",
+                             headers={"Accept": "application/vnd.github+json"}, timeout=10)
+            r.raise_for_status()
+            tag = (r.json().get("tag_name") or "").lstrip("bv")
+            ver = tag.strip()
+        else:
+            r = requests.get("https://www.gyan.dev/ffmpeg/builds/release-version", timeout=10)
+            r.raise_for_status()
+            ver = (r.text or "").strip()
         if ver:
             _FFMPEG_LATEST.update(ts=now, ver=ver)
             return ver
@@ -5163,9 +5201,10 @@ def ytdlp_update():
 @app.route("/ffmpeg/download")
 def ffmpeg_download():
     """
-    SSE stream that downloads ffmpeg.exe from gyan.dev and places it next to
-    the server executable (install dir).  With ?force=1 it re-downloads even if a
-    copy already exists (used to update to a newer version).  Events:
+    SSE stream that downloads ffmpeg and places it where _find_ffmpeg looks:
+    Windows fetches gyan.dev's zip into the install dir; macOS fetches a static
+    per-arch binary into the managed data dir.  With ?force=1 it re-downloads even
+    if a copy already exists (used to update to a newer version).  Events:
       data: {"status": "progress", "percent": 0-100, "mb_done": x, "mb_total": y, "speed_kbps": z}
       data: {"status": "done"}
       data: {"status": "error", "message": "..."}
@@ -5173,11 +5212,61 @@ def ffmpeg_download():
     import zipfile, io, struct
     force = request.args.get("force") == "1"  # read here — request ctx isn't live inside the generator
 
+    def _progress_payload(downloaded, total, start_ts):
+        elapsed = max(time.time() - start_ts, 0.001)
+        return json.dumps({
+            "status": "progress",
+            "percent": int(downloaded / total * 100) if total else 0,
+            "mb_done": round(downloaded / 1048576, 1),
+            "mb_total": round(total / 1048576, 1) if total else 0,
+            "speed_kbps": int(downloaded / elapsed / 1024),
+        })
+
     def _stream():
-        # macOS: no stable auto-download source — point the user at Homebrew instead.
+        # macOS: stream a static per-arch ffmpeg straight into the managed dir, chmod +x. Works
+        # in dev and frozen alike (a Homebrew ffmpeg would already satisfy /ffmpeg/status, so we
+        # only get here when the user has none). Downloaded via requests, so macOS doesn't apply
+        # the com.apple.quarantine flag — Gatekeeper won't block the unsigned binary.
         if sys.platform == "darwin":
-            yield "data: " + json.dumps({"status": "error",
-                "message": "Auf macOS bitte FFmpeg via Homebrew installieren — im Terminal: brew install ffmpeg, dann Kodama neu starten."}) + "\n\n"
+            dest_dir = _managed_ffmpeg_dir()
+            dest_exe = os.path.join(dest_dir, "ffmpeg")
+            if os.path.exists(dest_exe) and not force:
+                yield "data: {\"status\": \"done\"}\n\n"
+                return
+            tmp_exe = dest_exe + ".new"
+            try:
+                os.makedirs(dest_dir, exist_ok=True)
+                import requests as _req
+                with _req.get(_ffmpeg_mac_download_url(), stream=True, timeout=30,
+                              allow_redirects=True) as r:
+                    r.raise_for_status()
+                    total = int(r.headers.get("content-length", 0))
+                    downloaded = 0
+                    start_ts = time.time()
+                    last_emit = 0
+                    with open(tmp_exe, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=65536):
+                            if not chunk:
+                                continue
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            now = time.time()
+                            if now - last_emit >= 0.25:
+                                yield f"data: {_progress_payload(downloaded, total, start_ts)}\n\n"
+                                last_emit = now
+                if downloaded < 1_000_000:  # sanity: a real ffmpeg is tens of MB
+                    try: os.remove(tmp_exe)
+                    except OSError: pass
+                    yield "data: " + json.dumps({"status": "error",
+                        "message": "Download unvollständig — bitte erneut versuchen."}) + "\n\n"
+                    return
+                os.chmod(tmp_exe, 0o755)
+                os.replace(tmp_exe, dest_exe)
+                yield "data: {\"status\": \"done\"}\n\n"
+            except Exception as e:
+                try: os.remove(tmp_exe)
+                except OSError: pass
+                yield "data: " + json.dumps({"status": "error", "message": str(e)}) + "\n\n"
             return
         # Only runs when frozen (installed); in dev just report done.
         if not getattr(sys, 'frozen', False):

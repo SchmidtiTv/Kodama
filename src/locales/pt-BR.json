@@ -291,7 +291,7 @@
   "ffmpegSetupTitle": "Instalação única",
   "ffmpegDownloadingTitle": "Instalando FFmpeg…",
   "ffmpegErrorTitle": "Falha no download",
-  "ffmpegNeededDesc": "FFmpeg não foi encontrado e será baixado uma vez (~130 MB). Ele é necessário para exportação de MP3.",
+  "ffmpegNeededDesc": "FFmpeg não foi encontrado e será baixado uma vez. Ele é necessário para exportação de MP3.",
   "ffmpegSkip": "Pular",
   "ffmpegDownload": "Baixar FFmpeg",
   "ffmpegNotInstalled": "Não instalado",
