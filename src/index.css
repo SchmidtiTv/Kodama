@@ -405,6 +405,9 @@ html, body, #root {
 /* Scrollable containers â€” dimmer thumb until container is hovered */
 .scrollable::-webkit-scrollbar-thumb         { background-color: #2a2a2a; }
 .scrollable:hover::-webkit-scrollbar-thumb   { background-color: #666; border-width: 1px; }
+/* Reserve the scrollbar's track width up front, so content (e.g. centered headers) doesn't
+   shift sideways the moment a view grows tall enough to actually need the scrollbar. */
+.scrollable { scrollbar-gutter: stable; }
 
 /* Lyrics view â€” scrollbar auto-hides; only visible while data-scroll-active="true"
    (driven by cursor movement + an idle timeout in the component). */

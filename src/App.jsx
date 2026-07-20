@@ -3,9 +3,10 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
 import { cn, Button, ListBox, ListBoxItem, Disclosure, DisclosureHeading, DisclosureTrigger, DisclosureContent, DisclosureBody, DisclosureIndicator, Dropdown, DropdownTrigger, DropdownPopover, DropdownItem, DropdownSection, DropdownSubmenuTrigger, DropdownSubmenuIndicator, ModalRoot, ModalBackdrop, ModalContainer, ModalHeader, ModalIcon, ModalHeading, ModalBody, ModalFooter, ModalCloseTrigger, SliderRoot, SliderTrack, SliderFill, SliderThumb, toast, ToastProvider, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill, SearchFieldRoot, SearchFieldGroup, SearchFieldSearchIcon, SearchFieldInput, SearchFieldClearButton, TextFieldRoot, InputRoot, TextArea, SwitchRoot, SwitchControl, SwitchThumb, CardRoot,
  ColorAreaRoot, ColorAreaThumb, ColorSliderRoot, ColorSliderTrack, ColorSliderThumb, ColorSwatchRoot, KbdRoot, KbdContent,
- Skeleton, ToggleButton, ToggleButtonGroupRoot, ScrollShadowRoot, ChipRoot, ChipLabel } from "@heroui/react";
+ Skeleton, ToggleButton, ToggleButtonGroupRoot, ScrollShadowRoot, ChipRoot, ChipLabel,
+ TabsRoot, TabListContainer, TabList, Tab, TabIndicator } from "@heroui/react";
 import { DropdownMenu, ModalDialog } from "./ui/zoomed-heroui.jsx";
-import { parseColor } from "react-aria-components";
+import { parseColor, SharedElementTransition } from "react-aria-components";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 const appWindow = getCurrentWebviewWindow();
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -7826,19 +7827,21 @@ function LibraryView({ onPlay, currentTrack, isPlaying, onOpenPlaylist, onOpenAl
       {/* Header row: title left, tabs centered */}
       <div style={{ position: "relative", display: "flex", alignItems: "center", marginBottom: 12, height: 36 }}>
         <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("library")}</div>
-        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4 }}>
-          {tabs.map(tab_ => (
-            <button key={tab_.id} onClick={() => { setTab(tab_.id); setSortOrder("default"); }}
-              className={`view-tab-btn${tab === tab_.id ? " active" : ""}`}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: tab === tab_.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "transparent",
-                color: tab === tab_.id ? "var(--accent)" : "var(--text-secondary)",
-                border: "none", borderRadius: 8, padding: "7px 14px",
-                fontSize: "var(--t13)", cursor: "default", fontFamily: "var(--font)",
-                transition: "all 0.15s", fontWeight: tab === tab_.id ? 600 : 400,
-              }}>{tab_.icon}{tab_.label}</button>
-          ))}
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+          <SharedElementTransition>
+            <TabsRoot selectedKey={tab} onSelectionChange={key => { setTab(key); setSortOrder("default"); }}>
+              <TabListContainer>
+                <TabList aria-label={t("library")}>
+                  {tabs.map(tab_ => (
+                    <Tab key={tab_.id} id={tab_.id} className="gap-1.5">
+                      {tab_.icon}{tab_.label}
+                    </Tab>
+                  ))}
+                </TabList>
+                <TabIndicator />
+              </TabListContainer>
+            </TabsRoot>
+          </SharedElementTransition>
         </div>
       </div>
 
@@ -8445,9 +8448,8 @@ function HomeView({ displayName, onPlay, onOpenPlaylist, onOpenAlbum, onOpenArti
         .home-card:hover .home-card-img{transform:scale(1.04)}
       `}</style>
 
-      {/* ── Gradient header (centered hero) ── */}
+      {/* ── Header (centered hero) ── */}
       <div style={{ position: "relative", padding: "120px 28px 72px", overflow: "hidden", marginBottom: 20 }}>
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 100% at 50% 0%, var(--accent), transparent 70%)", opacity: 0.18, pointerEvents: "none" }} />
         <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 18 }}>
           <GreetingIcon size={64} weight="duotone" style={{ color: "var(--accent)", flexShrink: 0, animation: "homeHeaderIcon 0.6s cubic-bezier(0.22,1,0.36,1) both" }} />
           <h1 style={{ fontSize: "var(--t26, 28px)", fontWeight: 700, margin: 0, lineHeight: 1.25, animation: "homeHeaderText 0.55s cubic-bezier(0.22,1,0.36,1) 0.12s both" }}>
@@ -9870,9 +9872,12 @@ export default function App() {
         if (event.event === "Finished") setUpdateDownloadProgress(100);
       });
       setUpdateDownloaded(true);
-    } catch {
+    } catch (e) {
+      // Surface the real error — a generic toast made the macOS "download ok, then fails"
+      // reports impossible to diagnose. Full error to the console, message text to the user.
+      console.error("[Updater] download failed:", e);
       const lang = getInitialLang();
-      addToast(translate(lang, "downloadFailed"), "error");
+      addToast(`${translate(lang, "downloadFailed")}: ${e?.message || e}`, "error");
       setUpdateDownloadProgress(null);
     } finally {
       setUpdateDownloading(false);
@@ -9882,16 +9887,24 @@ export default function App() {
   const installUpdate = useCallback(async () => {
     if (!updateInfo?._update) return;
     try {
-      // Stop the Python backend before the NSIS installer runs,
-      // otherwise it holds file locks and the installation fails.
+      // Stop the Python backend before the installer runs, otherwise it holds file
+      // locks (Windows) and the installation fails.
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("stop_server_cmd").catch(() => {});
       await updateInfo._update.install();
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      await relaunch();
-    } catch {
+      // Restart via our own Rust command (app.restart()), NOT plugin-process relaunch():
+      // that plugin needs a process:* capability permission which isn't granted, so it threw
+      // right after a successful install. On Windows the passive NSIS installer self-restarts
+      // and hid this; on macOS relaunch() is the only restart path, so the update "failed"
+      // despite installing. This is the same command the FFmpeg setup flow already uses.
+      await invoke("relaunch_app");
+    } catch (e) {
+      // install() is a distinct failure stage from download() — label it as such and show the
+      // real error, so a macOS install failure (e.g. bundle-replace / translocation) is visible
+      // instead of masquerading as a download failure.
+      console.error("[Updater] install failed:", e);
       const lang = getInitialLang();
-      addToast(translate(lang, "downloadFailed"), "error");
+      addToast(`${translate(lang, "updateInstallFailed") || "Update installation failed"}: ${e?.message || e}`, "error");
     }
   }, [updateInfo, addToast]);
 
@@ -11146,9 +11159,12 @@ export default function App() {
 
   // ── Profile / Auth ──
   const [profiles, setProfiles] = useState([]);
+  const profilesRef = useRef(profiles);
+  useEffect(() => { profilesRef.current = profiles; }, [profiles]);
   const [hasProfile, setHasProfile] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const sessionWarnedRef = useRef(null); // profile name we've already shown the "session expired" toast for
+  const sessionExpiredToastKeyRef = useRef(null); // key of the currently-shown toast, so it can be closed once the session recovers on its own
   const [showLangPicker, setShowLangPicker] = useState(() => !localStorage.getItem("kiyoshi-lang"));
   const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
   const [addingProfile, setAddingProfile] = useState(false);
@@ -11178,13 +11194,26 @@ export default function App() {
           sessionWarnedRef.current = active.name;
           setReauthName(active.name); // target the settings re-auth / login at this account
           const lang = localStorage.getItem("kiyoshi-lang") || "de";
-          addToast(translate(lang, "sessionExpired"), "error");
+          // Persistent (timeout: 0) — a fresh app start is busy (splash/language picker/loading),
+          // so a short-lived toast is easy to miss entirely. Closed automatically below if the
+          // backend's own PSIDTS refresh loop (every 5 min) quietly fixes the session on its own.
+          sessionExpiredToastKeyRef.current = toast.warning(translate(lang, "sessionExpiredHint"), {
+            timeout: 0,
+            actionProps: {
+              children: translate(lang, "reauthSession"),
+              onPress: () => { setAddingProfile(true); setShowLogin(true); },
+            },
+          });
         }
       } else if (active && !active.loggedOut) {
         sessionWarnedRef.current = null;
+        if (sessionExpiredToastKeyRef.current) {
+          toast.close(sessionExpiredToastKeyRef.current);
+          sessionExpiredToastKeyRef.current = null;
+        }
       }
     } catch {}
-  }, [addToast]);
+  }, []);
 
   // Keep the YT-Music session alive long-term: a hidden "session-keeper" WebView (a real
   // browser engine) rotates the *SIDTS timestamp cookies that plain HTTP requests cannot, and
@@ -11200,7 +11229,11 @@ export default function App() {
       catch { return; }
       if (cancelled) return;
       const rotate = () => invoke("rotate_session_cookies", { profileName: currentProfile }).catch(() => {});
-      firstTimer = setTimeout(() => { if (!cancelled) rotate(); }, 25000);
+      // If the account is already showing as logged-out right now, don't sit through the normal
+      // startup delay — fire the (heavier, real-browser) rotation immediately. Otherwise keep the
+      // usual 25s grace period, since most of the time nothing's wrong and there's no rush.
+      const alreadyLoggedOut = !!profilesRef.current.find(p => p.name === currentProfile)?.loggedOut;
+      firstTimer = setTimeout(() => { if (!cancelled) rotate(); }, alreadyLoggedOut ? 0 : 25000);
       interval = setInterval(() => { if (!cancelled) rotate(); }, 20 * 60 * 1000);
     })();
     return () => {
@@ -11840,7 +11873,7 @@ export default function App() {
             opacity: (overlayOpen || settingsOpen || settingsClosing) ? 0 : 1,
             pointerEvents: (overlayOpen || settingsOpen || settingsClosing) ? "none" : "auto",
           }}>
-          <div key={appKey} className="scrollable" style={{ height: "100%", overflowY: "auto" }}>
+          <ScrollShadowRoot key={appKey} size={28} className="scrollable overflow-y-auto" style={{ height: "100%" }}>
             {view === "home" && <AnimatedView key={`home-${viewRefreshKey}`}><HomeView displayName={demoMode ? DEMO_NAME : profiles.find(p => p.active)?.displayName} onPlay={handlePlay} onOpenPlaylist={(item) => openPlaylist(item, "home")} onOpenAlbum={(item) => openAlbum(item, "home")} onOpenArtist={(item) => openArtist(item, "home")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "search" && <AnimatedView key={`search-${viewRefreshKey}`}><SearchView query={searchQuery} onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "search")} onOpenPlaylist={(item) => openPlaylist(item, "search")} onContextMenu={openContextMenu} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} hideExplicit={hideExplicit} /></AnimatedView>}
             {view === "liked" && <AnimatedView key={`liked-${viewRefreshKey}`}><LikedView onPlay={handlePlay} currentTrack={currentTrack} isPlaying={isPlaying} onOpenArtist={openArtist} onOpenAlbum={(item) => openAlbum(item, "liked")} onTrackContextMenu={(e, track) => setTrackContextMenu({ x: e.clientX, y: e.clientY, track })} cachedSongIds={cachedSongIds} downloadingIds={downloadingIds} onDownloadSong={handleDownloadSong} hideExplicit={hideExplicit} onToggleLike={handleToggleLike} likedIds={likedIds} selectedTracks={selectedTracks} onToggleSelect={toggleTrackSelection} onSelectAll={selectAllTracks} onBack={goBack} /></AnimatedView>}
@@ -11862,7 +11895,7 @@ export default function App() {
             )}
             {/* Spacer so content scrolls clear of the floating player bar */}
             <div style={{ height: 97, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
-          </div>
+          </ScrollShadowRoot>
           </div>{/* end clip container */}
           {/* Player + floating action bar wrapper — position:relative so the bar can float above the player without affecting layout */}
           <div style={{ position: "relative", flexShrink: 0 }}>
@@ -11874,14 +11907,14 @@ export default function App() {
                 padding: "0 0 6px",
                 pointerEvents: "none",
               }}>
-                <div style={{
-                  pointerEvents: "auto",
-                  display: "flex", flexDirection: "column", alignItems: "stretch",
-                  background: "var(--bg-elevated)", border: "0.5px solid var(--border)",
-                  borderRadius: 16,
-                  boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
-                  animation: "ctxMenuIn 0.2s ease-out",
-                }}>
+                <CardRoot variant="secondary" className="gap-0! p-0! items-stretch"
+                  style={{
+                    pointerEvents: "auto",
+                    border: "0.5px solid var(--border)",
+                    borderRadius: 16,
+                    boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+                    animation: "ctxMenuIn 0.2s ease-out",
+                  }}>
                   {/* Title */}
                   <div style={{
                     fontSize: "var(--t12)", color: "var(--text-muted)", fontWeight: 600,
@@ -11936,7 +11969,7 @@ export default function App() {
                     {/* Close */}
                     <SelActionBtn icon={<X size={17} />} label={translate(language, "cancel")} iconOnly onClick={clearSelection} />
                   </div>
-                </div>
+                </CardRoot>
               </div>
             )}
           <div style={{
