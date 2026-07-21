@@ -8,6 +8,11 @@ All notable changes to Kodama (formerly Kiyoshi Music) are documented here.
 
 > Changes landing after the latest release accumulate here.
 
+## [1.0.0-alpha.32] — 2026-07-21
+
+### Fixed
+- **Windows updates** no longer fail with *"Error opening file for writing: node.exe"* — a background helper process kept the file locked during the update.
+
 ## [1.0.0-alpha.31] — 2026-07-21
 
 ### Added
