@@ -4,11 +4,47 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+from ytmusicapi.exceptions import YTMusicServerError
+
 from src.lib.music.playlist import Playlist
 from src.lib.music.youtube_music import YoutubeMusicSession
 
 
 class YoutubeMusicSessionTests(unittest.TestCase):
+    def test_verification_retries_transient_first_call_rejection(self) -> None:
+        # A just-switched (e.g. brand-account) session can reject its first InnerTube
+        # call with HTTP 400 until its cookies settle; the login must survive that.
+        session = YoutubeMusicSession(profiles=MagicMock())
+        client = MagicMock()
+        client.get_liked_songs.side_effect = [YTMusicServerError("HTTP 400"), {"tracks": []}]
+
+        with (
+            patch.object(session, "create_client", return_value=client),
+            patch("src.lib.music.youtube_music.time.sleep") as sleep,
+            patch("src.lib.music.youtube_music.threading.Thread"),
+        ):
+            self.assertIs(session.activate_verified_profile("brand"), client)
+
+        self.assertEqual(client.get_liked_songs.call_count, 2)
+        sleep.assert_called_once_with(session.VERIFY_BACKOFF_SECONDS)
+        self.assertEqual(session.state.current_profile, "brand")
+
+    def test_verification_reraises_after_exhausting_retries(self) -> None:
+        session = YoutubeMusicSession(profiles=MagicMock())
+        client = MagicMock()
+        client.get_liked_songs.side_effect = YTMusicServerError("HTTP 400")
+
+        with (
+            patch.object(session, "create_client", return_value=client),
+            patch("src.lib.music.youtube_music.time.sleep"),
+            patch("src.lib.music.youtube_music.threading.Thread"),
+        ):
+            with self.assertRaises(YTMusicServerError):
+                session.activate_verified_profile("brand")
+
+        self.assertEqual(client.get_liked_songs.call_count, session.VERIFY_ATTEMPTS)
+        self.assertIsNone(session.state.ytm)
+
     def test_create_client_passes_profile_path_as_string(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "google.headers.json"

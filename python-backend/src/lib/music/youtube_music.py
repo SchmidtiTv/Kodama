@@ -10,6 +10,7 @@ from typing import Optional, Protocol, cast
 
 import requests
 from ytmusicapi import YTMusic
+from ytmusicapi.exceptions import YTMusicServerError
 
 from ..profiles.profile import Profile
 from .playlist import Playlist
@@ -52,6 +53,13 @@ class YoutubeMusicSession:
         "VISITOR_PRIVACY_METADATA",
         "__Secure-ROLLOUT_TOKEN",
     }
+
+    # A freshly switched session — especially a brand account just selected in the
+    # login WebView — can reject its first InnerTube call with HTTP 400 ("Request
+    # contains an invalid argument") until its short-lived anti-bot cookies settle.
+    # Retry the login verification a few times before declaring the login failed.
+    VERIFY_ATTEMPTS = 3
+    VERIFY_BACKOFF_SECONDS = 1.5
 
     def __init__(
         self,
@@ -147,12 +155,32 @@ class YoutubeMusicSession:
     def activate_verified_profile(self, name: str) -> YTMusic:
         """Validate browser auth with a lightweight request, then activate the profile."""
         client = self.create_client(name)
-        client.get_liked_songs(limit=1)
+        self._verify_browser_auth(client)
         self.state.ytm = client
         self.state.current_profile = name
         self._clear_profile_playlist_memory(name)
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return client
+
+    def _verify_browser_auth(self, client: YTMusic) -> None:
+        """Confirm the session works, tolerating a just-switched session's first-call HTTP 400.
+
+        A brand account selected moments earlier in the login WebView can reject its
+        first InnerTube request until its short-lived cookies settle; a single failed
+        probe would otherwise tear down an otherwise-valid login. Retry the probe a
+        few times, and re-raise the last server error only if none succeed.
+        """
+        last_error: Optional[YTMusicServerError] = None
+        for attempt in range(self.VERIFY_ATTEMPTS):
+            try:
+                client.get_liked_songs(limit=1)
+                return
+            except YTMusicServerError as error:
+                last_error = error
+                if attempt + 1 < self.VERIFY_ATTEMPTS:
+                    time.sleep(self.VERIFY_BACKOFF_SECONDS)
+        assert last_error is not None
+        raise last_error
 
     def clear_active_profile(self) -> None:
         """Clear the active client and profile without deleting profile files."""

@@ -210,7 +210,7 @@ pub async fn open_login_window(
     // Load the sign-in URL directly. NOTE: do NOT start blank + navigate() afterwards — Google's
     // embedded-webview check ("This browser or app may not be secure") trips on the programmatic
     // navigation and blocks sign-in entirely. Direct load is what lets the real sign-in through.
-    let _win = tauri::WebviewWindowBuilder::new(
+    let builder = tauri::WebviewWindowBuilder::new(
         &app,
         "login",
         tauri::WebviewUrl::External(
@@ -226,9 +226,20 @@ pub async fn open_login_window(
     // Platform-matched UA. Also replayed to /auth/cookie-login.
     .user_agent(LOGIN_USER_AGENT)
     .data_directory(login_data_dir)
-    .initialization_script(&init_script)
-    .build()
-    .map_err(|e| e.to_string())?;
+    .initialization_script(&init_script);
+
+    // Start the login browser with an empty cookie jar every time so it never
+    // auto-signs-in — the user must be able to reach a different (e.g. brand) account.
+    // On Windows/Linux the per-login `data_directory` above already isolates cookies, so
+    // a fresh profile name gives a clean session. macOS/WKWebView ignores `data_directory`
+    // and shares the process-wide default WKWebsiteDataStore, so without this every login
+    // would inherit Google's existing session. A non-persistent store fixes that and leaves
+    // nothing behind. (The session-keeper does not run on macOS anyway — it requires the
+    // login's persisted data directory, which WKWebView never writes.)
+    #[cfg(target_os = "macos")]
+    let builder = builder.incognito(true);
+
+    let _win = builder.build().map_err(|e| e.to_string())?;
 
     let app_clone = app.clone();
     let profile = profile_name.clone();
