@@ -3,12 +3,13 @@ import { API } from "../context.jsx";
 import { DEFAULT_LYRICS_PROVIDERS } from "./providers.js";
 import { parseLrc, parseRichSync, parseTtml } from "./parse.js";
 
-async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_LYRICS_PROVIDERS, videoId = "") {
+async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_LYRICS_PROVIDERS, videoId = "", signal = undefined) {
+  const opt = signal ? { signal } : undefined; // AbortSignal so a track change can cancel in-flight
   const tryBetter = async () => {
     const params = new URLSearchParams({ title, artist, source: "better" });
     if (album) params.set("album", album);
     if (duration) params.set("duration", Math.round(duration));
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
       if (d?.ttml) { const lrc = parseTtml(d.ttml); if (lrc.length) return { source: "Better Lyrics", lrc }; }
@@ -20,7 +21,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
     if (album) params.set("album", album);
     if (duration) params.set("duration", Math.round(duration));
     if (videoId) params.set("videoId", videoId);
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
       const sub = d?.submitterName || null;
@@ -32,7 +33,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   };
   const tryLrclib = async () => {
     const params = new URLSearchParams({ title, artist, source: "lrclib" });
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
       if (d.synced) return { source: "LRCLIB", lrc: parseLrc(d.synced) };
@@ -43,7 +44,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   const tryKugou = async () => {
     const params = new URLSearchParams({ title, artist, source: "kugou" });
     if (duration) params.set("duration", Math.round(duration));
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
       if (d.synced) return { source: "Kugou", lrc: parseLrc(d.synced) };
@@ -53,7 +54,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   const trySimp = async () => {
     const params = new URLSearchParams({ title, artist, source: "simp" });
     if (videoId) params.set("videoId", videoId);
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
       if (d.synced) return { source: "SimpMusic", lrc: parseLrc(d.synced) };
@@ -64,7 +65,7 @@ async function fetchLyrics(title, artist, album, duration, providers = DEFAULT_L
   const tryMusixmatch = async () => {
     const params = new URLSearchParams({ title, artist, source: "musixmatch" });
     if (duration) params.set("duration", Math.round(duration));
-    const r = await fetch(`${API}/lyrics?${params}`);
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (!r.ok) return null;
     const d = await r.json();
     if (d.richsync) { const lrc = parseRichSync(d.richsync); if (lrc.length) return { source: "Musixmatch", lrc }; }

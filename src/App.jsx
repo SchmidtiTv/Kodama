@@ -603,6 +603,13 @@ class IpcAudio {
     this._src = url;
     this._srcDirty = true;
     this._pendingSeekTo = 0;
+    // Reset position for the new track. The Rust path only updates _currentTime from incoming
+    // audio-progress events, so without this it keeps the PREVIOUS track's position until the
+    // first event of the new one arrives — during which the prev-button's "restart if >4s in"
+    // check reads a stale-high value and restarts instead of going to the previous track. The
+    // HTML5 fallback zeroes this natively on src change; mirror that for the Rust path.
+    this._currentTime = 0;
+    this._duration = 0;
     if (this._fb) { this._fb.src = url; }
     else if (this._fb === null && this._probePromise) {
       // Probe still running — queue replay
@@ -5430,6 +5437,16 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     return q[(idx - 1 + q.length) % q.length];
   }, []);
 
+  // Advance/rewind by one track. Updates trackRef synchronously BEFORE setTrack so a burst of
+  // rapid skips (fired faster than React can commit + run the trackRef effect) each reads the
+  // freshly chosen track instead of the stale one — otherwise quick successive skips under-
+  // advance and the displayed track info lags several songs behind until the effects catch up.
+  const goAdjacent = useCallback((dir) => {
+    const tk = getAdjacentTrack(dir);
+    if (tk) { trackRef.current = tk; setTrack(tk); }
+    return tk;
+  }, [getAdjacentTrack, setTrack]);
+
   const urlCacheGet = (videoId) => {
     const c = urlCache.current;
     if (!c.has(videoId)) return null;
@@ -5778,7 +5795,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
   // emit a `media-control` event from Rust; drive the player from it. Subscribe once and read
   // the latest handlers through a ref so we don't re-bind the listener on every render.
   const mediaCtlRef = useRef({});
-  mediaCtlRef.current = { togglePlay, getAdjacentTrack, setTrack, setIsPlaying, queue };
+  mediaCtlRef.current = { togglePlay, getAdjacentTrack, goAdjacent, setTrack, setIsPlaying, queue };
   useEffect(() => {
     let unlisten;
     import("@tauri-apps/api/event").then(({ listen }) => {
@@ -5790,8 +5807,8 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           case "play":     if (a && a.paused) { a.play(); h.setIsPlaying(true); } break;
           case "pause":    if (a && !a.paused) { a.pause(); h.setIsPlaying(false); } break;
           case "toggle":   h.togglePlay(); break;
-          case "next":     { const tk = h.getAdjacentTrack("next"); if (tk) h.setTrack(tk); break; }
-          case "previous": { const tk = h.getAdjacentTrack("prev"); if (tk) h.setTrack(tk); break; }
+          case "next":     h.goAdjacent("next"); break;
+          case "previous": h.goAdjacent("prev"); break;
           case "stop":     if (a) { a.pause(); h.setIsPlaying(false); } break;
           case "seek":     if (a && typeof position === "number") a.currentTime = position; break;
           default: break;
@@ -5809,8 +5826,8 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
     const h = mediaCtlRef.current;
     const action = typeof cmd === "string" ? cmd : cmd?.action;
     if (action === "playpause") h.togglePlay();
-    else if (action === "next") { const tk = h.getAdjacentTrack("next"); if (tk) h.setTrack(tk); }
-    else if (action === "prev") { const tk = h.getAdjacentTrack("prev"); if (tk) h.setTrack(tk); }
+    else if (action === "next") h.goAdjacent("next");
+    else if (action === "prev") h.goAdjacent("prev");
     else if (action === "shuffle") setShuffle(s => !s);
     else if (action === "repeat") cycleRepeat();
     else if (action === "like") h.toggleLike?.();
@@ -6039,10 +6056,16 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
               onPress={() => {
                 if (anim) { setPrevBouncing(true); setTimeout(() => setPrevBouncing(false), 400); }
                 const audio = audioRef.current;
-                if (audio && audio.currentTime >= 4) {
+                // Only "restart current track" when the current track is actually loaded and
+                // playing. While a just-selected track is still loading (yt-dlp extraction can
+                // take a few seconds, during which the OLD track keeps playing and reporting its
+                // high position), currentTime is stale-high — without this guard prev would hit
+                // the restart branch and appear to do nothing instead of going to the previous
+                // track. During load we're conceptually at the start of the new track → go back.
+                if (audio && !loading && audio.currentTime >= 4) {
                   audio.currentTime = 0;
                 } else {
-                  const tk = getAdjacentTrack("prev"); if (tk) setTrack(tk);
+                  goAdjacent("prev");
                 }
               }}
               className="rounded-xl text-accent shrink-0"
@@ -6062,7 +6085,7 @@ function Player({ track, setTrack, queue, setQueue, audioRef, isPlaying, setIsPl
           <Tooltip text={t("scNext")}>
             <Button
               variant="ghost" isIconOnly isDisabled={!track}
-              onPress={() => { if (anim) { setNextBouncing(true); setTimeout(() => setNextBouncing(false), 400); } const tk = getAdjacentTrack("next"); if (tk) setTrack(tk); }}
+              onPress={() => { if (anim) { setNextBouncing(true); setTimeout(() => setNextBouncing(false), 400); } goAdjacent("next"); }}
               className="rounded-xl text-accent shrink-0"
               style={{ contain: "layout style" }}
             >
@@ -7078,11 +7101,16 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
     // could leave a stale/old song's lyrics showing. Guard every async callback against
     // a track change that happened while it was in flight.
     let cancelled = false;
+    // Actually abort superseded fetches, not just ignore their result: a burst of skips otherwise
+    // leaves N× (custom + 6-provider) requests running and PARSING on the main thread (parseTtml
+    // etc. runs before the cancelled-guard can skip the setState), which is the bulk of the
+    // per-skip jank. Aborting cancels the fetch before it resolves, so no wasted parse.
+    const ac = new AbortController();
 
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
 
     // Check for custom lyrics first
-    fetch(`${API}/lyrics/custom/${track.videoId}`)
+    fetch(`${API}/lyrics/custom/${track.videoId}`, { signal: ac.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (cancelled) return;
@@ -7106,7 +7134,7 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
     // Forced provider: skip cache, fetch only that one provider
     if (forcedProvider) {
       const singleProviders = DEFAULT_LYRICS_PROVIDERS.map(p => ({ ...p, enabled: p.id === forcedProvider }));
-      fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), singleProviders, track.videoId || "").then(res => {
+      fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), singleProviders, track.videoId || "", ac.signal).then(res => {
         if (cancelled) return;
         if (res?.lrc) { setLyrics(res.lrc); setSource(res.source); setSubmitterName(res.submitterName || null); setAppliedVersionId(null); onSourceChange?.(res.source); }
         else { setLyrics(null); setSubmitterName(null); onSourceChange?.(""); onProviderFailed?.(forcedProvider); }
@@ -7138,7 +7166,7 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
             parsed.failedIds.forEach(id => onProviderFailed?.(id));
           } else {
             // Old cache entry — check availability silently in background
-            fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "").then(res => {
+            fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "", ac.signal).then(res => {
               if (cancelled) return;
               const ids = res?.failedIds || [];
               ids.forEach(id => onProviderFailed?.(id));
@@ -7153,7 +7181,7 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
       try { localStorage.removeItem(cacheKey); } catch {}
     }
 
-    fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "").then(res => {
+    fetchLyrics(track.title, track.artists, track.album, parseDurationToSeconds(track.duration), providers, track.videoId || "", ac.signal).then(res => {
       if (cancelled) return;
       if (res?.lrc) {
         setLyrics(res.lrc);
@@ -7169,7 +7197,7 @@ export function LyricsOverlay({ track, audioRef, onClose, fontSize = 32, provide
     });
     } // end continueWithProviders
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; ac.abort(); };
   }, [track, refetchKey, forcedProvider, customLyricsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeIdx = lastIdxRef.current;
