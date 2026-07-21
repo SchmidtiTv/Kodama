@@ -537,7 +537,7 @@ export function HomeView({
         .home-card:hover .home-card-img{transform:scale(1.04)}
       `}</style>
 
-      {/* ── Gradient header (centered hero) ── */}
+      {/* ── Header (centered hero) ── */}
       <div
         style={{
           position: "relative",
@@ -546,16 +546,6 @@ export function HomeView({
           marginBottom: 20,
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse 60% 100% at 50% 0%, var(--accent), transparent 70%)",
-            opacity: 0.18,
-            pointerEvents: "none",
-          }}
-        />
         <div
           style={{
             position: "relative",

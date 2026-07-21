@@ -1,4 +1,4 @@
-"""FFmpeg availability, update check, and Windows auto-download (SSE)."""
+"""FFmpeg availability, update check, and managed auto-download (SSE)."""
 
 from flask import Response, jsonify, request
 
@@ -15,7 +15,7 @@ def ffmpeg_status() -> RouteResponse:
 
 @blueprint.route("/ffmpeg/check-update")
 def ffmpeg_check_update() -> RouteResponse:
-    """Compares the installed ffmpeg against gyan.dev's latest release version."""
+    """Compare installed ffmpeg with the current platform download source."""
     return jsonify(ffmpeg().check_update())
 
 

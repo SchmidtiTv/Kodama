@@ -1,3 +1,5 @@
+import { CardRoot } from "@heroui/react";
+
 import { SelActionBtn } from "@/features/music/components/track-table.jsx";
 import { Heart, Plus, Trash, X } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
@@ -29,13 +31,11 @@ export function SelectionActionBar({
         pointerEvents: "none",
       }}
     >
-      <div
+      <CardRoot
+        variant="secondary"
+        className="gap-0! p-0! items-stretch"
         style={{
           pointerEvents: "auto",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          background: "var(--bg-elevated)",
           border: "0.5px solid var(--border)",
           borderRadius: 16,
           boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
@@ -162,7 +162,7 @@ export function SelectionActionBar({
             onClick={onClearSelection}
           />
         </div>
-      </div>
+      </CardRoot>
     </div>
   );
 }

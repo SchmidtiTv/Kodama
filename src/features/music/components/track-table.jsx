@@ -1,7 +1,8 @@
 // The track-table view stack: a selection-action button, the shared table row, and the
 // PlaylistLayout (used by playlist / album / liked / downloads / history). Extracted from App.jsx.
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Button } from "@heroui/react";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useAnimations, useTrackNumbers } from "@/features/settings/display-context.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
@@ -38,49 +39,19 @@ function formatTotalDuration(tracks) {
 }
 
 export function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizontal }) {
-  const [hov, setHov] = React.useState(false);
   const btn = (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: "flex",
-        flexDirection: horizontal ? "row" : "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: horizontal ? 8 : 6,
-        padding: iconOnly ? "10px 14px" : horizontal ? "10px 18px" : "10px 20px",
-        border: "none",
-        borderRadius: 12,
-        background: hov
-          ? danger
-            ? "rgba(239,68,68,0.85)"
-            : "rgba(255,255,255,0.10)"
-          : "transparent",
-        color: hov ? (danger ? "#fff" : "var(--text-primary)") : "var(--text-secondary)",
-        cursor: "default",
-        transition: "background 0.15s, color 0.15s",
-        flexShrink: 0,
-        fontFamily: "inherit",
-      }}
+    <Button
+      variant="ghost"
+      size="sm"
+      isIconOnly={iconOnly}
+      onPress={onClick}
+      className={`rounded-xl shrink-0 ${
+        danger ? "text-[#ff7070]! hover:text-white! hover:bg-[rgba(239,68,68,0.85)]!" : ""
+      } ${horizontal ? "gap-2 px-4.5!" : ""}`}
     >
-      <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {icon}
-      </span>
-      {!iconOnly && (
-        <span
-          style={{
-            fontSize: horizontal ? "var(--t13)" : "var(--t11)",
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            fontFamily: "inherit",
-          }}
-        >
-          {label}
-        </span>
-      )}
-    </button>
+      {icon}
+      {!iconOnly && <span className="text-t13 font-medium whitespace-nowrap">{label}</span>}
+    </Button>
   );
   return iconOnly ? <Tooltip text={label}>{btn}</Tooltip> : btn;
 }

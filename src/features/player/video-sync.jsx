@@ -12,7 +12,7 @@ import { API } from "@/shared/api/client.js";
 import { fetchLyrics } from "@/features/lyrics/fetch.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
-import { paintWordSeq, wordGroupIndices } from "@/features/lyrics/paint.js";
+import { paintLineWords } from "@/features/lyrics/paint.js";
 
 // Real-world calibration (2026-07-18): a confirmed correct match ("Nachos") scored 10.5, a
 // second plausible one scored 5.2 — but a confidence of 3.38 turned out to be a false positive
@@ -127,20 +127,26 @@ export function VideoSyncVideo({ src, offsetSeconds, audioRef, isPlaying, style 
   );
 }
 
-// Lightweight standalone "what's the current line" tracker for the caption overlay — deliberately
-// NOT reusing LyricsOverlay's full rendering pipeline (syllable timing, romaji, the whole fluid
+// Lightweight standalone "what's the current line(s)" tracker for the caption overlay —
+// deliberately NOT reusing LyricsOverlay's full rendering pipeline (romaji, the whole fluid
 // scroll-physics system), since a one-line caption strip has no scroll room for any of that. Just
 // fetches the plain synced line list once per track (+ a translation batch, same endpoint/shape
-// as the main lyrics view, when enabled) and tracks the active index against the audio clock
+// as the main lyrics view, when enabled) and tracks the active line(s) against the audio clock
 // (same snapshot+rAF interpolation pattern used elsewhere in this file).
+//
+// Two lines can be genuinely active at once — a new one starting before the previous one's own
+// endTime (e.g. one voice answering another) — mirrored here the same way the main lyrics view
+// handles it: a "trailing" line stays visible (still finishing its own wipe) alongside the new
+// "main" one, instead of just snapping to the newest line the instant it starts.
 function useCaptionLine(track, audioRef, enabled, showTranslation, translationLang) {
-  const [currentText, setCurrentText] = useState("");
-  const [currentWords, setCurrentWords] = useState(null);
+  const [mainLine, setMainLine] = useState(null);
+  const [trailingLine, setTrailingLine] = useState(null);
   const [currentTranslation, setCurrentTranslation] = useState("");
   const [lines, setLines] = useState([]);
   const linesRef = useRef([]);
   const translationsRef = useRef(null);
   const curIdxRef = useRef(-1);
+  const trailingIdxRef = useRef(-1);
   const snapRef = useRef({ ct: 0, pt: 0, playing: false });
   const timeRef = useRef(0); // live interpolated playback position, for the per-word highlight loop
 
@@ -148,7 +154,9 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
     linesRef.current = [];
     translationsRef.current = null;
     curIdxRef.current = -1;
-    setCurrentText("");
+    trailingIdxRef.current = -1;
+    setMainLine(null);
+    setTrailingLine(null);
     setCurrentTranslation("");
     setLines([]);
     if (!enabled || !track) return;
@@ -165,7 +173,8 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
         if (cancelled) return;
         // Syllable/word-synced lines (TTML word-mode, Musixmatch richsync) carry no .text at
         // all — only .words[] — so normalize every line to a plain string up front, same as the
-        // main lyrics view's own translation-fetch effect does.
+        // main lyrics view's own translation-fetch effect does. .words/.bgWords stay intact
+        // (spread) for the actual karaoke rendering.
         const lrc = (res?.lrc || [])
           .filter((l) => l.time >= 0)
           .map((l) => ({
@@ -247,13 +256,23 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
           if (nextStart - line.endTime > 3 && t >= line.endTime) idx = -1;
         }
       }
+      // Trailing: the line just before the new one is kept visible if its own endTime hasn't
+      // passed yet — same rule the main lyrics view uses for a second voice starting early.
+      let trailingIdx = -1;
+      if (idx > 0) {
+        const prev = lns[idx - 1];
+        if (prev.endTime != null && t < prev.endTime) trailingIdx = idx - 1;
+      }
       if (idx !== curIdxRef.current) {
         curIdxRef.current = idx;
         const line = idx >= 0 ? lns[idx] : null;
-        setCurrentText(line?.text || "");
-        setCurrentWords(line?.wordSync ? line.words : null);
+        setMainLine(line);
         const tr = idx >= 0 ? translationsRef.current?.[idx] : null;
         setCurrentTranslation(tr && tr !== line?.text ? tr : "");
+      }
+      if (trailingIdx !== trailingIdxRef.current) {
+        trailingIdxRef.current = trailingIdx;
+        setTrailingLine(trailingIdx >= 0 ? lns[trailingIdx] : null);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -261,72 +280,92 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
     return () => cancelAnimationFrame(raf);
   }, [enabled]);
 
-  return { text: currentText, words: currentWords, translation: currentTranslation, timeRef };
+  return { mainLine, trailingLine, translation: currentTranslation, timeRef };
 }
 
-// Renders a word-synced line using the exact same dim-baseline + bright-overlay-with-wipe-mask
-// markup as the main lyrics view (LyricsOverlay), painted by the same paintWordSeq — a real
-// syllable wipe + gentle zoom pulse + optional glow, not just an opacity toggle. Direct-DOM,
-// not per-word React state, so it updates at 60fps without fighting the parent's re-renders.
-function KaraokeLine({ words, timeRef, fluid, syllableZoom }) {
+// Renders one line — word-synced main text (if available) plus a smaller background-vocal row
+// (if the line has one, in EITHER sync mode: line-sync lines can still carry word-timed bgWords)
+// — using the exact same dim-baseline + bright-overlay-with-wipe-mask markup as the main lyrics
+// view, painted by the same paintLineWords: a real syllable wipe + gentle zoom pulse + optional
+// glow, not just an opacity toggle. Direct-DOM, not per-word React state, so it updates at 60fps
+// without fighting the parent's re-renders.
+function KaraokeLine({ line, timeRef, fluid, syllableZoom, mainFontSize, bgFontSize }) {
   const brightRefs = useRef([]);
-  const idxRef = useRef({}).current; // plain mutable bag (paintWordSeq indexes it by string key)
+  const wordIdxRef = useRef({}).current; // plain mutable bag (paintWordSeq indexes it by string key)
   const zoomMaxRef = useRef(-1);
-  const nonSpaceWords = words.filter((w) => !w.isSpace);
-  const groups = wordGroupIndices(words);
 
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      paintWordSeq(
-        nonSpaceWords,
+      paintLineWords(
+        line,
         brightRefs.current,
-        idxRef,
-        "current",
+        wordIdxRef,
         timeRef.current,
         syllableZoom ? zoomMaxRef : null,
-        fluid,
-        groups
+        fluid
       );
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [words]);
+  }, [line]);
 
-  let nsIdx = 0;
-  return (
-    <span style={{ whiteSpace: "pre-wrap" }}>
-      {words.map((word, wi) => {
-        if (word.isSpace) return <span key={wi}>{word.text}</span>;
-        const myIdx = nsIdx++;
-        return (
-          <span key={wi} style={{ position: "relative", display: "inline-block" }}>
-            <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
-            <span
-              ref={(el) => {
-                brightRefs.current[myIdx] = el;
-              }}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                color: "white",
-                opacity: 0,
-                WebkitMaskImage: "linear-gradient(to right, black -6px, transparent 6px)",
-                maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
-                pointerEvents: "none",
-              }}
-            >
-              {word.text}
-            </span>
+  const mainWordsAll = line.wordSync ? line.words || [] : [];
+  const bgWordsAll = line.bgWords || [];
+  const mainNonSpaceCount = mainWordsAll.filter((word) => !word.isSpace).length;
+
+  // els must land in brightRefs in the same order paintLineWords expects: all non-space main
+  // words first, then all non-space bg words — `offset` is where THIS row's non-space words
+  // start counting from within that combined array.
+  let ns = 0;
+  const renderRow = (wordsAll, offset) =>
+    wordsAll.map((word, wordIndex) => {
+      if (word.isSpace) return <span key={wordIndex}>{word.text}</span>;
+      const globalIndex = offset + ns;
+      ns += 1;
+      return (
+        <span key={wordIndex} style={{ position: "relative", display: "inline-block" }}>
+          <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+          <span
+            ref={(element) => {
+              brightRefs.current[globalIndex] = element;
+            }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              color: "white",
+              opacity: 0,
+              WebkitMaskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+              maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+              pointerEvents: "none",
+            }}
+          >
+            {word.text}
           </span>
-        );
-      })}
-    </span>
+        </span>
+      );
+    });
+
+  const mainRow = renderRow(mainWordsAll, 0);
+  ns = 0;
+  const bgRow = bgWordsAll.length ? renderRow(bgWordsAll, mainNonSpaceCount) : null;
+
+  return (
+    <>
+      <span style={{ whiteSpace: "pre-wrap", fontSize: mainFontSize }}>
+        {line.wordSync ? mainRow : line.text}
+      </span>
+      {bgRow && (
+        <div style={{ whiteSpace: "pre-wrap", fontSize: bgFontSize, opacity: 0.75, marginTop: 4 }}>
+          {bgRow}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -341,34 +380,32 @@ function CaptionOverlay({
   translationLang = "DE",
   syllableZoom = false,
 }) {
-  const { text, words, translation, timeRef } = useCaptionLine(
+  const { mainLine, trailingLine, translation, timeRef } = useCaptionLine(
     track,
     audioRef,
     true,
     showTranslation,
     translationLang
   );
-  const [shown, setShown] = useState("");
-  const [shownWords, setShownWords] = useState(null);
+  const [shownMain, setShownMain] = useState(null);
   const [shownTranslation, setShownTranslation] = useState("");
   const [animKey, setAnimKey] = useState(0);
 
   useEffect(() => {
-    // A gap between lines (text === "") should fade the CURRENT content out, not blank it
-    // instantly — so leave `shown` alone here and just let the opacity below drop to 0. Only
-    // swap in new content once a real (non-empty) line starts.
-    if (!text) return;
-    if (text === shown) {
+    // A gap between lines (mainLine === null) should fade the CURRENT content out, not blank it
+    // instantly — so leave `shownMain` alone here and just let the opacity below drop to 0. Only
+    // swap in new content once a real line starts.
+    if (!mainLine) return;
+    if (mainLine.text === shownMain?.text) {
       if (translation !== shownTranslation) setShownTranslation(translation);
       return;
     }
-    setShown(text);
-    setShownWords(words);
+    setShownMain(mainLine);
     setShownTranslation(translation);
-    setAnimKey((k) => k + 1);
-  }, [text, words, translation]); // eslint-disable-line react-hooks/exhaustive-deps
+    setAnimKey((key) => key + 1);
+  }, [mainLine, translation]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!shown) return null;
+  if (!shownMain) return null;
 
   return (
     <div
@@ -384,16 +421,41 @@ function CaptionOverlay({
         alignItems: "center",
         gap: 8,
         pointerEvents: "none",
-        opacity: text ? 1 : 0,
+        opacity: mainLine ? 1 : 0,
         transition: "opacity 0.4s ease",
       }}
     >
+      {trailingLine && (
+        <div
+          key={`trailing-${trailingLine.time}`}
+          style={{
+            color: "rgba(255,255,255,0.55)",
+            fontWeight: 600,
+            textAlign: "center",
+            lineHeight: 1.3,
+            maxWidth: 900,
+            overflowWrap: "anywhere",
+            textShadow: "0 2px 10px rgba(0,0,0,0.6)",
+            animation: fluid
+              ? "videoCaptionFluidIn 0.55s cubic-bezier(0.22,1,0.36,1)"
+              : "videoCaptionFadeIn 0.2s ease",
+          }}
+        >
+          <KaraokeLine
+            line={trailingLine}
+            timeRef={timeRef}
+            fluid={fluid}
+            syllableZoom={false}
+            mainFontSize={22}
+            bgFontSize={15}
+          />
+        </div>
+      )}
       <div
         key={animKey}
         style={{
           color: "#fff",
           fontWeight: 700,
-          fontSize: 30,
           textAlign: "center",
           lineHeight: 1.35,
           maxWidth: 900,
@@ -404,16 +466,14 @@ function CaptionOverlay({
             : "videoCaptionFadeIn 0.2s ease",
         }}
       >
-        {shownWords ? (
-          <KaraokeLine
-            words={shownWords}
-            timeRef={timeRef}
-            fluid={fluid}
-            syllableZoom={syllableZoom}
-          />
-        ) : (
-          shown
-        )}
+        <KaraokeLine
+          line={shownMain}
+          timeRef={timeRef}
+          fluid={fluid}
+          syllableZoom={syllableZoom}
+          mainFontSize={30}
+          bgFontSize={20}
+        />
       </div>
       {shownTranslation && (
         <div

@@ -646,7 +646,6 @@ export default function App() {
   }, [applyAppIcon]);
 
   const profile = useProfiles({
-    addToast,
     setPinnedIds,
     setView,
     setSearchQuery,

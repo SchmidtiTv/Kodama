@@ -147,6 +147,10 @@ export class IpcAudio {
     this._src = url;
     this._srcDirty = true;
     this._pendingSeekTo = 0;
+    // The Rust path only updates position from incoming progress events. Reset it immediately so
+    // controls cannot read the previous track's position while the new source is still loading.
+    this._currentTime = 0;
+    this._duration = 0;
     if (this._fb) {
       this._fb.src = url;
     } else if (this._fb === null && this._probePromise) {

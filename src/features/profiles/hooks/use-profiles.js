@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "@heroui/react";
 
 import { API } from "@/shared/api/client.js";
 import { translate } from "@/shared/i18n/i18n.js";
@@ -21,7 +22,6 @@ import { translate } from "@/shared/i18n/i18n.js";
  * playing".
  */
 export function useProfiles({
-  addToast,
   setPinnedIds,
   setView,
   setSearchQuery,
@@ -34,8 +34,13 @@ export function useProfiles({
   stopPlayback,
 }) {
   const [profiles, setProfiles] = useState([]);
+  const profilesRef = useRef(profiles);
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
   const [showLogin, setShowLogin] = useState(false);
   const sessionWarnedRef = useRef(null); // profile name we've already shown the "session expired" toast for
+  const sessionExpiredToastKeyRef = useRef(null);
   const [showLangPicker, setShowLangPicker] = useState(() => !localStorage.getItem("kiyoshi-lang"));
   const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
   const [switchingTo, setSwitchingTo] = useState(null);
@@ -78,15 +83,28 @@ export function useProfiles({
           sessionWarnedRef.current = active.name;
           setReauthName(active.name); // target the settings re-auth / login at this account
           const lang = localStorage.getItem("kiyoshi-lang") || "de";
-          addToast(translate(lang, "sessionExpired"), "error");
+          sessionExpiredToastKeyRef.current = toast.warning(translate(lang, "sessionExpiredHint"), {
+            timeout: 0,
+            actionProps: {
+              children: translate(lang, "reauthSession"),
+              onPress: () => {
+                setAddingProfile(true);
+                setShowLogin(true);
+              },
+            },
+          });
         }
       } else if (active && !active.loggedOut) {
         sessionWarnedRef.current = null;
+        if (sessionExpiredToastKeyRef.current) {
+          toast.close(sessionExpiredToastKeyRef.current);
+          sessionExpiredToastKeyRef.current = null;
+        }
       }
     } catch {
       /* intentionally ignored */
     }
-  }, [addToast, setPinnedIds]);
+  }, [setPinnedIds]);
 
   // Keep the YT-Music session alive long-term: a hidden "session-keeper" WebView (a real
   // browser engine) rotates the *SIDTS timestamp cookies that plain HTTP requests cannot, and
@@ -112,9 +130,15 @@ export function useProfiles({
       if (cancelled) return;
       const rotate = () =>
         invoke("rotate_session_cookies", { profileName: currentProfile }).catch(() => {});
-      firstTimer = setTimeout(() => {
-        if (!cancelled) rotate();
-      }, 25000);
+      const alreadyLoggedOut = Boolean(
+        profilesRef.current.find((profile) => profile.name === currentProfile)?.loggedOut
+      );
+      firstTimer = setTimeout(
+        () => {
+          if (!cancelled) rotate();
+        },
+        alreadyLoggedOut ? 0 : 25000
+      );
       interval = setInterval(
         () => {
           if (!cancelled) rotate();

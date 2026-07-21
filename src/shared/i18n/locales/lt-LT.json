@@ -338,7 +338,7 @@
   "ffmpegSetupTitle": "Vienkartinis nustatymas",
   "ffmpegDownloadingTitle": "Atsisiunčiama FFmpeg…",
   "ffmpegErrorTitle": "Nepavyko atsisiųsti",
-  "ffmpegNeededDesc": "FFmpeg nebuvo rastas ir bus atsiųstas (~130 MB). Tai yra būtina eksportavimui MP3 formatu.",
+  "ffmpegNeededDesc": "FFmpeg nebuvo rastas ir bus atsiųstas. Tai yra būtina eksportavimui MP3 formatu.",
   "ffmpegSkip": "Praleisti",
   "ffmpegDownload": "Atsisiųsti FFmpeg",
   "ffmpegNotInstalled": "Neįdiegta",

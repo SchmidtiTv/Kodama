@@ -8,6 +8,16 @@ on:
   push:
     tags:
       - 'v*'
+  # Fallback for when GitHub's tag-push event doesn't fire the workflow (observed once on
+  # 2026-07-21: the tag existed on the remote, but no push event / workflow run was ever
+  # generated for it — deleting+recreating the tag didn't help either). Lets a release be
+  # kicked off manually for an already-pushed tag without needing a new tag name.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build & release (must already exist on the remote), e.g. v1.0.0-alpha.31'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,6 +27,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -114,6 +126,8 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -218,6 +232,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/download-artifact@v4
         with:
           path: dl
@@ -227,7 +243,7 @@ jobs:
           DIST_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          TAG="${{ github.ref_name }}"
+          TAG="${{ inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
           DIST="${{ github.repository }}"
           PRE=""

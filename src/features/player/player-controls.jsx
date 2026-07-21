@@ -64,7 +64,7 @@ export function PlayerControls(props) {
     fmt,
     formatSleepRemaining,
     fullscreen,
-    getAdjacentTrack,
+    goAdjacent,
     isCustomLyrics,
     isLiked,
     isPlaying,
@@ -104,7 +104,6 @@ export function PlayerControls(props) {
     setSeekDrag,
     setShuffle,
     setSleepTimerEnd,
-    setTrack,
     setVolume,
     showLyrics,
     showLyricsTranslation,
@@ -329,11 +328,10 @@ export function PlayerControls(props) {
                   setTimeout(() => setPrevBouncing(false), 400);
                 }
                 const audio = audioRef.current;
-                if (audio && audio.currentTime >= 4) {
+                if (audio && !loading && audio.currentTime >= 4) {
                   audio.currentTime = 0;
                 } else {
-                  const tk = getAdjacentTrack("prev");
-                  if (tk) setTrack(tk);
+                  goAdjacent("prev");
                 }
               }}
               className="rounded-xl text-accent shrink-0"
@@ -368,8 +366,7 @@ export function PlayerControls(props) {
                   setNextBouncing(true);
                   setTimeout(() => setNextBouncing(false), 400);
                 }
-                const tk = getAdjacentTrack("next");
-                if (tk) setTrack(tk);
+                goAdjacent("next");
               }}
               className="rounded-xl text-accent shrink-0"
               style={{ contain: "layout style" }}

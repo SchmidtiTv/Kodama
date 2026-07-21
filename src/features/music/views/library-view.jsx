@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Tab, TabIndicator, TabList, TabListContainer, TabsRoot } from "@heroui/react";
+import { SharedElementTransition } from "react-aria-components";
 
 import { GridCard } from "@/features/music/components/rows.jsx";
 import {
@@ -122,46 +124,28 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
         }}
       >
         <div style={{ fontSize: "var(--t22)", fontWeight: 600 }}>{t("library")}</div>
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            gap: 4,
-          }}
-        >
-          {tabs.map((tab_) => (
-            <button
-              key={tab_.id}
-              onClick={() => {
-                setTab(tab_.id);
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+          <SharedElementTransition>
+            <TabsRoot
+              selectedKey={tab}
+              onSelectionChange={(key) => {
+                setTab(key);
                 setSortOrder("default");
               }}
-              className={`view-tab-btn${tab === tab_.id ? " active" : ""}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background:
-                  tab === tab_.id
-                    ? "color-mix(in srgb, var(--accent) 20%, transparent)"
-                    : "transparent",
-                color: tab === tab_.id ? "var(--accent)" : "var(--text-secondary)",
-                border: "none",
-                borderRadius: 8,
-                padding: "7px 14px",
-                fontSize: "var(--t13)",
-                cursor: "default",
-                fontFamily: "var(--font)",
-                transition: "all 0.15s",
-                fontWeight: tab === tab_.id ? 600 : 400,
-              }}
             >
-              {tab_.icon}
-              {tab_.label}
-            </button>
-          ))}
+              <TabListContainer>
+                <TabList aria-label={t("library")}>
+                  {tabs.map((tab_) => (
+                    <Tab key={tab_.id} id={tab_.id} className="gap-1.5">
+                      {tab_.icon}
+                      {tab_.label}
+                    </Tab>
+                  ))}
+                </TabList>
+                <TabIndicator />
+              </TabListContainer>
+            </TabsRoot>
+          </SharedElementTransition>
         </div>
       </div>
 

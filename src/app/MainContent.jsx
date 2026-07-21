@@ -1,3 +1,5 @@
+import { ScrollShadowRoot } from "@heroui/react";
+
 import { translate } from "@/shared/i18n/i18n.js";
 import { WifiX } from "@/shared/icons/icons.jsx";
 import { CollectionView } from "@/features/music/views/collection-view.jsx";
@@ -53,7 +55,12 @@ export function MainContent({
   language,
 }) {
   return (
-    <div key={appKey} className="scrollable" style={{ height: "100%", overflowY: "auto" }}>
+    <ScrollShadowRoot
+      key={appKey}
+      size={28}
+      className="scrollable overflow-y-auto"
+      style={{ height: "100%" }}
+    >
       {view === "home" && (
         <AnimatedView key={`home-${viewRefreshKey}`} animations={animations}>
           <HomeView
@@ -240,6 +247,6 @@ export function MainContent({
       )}
       {/* Spacer so content scrolls clear of the floating player bar */}
       <div style={{ height: 97, flexShrink: 0, pointerEvents: "none" }} aria-hidden="true" />
-    </div>
+    </ScrollShadowRoot>
   );
 }

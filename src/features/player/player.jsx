@@ -172,6 +172,20 @@ export function Player({
     return q[(idx - 1 + q.length) % q.length];
   }, []);
 
+  // Update the ref before React commits so rapid skip bursts always advance from the track that
+  // was just selected, rather than repeatedly reading the previous render's track.
+  const goAdjacent = useCallback(
+    (direction) => {
+      const adjacentTrack = getAdjacentTrack(direction);
+      if (adjacentTrack) {
+        trackRef.current = adjacentTrack;
+        setTrack(adjacentTrack);
+      }
+      return adjacentTrack;
+    },
+    [getAdjacentTrack, setTrack]
+  );
+
   const urlCacheGet = (videoId) => {
     const c = urlCache.current;
     if (!c.has(videoId)) return null;
@@ -569,7 +583,7 @@ export function Player({
   // emit a `media-control` event from Rust; drive the player from it. Subscribe once and read
   // the latest handlers through a ref so we don't re-bind the listener on every render.
   const mediaCtlRef = useRef({});
-  mediaCtlRef.current = { togglePlay, getAdjacentTrack, setTrack, setIsPlaying, queue };
+  mediaCtlRef.current = { togglePlay, goAdjacent, setTrack, setIsPlaying, queue };
   useEffect(() => {
     let unlisten;
     import("@tauri-apps/api/event").then(({ listen }) => {
@@ -593,16 +607,12 @@ export function Player({
           case "toggle":
             h.togglePlay();
             break;
-          case "next": {
-            const tk = h.getAdjacentTrack("next");
-            if (tk) h.setTrack(tk);
+          case "next":
+            h.goAdjacent("next");
             break;
-          }
-          case "previous": {
-            const tk = h.getAdjacentTrack("prev");
-            if (tk) h.setTrack(tk);
+          case "previous":
+            h.goAdjacent("prev");
             break;
-          }
           case "stop":
             if (a) {
               a.pause();
@@ -634,13 +644,9 @@ export function Player({
     const h = mediaCtlRef.current;
     const action = typeof command === "string" ? command : command?.action;
     if (action === "playpause") h.togglePlay();
-    else if (action === "next") {
-      const tk = h.getAdjacentTrack("next");
-      if (tk) h.setTrack(tk);
-    } else if (action === "prev") {
-      const tk = h.getAdjacentTrack("prev");
-      if (tk) h.setTrack(tk);
-    } else if (action === "shuffle") setShuffle((s) => !s);
+    else if (action === "next") h.goAdjacent("next");
+    else if (action === "prev") h.goAdjacent("prev");
+    else if (action === "shuffle") setShuffle((s) => !s);
     else if (action === "repeat") cycleRepeat();
     else if (action === "like") h.toggleLike?.();
     else if (action === "seek" && typeof command.position === "number") {
@@ -842,7 +848,7 @@ export function Player({
         fmt,
         formatSleepRemaining,
         fullscreen,
-        getAdjacentTrack,
+        goAdjacent,
         isCustomLyrics,
         isLiked,
         isPlaying,
@@ -882,7 +888,6 @@ export function Player({
         setSeekDrag,
         setShuffle,
         setSleepTimerEnd,
-        setTrack,
         setVolume,
         showLyrics,
         showLyricsTranslation,

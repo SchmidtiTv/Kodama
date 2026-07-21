@@ -60,9 +60,10 @@ export function useAppUpdate({ addToast, getInitialLang }) {
         if (event.event === "Finished") setUpdateDownloadProgress(100);
       });
       setUpdateDownloaded(true);
-    } catch {
+    } catch (error) {
+      console.error("[Updater] download failed:", error);
       const lang = getInitialLang();
-      addToast(translate(lang, "downloadFailed"), "error");
+      addToast(`${translate(lang, "downloadFailed")}: ${error?.message || error}`, "error");
       setUpdateDownloadProgress(null);
     } finally {
       setUpdateDownloading(false);
@@ -72,16 +73,19 @@ export function useAppUpdate({ addToast, getInitialLang }) {
   const installUpdate = useCallback(async () => {
     if (!updateInfo?._update) return;
     try {
-      // Stop the Python backend before the NSIS installer runs,
-      // otherwise it holds file locks and the installation fails.
+      // Stop the Python backend before the installer runs, otherwise it can hold file locks.
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("stop_server_cmd").catch(() => {});
       await updateInfo._update.install();
-      const { relaunch } = await import("@tauri-apps/plugin-process");
-      await relaunch();
-    } catch {
+      // This command uses app.restart() and does not require plugin-process capabilities.
+      await invoke("relaunch_app");
+    } catch (error) {
+      console.error("[Updater] install failed:", error);
       const lang = getInitialLang();
-      addToast(translate(lang, "downloadFailed"), "error");
+      addToast(
+        `${translate(lang, "updateInstallFailed") || "Update installation failed"}: ${error?.message || error}`,
+        "error"
+      );
     }
   }, [updateInfo, addToast, getInitialLang]);
 

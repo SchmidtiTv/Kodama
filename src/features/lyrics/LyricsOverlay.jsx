@@ -632,11 +632,12 @@ function LyricsOverlayContent({
   useEffect(() => {
     if (!track) return;
     let cancelled = false;
+    const abortController = new AbortController();
 
     const cacheKey = `kiyoshi-lyrics-${track.videoId}`;
 
     // Check for custom lyrics first
-    fetch(`${API}/lyrics/custom/${track.videoId}`)
+    fetch(`${API}/lyrics/custom/${track.videoId}`, { signal: abortController.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled) return;
@@ -671,7 +672,8 @@ function LyricsOverlayContent({
           track.album,
           parseDurationToSeconds(track.duration),
           singleProviders,
-          track.videoId || ""
+          track.videoId || "",
+          abortController.signal
         ).then((res) => {
           if (cancelled) return;
           if (res?.lrc) {
@@ -720,7 +722,8 @@ function LyricsOverlayContent({
                 track.album,
                 parseDurationToSeconds(track.duration),
                 providers,
-                track.videoId || ""
+                track.videoId || "",
+                abortController.signal
               ).then((res) => {
                 if (cancelled) return;
                 const ids = res?.failedIds || [];
@@ -760,7 +763,8 @@ function LyricsOverlayContent({
         track.album,
         parseDurationToSeconds(track.duration),
         providers,
-        track.videoId || ""
+        track.videoId || "",
+        abortController.signal
       ).then((res) => {
         if (cancelled) return;
         if (res?.lrc) {
@@ -790,6 +794,7 @@ function LyricsOverlayContent({
     } // end continueWithProviders
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [track, refetchKey, forcedProvider, customLyricsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
