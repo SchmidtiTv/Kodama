@@ -2147,10 +2147,25 @@ def composer_app(subpath):
 
 @app.route("/shutdown", methods=["GET", "POST"])
 def shutdown():
-    """Beendet den Server sauber."""
+    """Beendet den Server sauber — inkl. der Kindprozesse."""
     import threading, os
     def _shutdown():
         import time
+        # Kill the bgutil PO-token Node child FIRST. os._exit() below skips atexit handlers,
+        # so the terminate() registered at spawn never runs — the Node process would be
+        # orphaned and keep running. On Windows a surviving node.exe holds a lock on its own
+        # file, which makes the NSIS updater fail with
+        # "Error opening file for writing: ...\Kodama\node.exe". Wait for it to actually die so
+        # the lock is released before we exit (and before an update installer starts writing).
+        try:
+            if _pot_proc and _pot_proc.poll() is None:
+                _pot_proc.terminate()
+                try:
+                    _pot_proc.wait(timeout=3)
+                except Exception:
+                    _pot_proc.kill()
+        except Exception:
+            pass
         time.sleep(0.2)
         os._exit(0)
     threading.Thread(target=_shutdown, daemon=True).start()

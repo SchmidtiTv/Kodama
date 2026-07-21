@@ -59,7 +59,12 @@ pub fn kill_existing_server(child: &mut Option<Child>) {
         {
             let text = String::from_utf8_lossy(&out.stdout);
             for line in text.lines() {
-                if line.contains(":9847") && line.contains("LISTENING") {
+                // :9847 = the Python server itself; :4416 = its bgutil PO-token Node child.
+                // If the Python side was force-killed (its /shutdown never ran), the Node child
+                // is orphaned and keeps a lock on node.exe — which then makes the NSIS updater
+                // fail with "Error opening file for writing: ...\node.exe". Kill whatever still
+                // listens on either port, targeted (won't touch the user's own node processes).
+                if (line.contains(":9847") || line.contains(":4416")) && line.contains("LISTENING") {
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     if let Some(pid) = parts.last() {
                         let _ = std::process::Command::new("taskkill")
