@@ -8803,7 +8803,7 @@ function ArtistView({ browseId, onPlay, currentTrack, isPlaying, onOpenAlbum, on
     setRadioLoading(true);
     fetch(`${API}/radio/${artist.radioId}`)
       .then(r => r.json())
-      .then(d => { if (d.error) throw new Error(d.error); if (d.tracks?.length) onPlay(d.tracks[0], d.tracks); })
+      .then(d => { if (d.error) throw new Error(d.error); if (d.tracks?.length) onPlay(d.tracks[0], d.tracks, { radio: true }); })
       .catch(e => console.error("Radio error:", e))
       .finally(() => setRadioLoading(false));
   };
@@ -10310,6 +10310,18 @@ export default function App() {
   const [queue, setQueue] = useState([]);
   const queueRef = useRef([]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
+
+  // ── Infinite radio ─────────────────────────────────────────────────────────
+  // A radio queue keeps playing past its initial ~50 tracks: as it nears the end we
+  // fetch more recommendations and append the ones we haven't seen yet. Re-seeding
+  // from the *latest* track is what yields new songs — the backend's watch-playlist
+  // for a fixed seed returns a near-identical list every call, so without walking the
+  // seed forward (and remembering what already played) the mix would just repeat.
+  const radioActiveRef = useRef(false);          // is the current queue a radio session?
+  const radioSeenRef = useRef(new Set());        // every videoId already queued this session (dedup)
+  const radioTriedSeedsRef = useRef(new Set());  // seeds already fetched — a repeat gives no new songs
+  const radioLoadingRef = useRef(false);         // guard against overlapping extend requests
+  const RADIO_PREFETCH_AHEAD = 5;                // top up when this few tracks remain after the current one
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [lyricsRefetchKey, setLyricsRefetchKey] = useState(0);
   const [forcedLyricsProvider, setForcedLyricsProvider] = useState(null);
@@ -10613,7 +10625,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [currentTrack, isPlaying]);
 
-  const handlePlay = useCallback((track, trackList) => {
+  const handlePlay = useCallback((track, trackList, opts) => {
     setCurrentTrack(track);
     setForcedLyricsProvider(null);
     setCurrentLyricsSource("");
@@ -10626,6 +10638,15 @@ export default function App() {
         return true;
       });
       setQueue(deduped);
+      // Starting a radio arms infinite play and seeds the "already seen" set from the
+      // initial mix; starting anything else (playlist, album, single song) disarms it.
+      if (opts?.radio) {
+        radioActiveRef.current = true;
+        radioSeenRef.current = new Set(deduped.map(t => t.videoId));
+        radioTriedSeedsRef.current = new Set();
+      } else {
+        radioActiveRef.current = false;
+      }
     }
     // Save to play history
     if (track?.videoId) {
@@ -10668,12 +10689,52 @@ export default function App() {
     try {
       const r = await fetch(`${API}/radio/_?videoId=${encodeURIComponent(track.videoId)}`);
       const d = await r.json();
-      if (d.tracks?.length) handlePlay(d.tracks[0], d.tracks);
+      if (d.tracks?.length) handlePlay(d.tracks[0], d.tracks, { radio: true });
       else fail();
     } catch {
       fail();
     }
   }, [handlePlay, addToast]);
+
+  // Keep a radio queue endless: fetch more recommendations seeded from the latest track
+  // and append only songs we haven't queued yet. A seed that returns nothing new is
+  // remembered so we don't re-request it — if recommendations are truly exhausted the
+  // queue just stops growing (and the player falls back to looping what's there).
+  const extendRadioSession = useCallback(async () => {
+    if (!radioActiveRef.current || radioLoadingRef.current) return;
+    const q = queueRef.current;
+    const seed = (q.length ? q[q.length - 1]?.videoId : null);
+    if (!seed || radioTriedSeedsRef.current.has(seed)) return;
+    radioTriedSeedsRef.current.add(seed);
+    radioLoadingRef.current = true;
+    try {
+      const r = await fetch(`${API}/radio/_?videoId=${encodeURIComponent(seed)}`);
+      const d = await r.json();
+      const fresh = [];
+      for (const tr of (d.tracks || [])) {
+        if (tr.videoId && !radioSeenRef.current.has(tr.videoId)) {
+          radioSeenRef.current.add(tr.videoId);
+          fresh.push(tr);
+        }
+      }
+      if (fresh.length) setQueue(prev => [...prev, ...fresh]);
+    } catch {
+      // Network hiccup — drop the seed from "tried" so the next track retries it.
+      radioTriedSeedsRef.current.delete(seed);
+    } finally {
+      radioLoadingRef.current = false;
+    }
+  }, []);
+
+  // Top up the radio queue as it nears the end (based on the currently playing track's
+  // position), so a fresh batch is ready well before the last song finishes.
+  useEffect(() => {
+    if (!radioActiveRef.current || !currentTrack) return;
+    const q = queue;
+    const idx = q.findIndex(t => t.videoId === currentTrack.videoId);
+    if (idx < 0) return;
+    if (q.length - 1 - idx <= RADIO_PREFETCH_AHEAD) extendRadioSession();
+  }, [currentTrack, queue, extendRadioSession]);
 
   // Play a song from just a videoId (shared kodama://song/<id> deep link): fetch minimal
   // metadata so the player has a title/cover, then play. Falls back to a bare track.
