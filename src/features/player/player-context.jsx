@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo } from "react";
 
-// Player context (Step 11): split into narrow state contexts plus one actions context, so a
+// Player context: split into narrow state contexts plus one actions context, so a
 // consumer that only needs (say) the playing track for row highlighting does not re-render on
 // queue reorders or a crossfade-slider drag. All are backed by the single usePlayerController
 // instance in App — this only distributes it without prop drilling. `track` mirrors the

@@ -1,5 +1,3 @@
-// LAN remote-control UI: the pairing modal (QR + approve/deny) and the settings panel that
-// lists paired devices. Extracted from App.jsx; both share the remote i18n + device props.
 import { useState, useEffect } from "react";
 import {
   Button,

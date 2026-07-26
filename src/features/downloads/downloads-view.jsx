@@ -1,4 +1,3 @@
-// Downloads view — offline/cached songs, rendered via PlaylistLayout. Extracted from App.jsx.
 import { useState, useEffect, useMemo } from "react";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
@@ -16,7 +15,7 @@ export function DownloadsView({
   likedIds,
 }) {
   const t = useLang();
-  // Cached/downloading/premium id sets come from DownloadContext (Step 12); this view still
+  // Cached/downloading/premium id sets come from DownloadContext; this view still
   // needs cachedSongIds directly (not just for PlaylistLayout) to re-list on cache changes.
   const { cachedSongIds } = useDownloadState();
   const [songs, setSongs] = useState([]);

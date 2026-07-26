@@ -77,7 +77,6 @@ function StatTile({ icon, label, value }) {
 
 export function AccountSettingsTab({ hideUserHandle, onToggleHideUserHandle }) {
   const t = useLang();
-  // Account list/active account/actions come from ProfileContext (Step 12) rather than props.
   const { profiles: list, activeProfile: active } = useProfileState();
   const {
     switchProfile: onSwitch,
@@ -99,7 +98,6 @@ export function AccountSettingsTab({ hideUserHandle, onToggleHideUserHandle }) {
   const nameChanged =
     !!active && !!nameDraft.trim() && nameDraft.trim() !== (active.displayName || "");
 
-  // ─── Usage statistics ────────────────────────────────────────────────────────
   const [stats, setStats] = useState({
     usage: 0,
     playtime: 0,

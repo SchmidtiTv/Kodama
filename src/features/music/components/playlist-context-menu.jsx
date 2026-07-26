@@ -14,8 +14,6 @@ import {
   X,
 } from "@/shared/icons/icons.jsx";
 
-// Global playlist/album/artist context menu — extracted from AppShell.jsx (Step 13b). `menu` is
-// the { x, y, playlist } object AppShell tracks as `globalContextMenu`.
 export function PlaylistContextMenu({
   menu,
   onClose,

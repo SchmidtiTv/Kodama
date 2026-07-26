@@ -1,12 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo } from "react";
 
-// Download context (Step 12): distributes the single useDownloadManager() controller (still
-// instantiated by App, same pattern as PlayerProvider/ProfileProvider) to every music view,
-// PlaylistLayout, and the Player — the cached/downloading/premium id sets and the download
-// actions were previously threaded as props through 7+ call sites. App keeps its own destructure
-// of the controller too, since its track-context-menu and the download-queue progress card still
-// read/act on this state directly.
 const DownloadStateContext = createContext(null);
 const DownloadActionsContext = createContext(null);
 

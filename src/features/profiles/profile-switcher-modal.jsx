@@ -1,4 +1,3 @@
-// Profile switcher modal — pick an account or add a new one. Extracted from App.jsx.
 import {
   cn,
   Button,
@@ -20,7 +19,6 @@ import { useProfileState, useProfileActions } from "@/features/profiles/profile-
 
 export function ProfileSwitcherModal({ isOpen, onOpenChange }) {
   const t = useLang();
-  // Account list/actions come from ProfileContext (Step 12) rather than props.
   const { profiles: list } = useProfileState();
   const { switchProfile: onSwitch, addProfile: onAdd } = useProfileActions();
 

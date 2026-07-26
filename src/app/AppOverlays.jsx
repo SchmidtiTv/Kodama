@@ -26,7 +26,6 @@ import { PlaylistContextMenu } from "@/features/music/components/playlist-contex
 import { dissolve } from "@/shared/lib/particle-burst.js";
 import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
 
-// ─── App Version ─────────────────────────────────────────────────────────────
 // Injected from src-tauri/tauri.conf.json at build time (see vite.config.js) — the single
 // source of truth, so this never drifts from the shipped version.
 const APP_VERSION = __APP_VERSION__;
@@ -406,13 +405,6 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
   );
 }
 
-// ─── AppOverlays ────────────────────────────────────────────────────────────
-// Every dialog, menu, and piece of transient UI that floats above AppShell's core layout
-// (Step 13b): login/auth gate, remote pairing, the settings panel overlay, debug float window,
-// profile switcher, news/bug-report modals, playlist create/rename/delete/add-to-playlist
-// dialogs, the download queue card, and the track/playlist context menus. No new context is
-// introduced — this is a straight parent (AppShell) → child relationship, so ordinary (bundled)
-// props carry what's needed, per the Step 13 boundary decision.
 export function AppOverlays({
   language,
   addToast,

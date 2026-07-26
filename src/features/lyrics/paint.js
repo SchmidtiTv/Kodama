@@ -1,6 +1,6 @@
 // Word-level karaoke painting — direct DOM manipulation (no per-word React state/re-render), so
 // the highlight/wipe/zoom/glow can update at 60fps without fighting whatever re-rendered the
-// surrounding line. Extracted from App.jsx's LyricsOverlay so the video-sync caption overlay can
+// surrounding line. The video-sync caption overlay can
 // reuse the exact same visual treatment for its single active line.
 
 // Map each non-space word entry to its space-delimited word-group index (for word-level glow).

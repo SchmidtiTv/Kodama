@@ -16,11 +16,6 @@ function dedupeTracks(tracks) {
   });
 }
 
-// Player controller (Step 11): the single owner of the IpcAudio instance, the current track,
-// the queue, the playing flag, and the play/enqueue/radio/deep-link commands + play-history
-// writes. App consumes this via destructure, so existing JSX and prop chains are unchanged;
-// consumers migrate to player-context in later Step 11 increments.
-//
 // Lyrics-session reset (clearing forced/current/failed providers on a new track) is injected as a
 // ref rather than as setters, because App's lyrics-session state is declared *after* this hook is
 // called — passing the setters directly would hit a temporal-dead-zone error in the dep arrays.
@@ -79,7 +74,7 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
 
   // Playback config (autoplay + crossfade + progressive mode) lives at the controller boundary so
   // the player transport and the settings UI read a single source rather than a settings-owned
-  // copy (Step 11d/11f). Setters are persistence-aware so App only adapts these values for
+  // copy. Setters are persistence-aware so App only adapts these values for
   // Settings instead of also owning the storage writes.
   const [autoplay, setAutoplayState] = useState(
     () => localStorage.getItem("kiyoshi-autoplay") !== "false"

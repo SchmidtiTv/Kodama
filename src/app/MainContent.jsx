@@ -23,11 +23,6 @@ function AnimatedView({ animations, children }) {
   );
 }
 
-// Scrollable main content area — routes the active `view` to its screen (wrapped in the
-// fade/slide AnimatedView transition), then the sticky offline banner and a spacer that
-// keeps content clear of the floating player bar. Extracted verbatim from AppShell.jsx
-// (Step 13c). AnimatedView keeps its useCallback identity so unrelated re-renders don't
-// remount the active view subtree.
 export function MainContent({
   appKey,
   view,

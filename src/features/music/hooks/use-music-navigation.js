@@ -3,7 +3,7 @@ import { API } from "@/shared/api/client.js";
 import { itemId, profileKey } from "../lib/playlist-id.js";
 
 /**
- * Music navigation domain (Step 12): owns the active view, the back-navigation history stack,
+ * Music navigation domain: owns the active view, the back-navigation history stack,
  * the collection (playlist/album) currently open, the open artist view, and recent-playlist
  * persistence. `appKey`/`viewRefreshKey` are view-remount mechanics that travel with navigation
  * rather than any single feature view, so they live here too.

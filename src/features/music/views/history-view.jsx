@@ -1,5 +1,3 @@
-// Recently-played history view (local, per-profile). Rendered via PlaylistLayout, with a
-// particle burst on entry removal. Extracted from App.jsx.
 import { useCallback, useEffect, useState } from "react";
 import { useAnimations } from "@/features/settings/display-context.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";

@@ -147,7 +147,6 @@ export function LanguagePickerScreen({ currentLanguage, onConfirm }) {
   );
 }
 
-// ─── FFmpeg Setup Screen ──────────────────────────────────────────────────────
 export function FfmpegSetupScreen({ onDone }) {
   const t = useLang();
   const [phase, setPhase] = useState("checking"); // checking | needed | downloading | done | error

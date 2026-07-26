@@ -1,7 +1,3 @@
-// Global CSS injected by App at the top of the render tree: the shared @keyframes used across
-// the app (exported as a string for a one-shot <style> tag) plus a once-per-load injection of
-// the tooltip in/out keyframes into document.head. Extracted from App.jsx to keep the root
-// component readable.
 export const GLOBAL_KEYFRAMES = `
   @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
   @keyframes skipLeft {

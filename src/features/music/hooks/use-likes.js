@@ -3,8 +3,8 @@ import { API } from "@/shared/api/client.js";
 
 // Liked-songs domain — the set of liked video ids (loaded once on mount) plus the optimistic
 // like toggle: it updates local state immediately, POSTs the new rating to the backend,
-// mirrors LIKE/INDIFFERENT to Last.fm Loved when connected, and reverts on error. Extracted
-// verbatim from App.jsx (Step 15). `lastfm` is the useLastfmClient() handle (its `connectedRef`
+// mirrors LIKE/INDIFFERENT to Last.fm Loved when connected, and reverts on error. `lastfm` is
+// the useLastfmClient() handle (its `connectedRef`
 // gates the Last.fm mirror). Likes load once on mount and only change through the toggle —
 // there is no profile-switch reload, matching the prior in-App behavior.
 export function useLikes({ lastfm }) {

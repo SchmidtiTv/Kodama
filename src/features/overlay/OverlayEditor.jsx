@@ -1,14 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  Overlay Editor — Figma-style direct-manipulation editor
-//
-//  Full-bleed canvas (pan + zoom) with the real engine in an <iframe> (zero
-//  render drift, pointer-events:none) and a transparent React interaction layer
-//  on top: click to select, drag to move, 8 handles to resize, knob to rotate.
-//  Floating panels: left = layers, right = inspector. Live drag preview goes to
-//  the iframe via postMessage; commits persist (localStorage + POST v2 → SSE/OBS).
-// ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
-// createPortal removed — font picker is now lifted to OverlayEditor level
 import {
   Button,
   Switch,
@@ -1167,7 +1157,6 @@ function LayerEffectsSection({ t, layer, setStyle }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function OverlayEditor({
   t,
   apiBase,

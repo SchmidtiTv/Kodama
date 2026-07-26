@@ -1,11 +1,3 @@
-// IpcAudio — extracted from App.jsx (Step 11). Rust-audio-backed HTMLAudioElement-like
-// adapter owned by the player controller. Self-contained: only Tauri dynamic imports + browser APIs.
-// ── IpcAudio ─────────────────────────────────────────────────────────────────
-// Drop-in replacement for `new Audio()` that routes playback through the Rust
-// host process (kiyoshi-music.exe) instead of WebView2 / msedgewebview2.exe.
-// This makes the audio session visible to OBS Application Audio Capture as
-// "Kodama".  The API surface mirrors the parts of HTMLAudioElement that
-// the Player component uses, so no other code changes are required.
 export class IpcAudio {
   constructor() {
     this._src = "";

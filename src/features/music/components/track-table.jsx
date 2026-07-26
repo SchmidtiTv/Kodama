@@ -1,5 +1,3 @@
-// The track-table view stack: a selection-action button, the shared table row, and the
-// PlaylistLayout (used by playlist / album / liked / downloads / history). Extracted from App.jsx.
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@heroui/react";
@@ -211,7 +209,6 @@ export function TableRow({
   return isPremiumOnly ? <Tooltip text={t("premiumOnly")}>{row}</Tooltip> : row;
 }
 
-// ─── Shared playlist/collection layout ────────────────────────────────────
 export function PlaylistLayout({
   title,
   thumbnail,
@@ -239,11 +236,10 @@ export function PlaylistLayout({
   extraActions,
   typeLabel,
 }) {
-  // Playback state/action from PlayerContext (Step 11) rather than currentTrack/isPlaying/onPlay props.
   const { track: currentTrack, isPlaying } = usePlaybackStatus();
   const { handlePlay } = usePlayerActions();
   // Cached/downloading/premium id sets + the single-track download action come from
-  // DownloadContext (Step 12); onDownloadAll/onRemoveAll stay props since only collection/album
+  // DownloadContext; onDownloadAll/onRemoveAll stay props since only collection/album
   // views offer a "download all" action.
   const { cachedSongIds, downloadingIds, premiumSongIds } = useDownloadState();
   const { downloadSong: onDownloadSong } = useDownloadActions();

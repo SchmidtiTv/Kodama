@@ -1,5 +1,3 @@
-// "Add to playlist" modal — search the user's playlists and add the given track(s), or jump
-// to creating a new one. Extracted from App.jsx; uses the shared API/thumb/useLang from context.
 import { useState, useEffect } from "react";
 import {
   Button,

@@ -159,7 +159,6 @@ function QueueRow({
 }
 
 export function QueuePanel({ likedIds, onToggleLike, visible }) {
-  // Core playback + crossfade config come from PlayerContext (Step 11) rather than props.
   const { track: currentTrack } = usePlaybackStatus();
   const { queue } = useQueueState();
   const { crossfade = 0, crossfadeOverrides = {} } = usePlaybackConfig();

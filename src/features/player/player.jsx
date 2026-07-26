@@ -53,13 +53,12 @@ export function Player({
   onAddToPlaylist,
   buildShareLink,
 }) {
-  // Core playback + crossfade config come from PlayerContext (Step 11) rather than props.
   const { track, isPlaying, audioRef } = usePlaybackStatus();
   const { queue } = useQueueState();
   const { crossfade, crossfadeOverrides, playbackProgressive } = usePlaybackConfig();
   const { setTrack, setIsPlaying } = usePlayerActions();
   // Cached/downloading id sets + download/export/premium-detected actions come from
-  // DownloadContext (Step 12) rather than props.
+  // DownloadContext rather than props.
   const { cachedSongIds, downloadingIds } = useDownloadState();
   const {
     downloadSong: onDownloadSong,
@@ -67,7 +66,7 @@ export function Player({
     markPremium: onPremiumDetected,
   } = useDownloadActions();
   // lyricsProviders is a settings preference, not player state — read the single source of
-  // truth from SettingsContext instead of threading a duplicate copy through App (Step 11).
+  // truth from SettingsContext instead of threading a duplicate copy through App.
   const { lyricsProviders } = useLyricsSettings();
   const [progress, setProgress] = useState(0);
   // Stable ref so fetchUrl can read the current playback mode without re-subscribing.

@@ -614,7 +614,6 @@ export function LyricsProviderList({ providers, onChange }) {
   );
 }
 
-// ─── Debug shared helpers ────────────────────────────────────────────────────
 const _debugLevelColor = (level) => {
   if (level === "ERROR") return "#ff6b6b";
   if (level === "WARN") return "#f0b429";
@@ -651,7 +650,6 @@ function _buildDebugReport(info, logs) {
   ].join("\n");
 }
 
-// ─── Debug Floating Window ───────────────────────────────────────────────────
 export function DebugFloatingWindow({ onClose }) {
   const t = useLang();
   const [info, setInfo] = useState(null);
@@ -973,7 +971,6 @@ export function DebugFloatingWindow({ onClose }) {
   );
 }
 
-// ─── Debug Tab ───────────────────────────────────────────────────────────────
 export function DebugTab({ t }) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState(null);
@@ -1244,7 +1241,6 @@ export function DebugTab({ t }) {
   );
 }
 
-// ─── Unison community identity (ECDSA key) ───────────────────────────────────
 export function UnisonIdentitySection() {
   const t = useLang();
   const [identity, setIdentity] = useState(() => {

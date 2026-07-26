@@ -1,4 +1,3 @@
-// Multi-provider lyrics fetch. Extracted from App.jsx.
 import { API } from "@/shared/api/client.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "./providers.js";
 import { parseLrc, parseRichSync, parseTtml } from "./parse.js";
@@ -137,7 +136,6 @@ async function fetchLyrics(
   return bestResult ? { ...bestResult, failedIds, allResults } : { failedIds, allResults };
 }
 
-// ─── Unison signed write helpers ─────────────────────────────────────────────
 // The frontend signs each request with the stored identity (WebCrypto) and posts the
 // signed envelope to the backend, which forwards it to Unison.
 

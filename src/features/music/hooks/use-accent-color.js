@@ -1,4 +1,3 @@
-// Extract an average accent color (r,g,b string) from an image URL. Extracted from App.jsx.
 import { useState, useEffect } from "react";
 
 export function useAccentColor(imageUrl) {

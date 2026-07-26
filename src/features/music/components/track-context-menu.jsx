@@ -29,8 +29,6 @@ import { buildShareLink } from "@/features/player/share-link.js";
 import { usePlayerActions } from "@/features/player/player-context.jsx";
 import { useDownloadState, useDownloadActions } from "@/features/downloads/download-context.jsx";
 
-// Track context menu — extracted from AppShell.jsx (Step 13b). `menu` is the
-// { x, y, track, playlistId?, removeFromHistory? } object AppShell tracks as `trackContextMenu`.
 export function TrackContextMenu({
   menu,
   onClose,

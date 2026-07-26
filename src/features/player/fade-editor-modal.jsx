@@ -1,5 +1,3 @@
-// Per-transition crossfade editor — set/override the crossfade duration for a specific
-// track→track transition in the queue. Extracted from App.jsx.
 import { useState } from "react";
 import {
   Button,

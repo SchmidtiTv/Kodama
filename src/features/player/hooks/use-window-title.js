@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-// Keeps the native window/taskbar title in sync with playback (Step 11d). Composed by
+// Keeps the native window/taskbar title in sync with playback. Composed by
 // usePlayerController, which owns the track/playing state this reads. When paused for >30s it
 // reverts to "Kodama".
 export function useWindowTitle(currentTrack, isPlaying) {

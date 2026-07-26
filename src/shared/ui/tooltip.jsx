@@ -1,4 +1,3 @@
-// Hover tooltip (delayed show, portalled to <body>). Extracted from App.jsx.
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useZoom } from "@/features/settings/display-context.jsx";

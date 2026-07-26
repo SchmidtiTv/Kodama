@@ -1,6 +1,3 @@
-// Playlist CRUD modals (create / rename / delete). Extracted from App.jsx — each is a
-// self-contained HeroUI modal that receives the translator `t` as a prop and talks to the
-// backend directly. Kept together because they share the same small dependency footprint.
 import { useState } from "react";
 import {
   cn,

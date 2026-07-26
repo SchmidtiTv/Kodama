@@ -1,6 +1,3 @@
-// News / announcements modal. Items come from a remote news.json (published by editing that
-// file). Unread state is tracked by the parent; `unreadIds` marks which were new on open.
-// Extracted from App.jsx together with its tiny inline/block markdown renderers.
 import { useState } from "react";
 import {
   cn,

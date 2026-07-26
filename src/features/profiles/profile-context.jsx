@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo } from "react";
 
-// Profile context (Step 12): distributes the single useProfiles() controller (still owned and
+// Profile context distributes the single useProfiles() controller (still owned and
 // instantiated by App, same pattern as PlayerProvider/usePlayerController) to the Sidebar, the
 // settings account tab, and the profile-switcher modal — the three consumers that previously took
 // the profile list/active profile/account actions as prop-drilled App callbacks. Startup/auth gate

@@ -1,5 +1,3 @@
-// Shared leaf row/card primitives used across the library/playlist/search views.
-// Extracted from App.jsx — depend only on context (thumb/animations) + icons.
 import React from "react";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useAnimations } from "@/features/settings/display-context.jsx";

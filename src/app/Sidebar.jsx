@@ -56,9 +56,6 @@ import {
 import { useLang } from "@/shared/i18n/context.jsx";
 import { useProfileActions, useProfileState } from "@/features/profiles/profile-context.jsx";
 
-// Navigation sidebar — search, main/secondary nav, pinned/recent playlists, and the account
-// menu. Extracted verbatim from AppShell.jsx (Step 13c). Profile list/active profile/logout
-// come from ProfileContext; everything else still crosses as props from AppShell.
 export function Sidebar({
   view,
   setView,
@@ -87,7 +84,6 @@ export function Sidebar({
   settingsOpen,
   hideUserHandle,
 }) {
-  // Profile list/active profile/logout come from ProfileContext (Step 12) rather than props.
   const { profiles, activeProfile: currentProfileData } = useProfileState();
   const { logout: onLogout } = useProfileActions();
   const [query, setQuery] = useState("");

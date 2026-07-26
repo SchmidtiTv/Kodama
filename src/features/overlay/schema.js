@@ -1,17 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  Overlay Editor — Document Schema, Layer Factories & v1→v2 Migration
-//
-//  Phase 0 of the Overlay-Editor rebuild. PURE LOGIC, no React/DOM.
-//  The old overlay used a flat `obsConfig` object (~40 keys) rendered by a fixed
-//  HTML structure. The new editor uses a layer-based document (`overlayDoc` v2):
-//  a canvas (= widget bounds = OBS source size) plus an ordered list of freely
-//  positioned layers. A generic engine (Phase 1) renders this doc; the editor
-//  (Phase 2+) manipulates it.
-//
-//  This module is the single source of truth for the data shape and is consumed
-//  by both the React editor and (mirrored) the backend engine.
-// ─────────────────────────────────────────────────────────────────────────────
-
 export const OVERLAY_DOC_VERSION = 2;
 
 // Bindable now-playing data fields a layer can subscribe to.
@@ -33,7 +19,6 @@ export function makeId(prefix = "l") {
   return `${prefix}_${Date.now().toString(36)}${_idCounter.toString(36)}`;
 }
 
-// ── Paint helpers (Figma-style multi-fill) ───────────────────────────────────
 // A solid paint: { id, type:"solid", color, opacity, visible }. Layers carry an
 // ordered `style.fills` array (index 0 = front). The engine stacks them; the
 // inspector edits them as a list. Legacy single `fill`/`color` is migrated below.
@@ -48,7 +33,6 @@ export function strokePaint(color = "#ffffff", opacity = 100) {
   return { id: makeId("stroke"), color, opacity, visible: true };
 }
 
-// ── Corner helpers ────────────────────────────────────────────────────────────
 // A corner object carries 4 radii + 4 types ("r" = round, "b" = bevel). This
 // mirrors the existing per-corner SVG clip-path system (kept verbatim).
 export function uniformCorners(radius = 14, type = "r") {
@@ -78,7 +62,6 @@ function cornersFromV1(cfg, rKeys, tKeys, fallback) {
   };
 }
 
-// ── Formatting (used by engine + inspector previews) ──────────────────────────
 export function formatTime(sec) {
   if (!sec || sec < 0 || !isFinite(sec)) return "0:00";
   const m = Math.floor(sec / 60);
@@ -86,12 +69,10 @@ export function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Layer factories — each returns a fully-formed layer with sensible defaults.
-//  Common transform fields: x, y, w, h (px, canvas-relative), rotation (deg),
-//  opacity (0-100), z (paint order), visible, locked. `bind` ties the layer to
-//  live data. `style` is type-specific. `effects` is an array (Phase 4).
-// ─────────────────────────────────────────────────────────────────────────────
+// Each factory returns a fully-formed layer with sensible defaults.
+// Common transform fields: x, y, w, h (px, canvas-relative), rotation (deg),
+// opacity (0-100), z (paint order), visible, locked. `bind` ties the layer to
+// live data. `style` is type-specific, and `effects` is an array.
 
 function baseLayer(type, over = {}) {
   return {
@@ -171,7 +152,7 @@ export function makeProgressLayer(over = {}) {
       fillOpacity: 100,
       trackColor: "rgba(255,255,255,0.12)",
       corners: uniformCorners(0, "r"),
-      shape: "bar", // bar | ring (ring = Phase 4)
+      shape: "bar",
     },
     ...over,
   });
@@ -219,9 +200,6 @@ export const LAYER_FACTORIES = {
   shape: makeShapeLayer,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Canvas defaults
-// ─────────────────────────────────────────────────────────────────────────────
 export function defaultCanvas(over = {}) {
   return {
     width: 400,
@@ -238,13 +216,10 @@ export function defaultCanvas(over = {}) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  v1 → v2 migration
-//  Produces a layer document that reproduces the old fixed layout
-//  (album art left · title/subtitle column · progress bar at the bottom edge).
-//  Positions are computed from the old padding/gap/size config so the migrated
-//  default looks equivalent to the current overlay.
-// ─────────────────────────────────────────────────────────────────────────────
+// Produces a layer document that reproduces the old fixed layout
+// (album art left · title/subtitle column · progress bar at the bottom edge).
+// Positions are computed from the old padding/gap/size config so the migrated
+// default looks equivalent to the current overlay.
 export function migrateV1toV2(cfg = {}) {
   const padH = cfg.paddingH ?? 16;
   const padV = cfg.paddingV ?? 12;
@@ -408,9 +383,6 @@ export function migrateV1toV2(cfg = {}) {
   return { version: OVERLAY_DOC_VERSION, canvas, layers };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Default v2 document (= migration of the canonical v1 default).
-// ─────────────────────────────────────────────────────────────────────────────
 export const DEFAULT_V1_CONFIG = {
   bgColor: "#1a1a1a",
   bgOpacity: 90,
@@ -449,7 +421,6 @@ export function defaultOverlayDoc() {
   return migrateV1toV2(DEFAULT_V1_CONFIG);
 }
 
-// ── v2 Presets (derived from the old presets via migration → DRY) ─────────────
 const _V1_PRESETS = {
   basic: {
     bgColor: "#1a1a1a",
@@ -504,9 +475,6 @@ export function buildPresetDoc(presetId) {
 
 export const OVERLAY_PRESET_IDS = Object.keys(_V1_PRESETS);
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Guards & normalization
-// ─────────────────────────────────────────────────────────────────────────────
 export function isV2Doc(obj) {
   return (
     !!obj &&

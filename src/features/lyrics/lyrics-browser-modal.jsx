@@ -1,8 +1,3 @@
-// Community lyrics browser — list every available lyrics version for the track (all providers
-// + every Unison community submission), preview + sync type, vote/report, and apply one.
-// Two-pane layout: left is the source list (click = preview, doesn't apply yet), right shows
-// the full text of whichever version is currently previewed; Select applies it and closes.
-// Extracted from App.jsx.
 import { useState, useEffect, useMemo } from "react";
 import {
   cn,
