@@ -8,6 +8,8 @@ export const audioLevels = {
 };
 
 let started = false;
+let activeConsumers = 0;
+
 export function startAudioLevels() {
   if (started) return;
   started = true;
@@ -20,4 +22,30 @@ export function startAudioLevels() {
       });
     })
     .catch(() => {});
+}
+
+function setNativeAnalysisEnabled(enabled) {
+  import("@tauri-apps/api/core")
+    .then(({ invoke }) => invoke("audio_set_analysis_enabled", { enabled }))
+    .catch(() => {});
+}
+
+// Visualizer surfaces acquire analysis only while they are actually drawing. This keeps sample
+// capture, FFT work, and the Tauri event stream dormant for normal audio-only playback.
+export function acquireAudioAnalysis() {
+  activeConsumers += 1;
+  if (activeConsumers === 1) {
+    audioLevels.bands = new Array(48).fill(0);
+    audioLevels.level = 0;
+    startAudioLevels();
+    setNativeAnalysisEnabled(true);
+  }
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeConsumers = Math.max(0, activeConsumers - 1);
+    if (activeConsumers === 0) setNativeAnalysisEnabled(false);
+  };
 }

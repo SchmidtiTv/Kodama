@@ -4,9 +4,6 @@ import { hiResThumb } from "@/features/player/cover-art.js";
 import { SIDEBAR_COLLAPSED } from "./shell-constants.js";
 import { VideoSyncView } from "@/features/player/video-sync.jsx";
 
-// Expanding player overlay — the crossfaded cover backdrop plus the lyrics/cover panes that
-// slide up over the content area (and the fullscreen split view with its drag handle).
-// Extracted verbatim from AppShell.jsx (Step 13c); flat props keep the moved JSX unchanged.
 export function PlayerOverlay({
   overlayOpen,
   fullscreen,
@@ -119,6 +116,10 @@ export function PlayerOverlay({
           const lyricsPct = `${((1 - splitRatio) * 100).toFixed(2)}%`;
           const widthTransition = splitResizing ? "none" : "width 0.4s cubic-bezier(0.4,0,0.2,1)";
           const paneTransition = `opacity 0.35s ease, ${widthTransition}`;
+          // The panes remain mounted for their opacity transition, but their expensive visual
+          // work must only run while that pane can actually be seen.
+          const lyricsVisible = showVideoView ? videoSplitActive : coverSplitActive || showLyrics;
+          const coverVisible = !showVideoView && (coverSplitActive || !showLyrics);
           return (
             <>
               <div
@@ -176,6 +177,8 @@ export function PlayerOverlay({
                   fullscreen={fullscreen}
                   playerBarVisible={playerVisible}
                   onInstrumentalChange={handleInstrumentalChange}
+                  isActive={overlayOpen && lyricsVisible}
+                  isPlaying={isPlaying}
                 />
               </div>
               <div
@@ -202,6 +205,7 @@ export function PlayerOverlay({
                   ambientVisualizer={ambientVisualizer}
                   vizConfig={vizConfig}
                   narrow={coverSplitActive}
+                  isActive={overlayOpen && coverVisible}
                 />
               </div>
               <div

@@ -1,4 +1,5 @@
 use rodio::Source;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 
@@ -12,6 +13,7 @@ pub enum AudioCmd {
     Stop,
     Seek(f64),
     SetVolume(f32),
+    SetAnalysisEnabled(bool),
     // Start `url` on a second sink and crossfade from the current track over `duration` secs.
     Crossfade { url: String, seek_to: f64, duration: f64 },
 }
@@ -58,11 +60,13 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
     // Shared handle to the analysis buffer of the currently-playing source.
     let current_analysis: Arc<Mutex<Option<Arc<analyzer::AnalysisBuffer>>>> =
         Arc::new(Mutex::new(None));
+    let analysis_enabled = Arc::new(AtomicBool::new(false));
 
     // ── Visualizer analysis thread: snapshot → FFT → bands, emit ~30fps ──
     {
         let app = app.clone();
         let cur = Arc::clone(&current_analysis);
+        let enabled = Arc::clone(&analysis_enabled);
         std::thread::spawn(move || {
             let mut az: Option<(u32, analyzer::Analyzer)> = None;
             let mut samples = [0.0f32; analyzer::FFT_SIZE];
@@ -71,6 +75,10 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
             let mut idle_zeros = 0u32;
             loop {
                 std::thread::sleep(std::time::Duration::from_millis(33));
+                if !enabled.load(Ordering::Relaxed) {
+                    last_written = 0;
+                    continue;
+                }
                 let buf = { cur.lock().unwrap().clone() };
                 let written = buf.as_ref().map(|b| b.written()).unwrap_or(0);
                 let active = buf.is_some() && written != last_written;
@@ -82,7 +90,7 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                         az = Some((sr, analyzer::Analyzer::new(sr)));
                     }
                     buf.snapshot(&mut samples);
-                    let (raw, level) = az.as_ref().unwrap().1.analyze(&samples);
+                    let (raw, level) = az.as_mut().unwrap().1.analyze(&samples);
                     bands.copy_from_slice(&raw); // keep last frame for the decay path
                     idle_zeros = 0;
                     let payload: Vec<f32> = raw.iter().map(|b| (b * 1000.0).round() / 1000.0).collect();
@@ -106,6 +114,7 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
         });
     }
     let current_analysis = Arc::clone(&current_analysis);
+    let analysis_enabled_for_player = Arc::clone(&analysis_enabled);
 
     std::thread::spawn(move || {
         let output = rodio::OutputStream::try_default();
@@ -166,7 +175,8 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                         match rodio::Sink::try_new(&handle) {
                             Ok(new_sink) => {
                                 new_sink.set_volume(volume);
-                                *current_analysis.lock().unwrap() = Some(source.enable_analysis());
+                                *current_analysis.lock().unwrap() =
+                                    Some(source.enable_analysis(Arc::clone(&analysis_enabled_for_player)));
                                 new_sink.append(source);
                                 if seek_to > 0.05 {
                                     let _ = new_sink
@@ -202,7 +212,8 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                 match rodio::Sink::try_new(&handle) {
                     Ok(new_sink) => {
                         new_sink.set_volume(volume);
-                        *current_analysis.lock().unwrap() = Some(source.enable_analysis());
+                        *current_analysis.lock().unwrap() =
+                            Some(source.enable_analysis(Arc::clone(&analysis_enabled_for_player)));
                         new_sink.append(source);
                         if start_paused {
                             new_sink.pause();
@@ -232,7 +243,8 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                     Ok(s2) => {
                         s2.set_volume(0.0);
                         // The visualizer follows the incoming track (the UI already shows it).
-                        *current_analysis.lock().unwrap() = Some(source.enable_analysis());
+                        *current_analysis.lock().unwrap() =
+                            Some(source.enable_analysis(Arc::clone(&analysis_enabled_for_player)));
                         s2.append(source);
                         sink2 = Some(s2);
                         xfade_start = Some(std::time::Instant::now());
@@ -389,7 +401,9 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                                 seek_offset = t;
                                 if let Ok(new_sink) = rodio::Sink::try_new(&handle) {
                                     new_sink.set_volume(volume);
-                                    *current_analysis.lock().unwrap() = Some(source.enable_analysis());
+                                    *current_analysis.lock().unwrap() = Some(
+                                        source.enable_analysis(Arc::clone(&analysis_enabled_for_player)),
+                                    );
                                     new_sink.append(source);
                                     if was_paused {
                                         new_sink.pause();
@@ -411,6 +425,9 @@ pub fn start_audio_thread(app: tauri::AppHandle) -> std::sync::mpsc::SyncSender<
                         } else if let Some(s) = &sink {
                             s.set_volume(v);
                         }
+                    }
+                    AudioCmd::SetAnalysisEnabled(enabled) => {
+                        analysis_enabled_for_player.store(enabled, Ordering::Relaxed);
                     }
                     AudioCmd::Crossfade { url, seek_to, duration } => {
                         // Only meaningful if something is currently playing to fade from.
@@ -551,4 +568,12 @@ pub fn audio_seek(state: tauri::State<AudioPlayer>, position: f64) -> Result<(),
 #[tauri::command]
 pub fn audio_set_volume(state: tauri::State<AudioPlayer>, volume: f32) -> Result<(), String> {
     send_audio(&state, AudioCmd::SetVolume(volume))
+}
+
+#[tauri::command]
+pub fn audio_set_analysis_enabled(
+    state: tauri::State<AudioPlayer>,
+    enabled: bool,
+) -> Result<(), String> {
+    send_audio(&state, AudioCmd::SetAnalysisEnabled(enabled))
 }

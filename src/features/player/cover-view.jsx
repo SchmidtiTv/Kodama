@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { thumb } from "@/shared/api/thumbnails.js";
 import { ExplicitBadge } from "@/features/music/components/rows.jsx";
-import { audioLevels } from "@/features/player/audio-levels.js";
+import { acquireAudioAnalysis, audioLevels } from "@/features/player/audio-levels.js";
 import { hiResThumb } from "./cover-art.js";
 
 export const VIZ_DEFAULTS = {
@@ -60,6 +60,7 @@ export function CoverView({
   coverSize = 260,
   compact = false,
   narrow = false,
+  isActive = true,
 }) {
   const hq = hiResThumb(track.thumbnail);
   const specRef = useRef(null);
@@ -131,9 +132,15 @@ export function CoverView({
   }, [track.thumbnail]);
 
   // Audio-reactive spectrum (ring or cover-hugging frame) + cover pulse, driven by the live
-  // `audioLevels` (Rust FFT). Config read via a ref so changes apply without restarting rAF.
+  // `audioLevels` (Rust FFT). Do not keep a hidden or paused pane rendering at 60fps.
+  // Config read via a ref so changes apply without restarting rAF.
   useEffect(() => {
-    if (!ambientVisualizer) return;
+    if (!ambientVisualizer || !isActive || !isPlaying) return;
+    return acquireAudioAnalysis();
+  }, [ambientVisualizer, isActive, isPlaying]);
+
+  useEffect(() => {
+    if (!ambientVisualizer || !isActive || !isPlaying) return;
     const cv = specRef.current;
     const cover = coverRef.current;
     if (!cv) return;
@@ -141,10 +148,18 @@ export function CoverView({
     const accentVar =
       getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e040fb";
     let raf = 0,
-      smoothLevel = 0;
+      smoothLevel = 0,
+      lastDrawAt = -Infinity;
     const sm = [],
       pk = [];
-    const draw = () => {
+    const draw = (now) => {
+      // Rust emits a fresh spectrum at ~30fps. Drawing at the display's 60/120Hz only repeats
+      // identical data and makes a full-size canvas needlessly expensive.
+      if (now - lastDrawAt < 1000 / 30) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      lastDrawAt = now;
       const cfg = cfgRef.current;
       const dpr = window.devicePixelRatio || 1;
       const w = cv.clientWidth,
@@ -416,7 +431,7 @@ export function CoverView({
       cancelAnimationFrame(raf);
       if (cover) cover.style.transform = "";
     };
-  }, [ambientVisualizer, narrow]);
+  }, [ambientVisualizer, isActive, isPlaying, narrow]);
 
   return (
     <div
@@ -431,7 +446,7 @@ export function CoverView({
       }}
     >
       {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
-      {ambientVisualizer && vizConfig?.blobs !== false && (
+      {ambientVisualizer && isActive && vizConfig?.blobs !== false && (
         <>
           <div
             style={{

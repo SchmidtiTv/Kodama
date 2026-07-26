@@ -407,8 +407,11 @@ impl StreamingSource {
 
     // Attach a visualizer analysis buffer (filled with the left-channel samples as they
     // are pulled by the output). Returns a handle for the analysis thread to read.
-    pub fn enable_analysis(&mut self) -> Arc<super::analyzer::AnalysisBuffer> {
-        let a = Arc::new(super::analyzer::AnalysisBuffer::new(self.sample_rate));
+    pub fn enable_analysis(
+        &mut self,
+        enabled: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Arc<super::analyzer::AnalysisBuffer> {
+        let a = Arc::new(super::analyzer::AnalysisBuffer::new(self.sample_rate, enabled));
         self.analysis = Some(Arc::clone(&a));
         a
     }

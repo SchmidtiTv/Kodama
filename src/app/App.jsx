@@ -20,7 +20,6 @@ import { useDownloadManager } from "@/features/downloads/hooks/use-download-mana
 import { useProfiles } from "@/features/profiles/hooks/use-profiles.js";
 import { translate } from "@/shared/i18n/i18n.js";
 import { getInitialLang } from "@/shared/lib/lang.js";
-import { startAudioLevels } from "@/features/player/audio-levels.js";
 import { IconContext } from "@/shared/icons/icons.jsx";
 
 import { LangContext } from "@/shared/i18n/context.jsx";
@@ -112,10 +111,6 @@ export default function App() {
     if (type === "error") toast.danger(message, { timeout: 6000 });
     else if (type === "success") toast.success(message, { timeout: 3500 });
     else toast(message, { timeout: 3500 });
-  }, []);
-
-  useEffect(() => {
-    startAudioLevels();
   }, []);
 
   const togglePin = useCallback((pl) => {

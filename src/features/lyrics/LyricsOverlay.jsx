@@ -187,6 +187,8 @@ function LyricsOverlayContent({
   fullscreen = false,
   playerBarVisible = false,
   onInstrumentalChange,
+  isActive = true,
+  isPlaying = true,
 }) {
   // In fullscreen the player bar overlays the bottom of the lyrics view; lift the
   // bottom-anchored chips above it while it's visible so they aren't covered.
@@ -387,6 +389,7 @@ function LyricsOverlayContent({
 
   // rAF loop: line changes trigger React re-render; word highlighting is direct DOM manipulation
   useEffect(() => {
+    if (!isActive) return;
     const loop = () => {
       const { ct, pt, playing } = audioSnapRef.current;
       const t = playing ? ct + (performance.now() - pt) / 1000 : ct;
@@ -520,11 +523,11 @@ function LyricsOverlayContent({
         }
       }
 
-      rafRef.current = requestAnimationFrame(loop);
+      if (isPlaying) rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [audioRef]);
+  }, [audioRef, isActive, isPlaying]);
 
   // After React renders, cache word span elements and bg-vocals container for the active line
   useLayoutEffect(() => {
@@ -896,7 +899,7 @@ function LyricsOverlayContent({
   }, [track?.videoId]);
 
   useEffect(() => {
-    if (!fluidLyrics) return;
+    if (!fluidLyrics || !isActive || !isPlaying) return;
     const container = containerRef.current;
     if (!container) return;
     const wraps = container.querySelectorAll("[data-lyricdrift]");
@@ -996,7 +999,7 @@ function LyricsOverlayContent({
         w.style.transform = "";
       });
     };
-  }, [fluidLyrics, lyrics]);
+  }, [fluidLyrics, isActive, isPlaying, lyrics]);
 
   useEffect(() => {
     if (fluidLyrics) return;
@@ -1062,7 +1065,7 @@ function LyricsOverlayContent({
       )}
       {/* Ambient colour blobs — wrapped in an isolated layer so their mix-blend-mode
           stays contained and doesn't flatten the backdrop for the chips' backdrop-filter. */}
-      {ambientVisualizer && !fluidLyrics && !ambientBackground && (
+      {ambientVisualizer && isActive && !fluidLyrics && !ambientBackground && (
         <div
           style={{
             position: "absolute",

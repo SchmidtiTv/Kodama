@@ -1,9 +1,9 @@
-// Real-time audio analysis for the visualizer. The streaming source taps every played
-// (left-channel) sample into a lock-free ring; a separate thread snapshots the latest
-// window, runs an FFT, buckets the spectrum into log-spaced bands, and emits them to the
-// UI as `audio-levels` events. Single-producer (audio thread) / single-consumer (analysis
+// Real-time audio analysis for the visualizer. While a visualizer is visible, the streaming
+// source captures left-channel samples in a lock-free ring; a separate thread snapshots the
+// latest window, runs an FFT, buckets the spectrum into log-spaced bands, and emits them to
+// the UI as `audio-levels` events. Single-producer (audio thread) / single-consumer (analysis
 // thread), so relaxed atomics + a monotonic write counter are enough.
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::sync::Arc;
 
@@ -14,10 +14,11 @@ pub struct AnalysisBuffer {
     buf: Vec<AtomicU32>,    // ring of mono f32 samples (bit-cast)
     pos: AtomicUsize,       // total samples written (monotonic, wraps harmlessly)
     sample_rate: u32,
+    enabled: Arc<AtomicBool>,
 }
 
 impl AnalysisBuffer {
-    pub fn new(sample_rate: u32) -> Self {
+    pub fn new(sample_rate: u32, enabled: Arc<AtomicBool>) -> Self {
         let mut buf = Vec::with_capacity(FFT_SIZE);
         for _ in 0..FFT_SIZE {
             buf.push(AtomicU32::new(0));
@@ -26,11 +27,15 @@ impl AnalysisBuffer {
             buf,
             pos: AtomicUsize::new(0),
             sample_rate: sample_rate.max(8000),
+            enabled,
         }
     }
 
     #[inline]
     pub fn push(&self, s: f32) {
+        if !self.enabled.load(Ordering::Relaxed) {
+            return;
+        }
         let p = self.pos.load(Ordering::Relaxed);
         self.buf[p % FFT_SIZE].store(s.to_bits(), Ordering::Relaxed);
         self.pos.store(p.wrapping_add(1), Ordering::Release);
@@ -58,6 +63,7 @@ pub struct Analyzer {
     fft: Arc<dyn Fft<f32>>,
     hann: Vec<f32>,
     band_edges: Vec<usize>, // NUM_BANDS+1 FFT-bin boundaries (log spaced)
+    fft_buffer: Vec<Complex<f32>>,
 }
 
 impl Analyzer {
@@ -78,15 +84,23 @@ impl Analyzer {
                 (((f / nyq) * bins as f32).round() as usize).min(bins.saturating_sub(1))
             })
             .collect();
-        Analyzer { fft, hann, band_edges }
+        Analyzer {
+            fft,
+            hann,
+            band_edges,
+            fft_buffer: vec![Complex { re: 0.0, im: 0.0 }; FFT_SIZE],
+        }
     }
 
     // Returns (bands 0..1, overall level 0..1). `bands` smoothed/scaled for display.
-    pub fn analyze(&self, samples: &[f32; FFT_SIZE]) -> ([f32; NUM_BANDS], f32) {
-        let mut buf: Vec<Complex<f32>> = (0..FFT_SIZE)
-            .map(|i| Complex { re: samples[i] * self.hann[i], im: 0.0 })
-            .collect();
-        self.fft.process(&mut buf);
+    pub fn analyze(&mut self, samples: &[f32; FFT_SIZE]) -> ([f32; NUM_BANDS], f32) {
+        for (i, sample) in samples.iter().enumerate() {
+            self.fft_buffer[i] = Complex {
+                re: sample * self.hann[i],
+                im: 0.0,
+            };
+        }
+        self.fft.process(&mut self.fft_buffer);
 
         let bins = FFT_SIZE / 2;
         let mut out = [0.0f32; NUM_BANDS];
@@ -95,7 +109,7 @@ impl Analyzer {
             let hi = self.band_edges[b + 1].max(lo + 1).min(bins);
             let mut sum = 0.0f32;
             for k in lo..hi {
-                sum += buf[k].norm();
+                sum += self.fft_buffer[k].norm();
             }
             let avg = sum / (hi - lo).max(1) as f32 / FFT_SIZE as f32;
             // Log magnitude → 0..1, steeper than before so bands keep their contrast
