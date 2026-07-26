@@ -361,6 +361,8 @@ export function SettingsSidebarContent({
               </span>
               <br />
               Chromium {chromiumVersion}
+              <br />
+              Schmidti Version
             </div>
           </div>
         )}
