@@ -57,7 +57,7 @@ print -- "==> Building the Python sidecar"
 chmod +x "$ROOT_DIR/src-tauri/binaries/kodama-server-aarch64-apple-darwin"
 
 print -- "==> Building the macOS app"
-npm run tauri -- build --target "$TARGET"
+CI=true npm run tauri -- build --target "$TARGET"
 
 print -- "Build complete. Artifacts:"
 print -- "  $ROOT_DIR/src-tauri/target/$TARGET/release/bundle/"
