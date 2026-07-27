@@ -14,8 +14,10 @@ describe("SMK-06 settings persistence", () => {
     await $("[data-testid='theme-light']").click();
 
     await browser.waitUntil(async () =>
-      browser.execute(() =>
-        localStorage.getItem("kiyoshi-lang") === "en" && localStorage.getItem("kiyoshi-theme") === "light"
+      browser.execute(
+        () =>
+          localStorage.getItem("kiyoshi-lang") === "en" &&
+          localStorage.getItem("kiyoshi-theme") === "light"
       )
     );
     await browser.refresh();
@@ -24,5 +26,26 @@ describe("SMK-06 settings persistence", () => {
     assert.equal(await $("html").getAttribute("data-theme"), "light");
     assert.equal(await browser.execute(() => localStorage.getItem("kiyoshi-lang")), "en");
     assert.equal(await $("[data-testid='nav-home']").getText(), "Home");
+  });
+
+  it("customizes the player bar from Appearance settings", async () => {
+    await $("[data-testid='account-menu-trigger']").click();
+    await $("[data-testid='menu-settings']").click();
+    await $("[data-testid='settings-nav-darstellung']").click();
+
+    const customizer = await $("[data-testid='player-bar-customizer']");
+    await customizer.scrollIntoView();
+    await customizer.waitForDisplayed();
+
+    await $("[data-testid='player-bar-remove-queue']").click();
+    await browser.waitUntil(async () =>
+      browser.execute(() => !JSON.parse(localStorage.getItem("kiyoshi-player-bar-controls")).queue)
+    );
+
+    await $("[data-testid='player-bar-add-control']").click();
+    await $("[data-testid='player-bar-add-queue']").click();
+    await browser.waitUntil(async () =>
+      browser.execute(() => JSON.parse(localStorage.getItem("kiyoshi-player-bar-controls")).queue)
+    );
   });
 });

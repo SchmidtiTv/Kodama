@@ -22,6 +22,7 @@ import {
 } from "@/shared/icons/icons.jsx";
 import { useAnimations } from "@/features/settings/display-context.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { IS_MAC } from "@/shared/lib/platform.js";
 import { APP_VERSION } from "./settings-support.jsx";
 import { getSettingsSection, subscribeSettingsSection } from "./section-store.js";
 
@@ -95,6 +96,7 @@ export function SettingsSidebarContent({
         { id: "ap-icon", label: t("appIcon") },
         { id: "ap-colors", label: t("apColors") },
         { id: "ap-others", label: t("apOthers") },
+        { id: "ap-player", label: t("playerBar") },
       ],
     },
     {
@@ -168,6 +170,12 @@ export function SettingsSidebarContent({
         >
           {tooltip.text}
         </div>
+      )}
+      {/* Reserve the native title-bar area just as the main sidebar does. Without this,
+          opening Settings replaces the spacer with this header and lets its controls sit
+          immediately beneath the traffic lights. */}
+      {IS_MAC && !collapsed && (
+        <div data-tauri-drag-region aria-hidden="true" className="h-5 shrink-0" />
       )}
       {/* Header */}
       <div

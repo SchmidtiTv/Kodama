@@ -20,6 +20,7 @@ import {
   Microphone,
   MusicNote,
   Plus,
+  Radio,
   ShareNodes,
   Translate,
   Trash,
@@ -50,6 +51,7 @@ export function PlayerActionsMenu(props) {
     onOpenArtist,
     onRefetchLyrics,
     onRemoveCustomLyrics,
+    onStartSongRadio,
     onSetLyricsTranslationLang,
     onToggleLyricsTranslation,
     showLyricsTranslation,
@@ -84,6 +86,7 @@ export function PlayerActionsMenu(props) {
       }}
     >
       <DropdownTrigger
+        data-testid="player-actions-menu"
         className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-150 text-secondary hover:text-primary hover:bg-hover"
         style={{ contain: "layout style" }}
       >
@@ -110,6 +113,13 @@ export function PlayerActionsMenu(props) {
             >
               <Heart size={14} weight={isLiked ? "fill" : "regular"} />
               {isLiked ? t("unlike") : t("like")}
+            </DropdownItem>
+            <DropdownItem
+              textValue={translate(language, "startRadio")}
+              onAction={() => onStartSongRadio?.(track)}
+            >
+              <Radio size={14} />
+              {translate(language, "startRadio")}
             </DropdownItem>
           </DropdownSection>
 

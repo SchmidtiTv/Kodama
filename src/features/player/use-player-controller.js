@@ -6,6 +6,7 @@ import { registerPlayerCommands as bpRegisterCommands } from "@/features/player/
 import { useLastfmScrobbling } from "../integrations/lastfm.js";
 import { usePlayerNativeBridges } from "./hooks/use-player-native-bridges.js";
 import { useWindowTitle } from "./hooks/use-window-title.js";
+import { loadPlaybackSession, savePlaybackSession } from "./playback-session.js";
 
 function dedupeTracks(tracks) {
   const seen = new Set();
@@ -25,9 +26,13 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
   const audioRef = useRef(null);
   if (audioRef.current == null) audioRef.current = new IpcAudio();
 
-  const [currentTrack, setCurrentTrack] = useState(null);
+  // Keep the selected track available after a full app restart. This intentionally restores the
+  // player paused: reopening the app should show the last song without unexpectedly starting
+  // audio. Playback itself remains owned by Player when the user presses play.
+  const [restoredSession] = useState(loadPlaybackSession);
+  const [currentTrack, setCurrentTrack] = useState(() => restoredSession?.track || null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [queue, setQueue] = useState([]);
+  const [queue, setQueue] = useState(() => restoredSession?.queue || []);
   const currentTrackRef = useRef(null);
 
   // Latest track/queue for async and keyboard callbacks without stale closures.
@@ -38,6 +43,9 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+  useEffect(() => {
+    savePlaybackSession(currentTrack, queue);
+  }, [currentTrack, queue]);
 
   // Native window/taskbar title follows playback.
   useWindowTitle(currentTrack, isPlaying);
@@ -258,6 +266,7 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
     queue,
     setQueue,
     queueRef,
+    restoredTrackId: restoredSession?.track?.videoId || null,
     handlePlay,
     enqueue,
     startSongRadio,

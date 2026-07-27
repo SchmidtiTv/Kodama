@@ -44,6 +44,10 @@ import { SettingsProviders } from "@/features/settings/settings-context.jsx";
 import { DEFAULT_SHORTCUTS } from "@/features/settings/settings-constants.js";
 import { useIpv4First } from "@/features/settings/use-ipv4-first.js";
 import { useVideoSync } from "@/features/player/video-sync.jsx";
+import {
+  loadPlayerBarControls,
+  togglePlayerBarControl,
+} from "@/features/player/player-bar-preferences.js";
 
 const CSS_FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22];
 
@@ -106,6 +110,11 @@ export default function App() {
   }, []);
 
   const [pinnedIds, setPinnedIds] = useState([]);
+  const [playerBarControls, setPlayerBarControls] = useState(loadPlayerBarControls);
+  const handlePlayerBarControlToggle = useCallback(
+    (control) => setPlayerBarControls((current) => togglePlayerBarControl(current, control)),
+    []
+  );
 
   const addToast = useCallback((message, type = "info") => {
     if (type === "error") toast.danger(message, { timeout: 6000 });
@@ -789,6 +798,8 @@ export default function App() {
       onUpdateViz: updateViz,
       vizPreviewTrack: currentTrack,
       vizPreviewPlaying: isPlaying,
+      playerBarControls,
+      onPlayerBarControlToggle: handlePlayerBarControlToggle,
     }),
     [
       accent,
@@ -821,6 +832,8 @@ export default function App() {
       updateViz,
       currentTrack,
       isPlaying,
+      playerBarControls,
+      handlePlayerBarControlToggle,
     ]
   );
 

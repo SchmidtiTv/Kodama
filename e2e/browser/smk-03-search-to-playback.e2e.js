@@ -9,7 +9,9 @@ describe("SMK-03 search to playback", () => {
   beforeEach(() => startWithProfile("local"));
 
   it("plays the fixture search track and records its audio IPC request", async () => {
-    const search = await $("[data-testid='sidebar-search']");
+    const searchTrigger = await $("[data-testid='spotlight-search-trigger']");
+    await searchTrigger.click();
+    const search = await $("[data-testid='spotlight-search-input']");
     await search.setValue("Fixture Sunrise");
     await browser.keys("Enter");
     await $("[data-testid='view-search']").waitForDisplayed();
@@ -64,6 +66,34 @@ describe("SMK-03 search to playback", () => {
       1,
       "starting radio for the active song must not issue another audio_play command"
     );
+    await assertNoFrontendErrors();
+  });
+
+  it("starts a radio from the playing bar overflow menu", async () => {
+    await route("GET", "/radio/_", {
+      body: { tracks: [fixtures.tracks.normalTrack, fixtures.tracks.explicitTrack] },
+    });
+
+    const track = await $("[data-track-id='track-normal']");
+    await track.waitForDisplayed();
+    await track.click();
+    await browser.waitUntil(async () => {
+      const commands = await media.commands();
+      return commands.filter((command) => command.command === "audio_play").length === 1;
+    });
+
+    const playerActions = await $("[data-testid='player-actions-menu']");
+    await playerActions.click();
+    const startRadio = await $("*=Start radio");
+    await startRadio.waitForDisplayed();
+    await startRadio.click();
+
+    await browser.waitUntil(async () => {
+      const log = await requests();
+      return log.some(
+        (request) => request.pathname === "/radio/_" && request.query.videoId === "track-normal"
+      );
+    });
     await assertNoFrontendErrors();
   });
 });

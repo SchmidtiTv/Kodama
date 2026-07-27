@@ -98,6 +98,7 @@ import {
   YtDlpUpdateRow,
 } from "./settings-support.jsx";
 import { AccentColorPicker, LastfmRow } from "./settings-integration-controls.jsx";
+import { PlayerBarCustomizer } from "./player-bar-customizer.jsx";
 import { isSettingsSectionLocked } from "./section-store.js";
 import {
   APP_ICON_DEFAULT,
@@ -183,6 +184,8 @@ export function SettingsPanel({
     onUpdateViz,
     vizPreviewTrack,
     vizPreviewPlaying,
+    playerBarControls,
+    onPlayerBarControlToggle,
   } = useAppearanceSettings();
   const {
     autoplay,
@@ -1673,6 +1676,19 @@ export function SettingsPanel({
                     </div>
                   </div>
                 </SettingRow>
+              </div>
+              <div
+                id="set-sec-ap-player"
+                data-settings-section="ap-player"
+                style={{ scrollMarginTop: 8 }}
+              >
+                <SectionLabel>{t("playerBar")}</SectionLabel>
+                <PlayerBarCustomizer
+                  controls={playerBarControls}
+                  onToggleControl={onPlayerBarControlToggle}
+                  t={t}
+                  track={vizPreviewTrack}
+                />
               </div>
             </>
           )}

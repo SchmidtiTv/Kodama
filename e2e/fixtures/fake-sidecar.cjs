@@ -88,6 +88,7 @@ function defaultResponse(state, request, url) {
         tracks: [fixtures.tracks.normalTrack],
       },
     };
+  if (pathname === "/song/cached/list") return { body: { songs: [] } };
   if (pathname.startsWith("/song/cached/")) return { status: 404, body: { cached: false } };
   if (pathname.startsWith("/audio-stream/")) return { text: "fixture audio" };
   if (pathname === "/library/playlists") return { body: { playlists: fixtures.library.playlists } };
@@ -98,7 +99,6 @@ function defaultResponse(state, request, url) {
   if (pathname === "/ffmpeg/check-update" || pathname === "/ytdlp/check-update")
     return { body: { available: false } };
   if (pathname === "/cache/stats") return { body: { usedBytes: 0, files: 0 } };
-  if (pathname === "/song/cached/list") return { body: { songs: [] } };
   if (pathname === "/operation/network/ipv4-first" || pathname === "/network/ipv4-first")
     return { body: { enabled: true } };
   if (pathname === "/imgproxy")

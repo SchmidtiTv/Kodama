@@ -24,6 +24,7 @@ export function PlayerProvider({ controller, children }) {
     isPlaying,
     queue,
     queueRef,
+    restoredTrackId,
     setCurrentTrack,
     setIsPlaying,
     setQueue,
@@ -43,8 +44,8 @@ export function PlayerProvider({ controller, children }) {
 
   // Playback state: the currently playing track, its playing flag, and the audio element ref.
   const playbackStatus = useMemo(
-    () => ({ track: currentTrack, isPlaying, audioRef }),
-    [currentTrack, isPlaying, audioRef]
+    () => ({ track: currentTrack, isPlaying, audioRef, restoredTrackId }),
+    [currentTrack, isPlaying, audioRef, restoredTrackId]
   );
   // Queue state: the queue itself and its stale-closure-safe ref.
   const queueState = useMemo(() => ({ queue, queueRef }), [queue, queueRef]);

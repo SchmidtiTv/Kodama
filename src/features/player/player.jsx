@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { API } from "@/shared/api/client.js";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { useAnimations } from "@/features/settings/display-context.jsx";
+import { useAppearanceSettings } from "@/features/settings/settings-context.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { useLyricsSettings } from "../settings/settings-context.jsx";
 import {
@@ -53,10 +54,11 @@ export function Player({
   onAddToPlaylist,
   buildShareLink,
 }) {
-  const { track, isPlaying, audioRef } = usePlaybackStatus();
+  const { track, isPlaying, audioRef, restoredTrackId } = usePlaybackStatus();
+  const { playerBarControls } = useAppearanceSettings();
   const { queue } = useQueueState();
   const { crossfade, crossfadeOverrides, playbackProgressive } = usePlaybackConfig();
-  const { setTrack, setIsPlaying } = usePlayerActions();
+  const { setTrack, setIsPlaying, startSongRadio } = usePlayerActions();
   // Cached/downloading id sets + download/export/premium-detected actions come from
   // DownloadContext rather than props.
   const { cachedSongIds, downloadingIds } = useDownloadState();
@@ -101,6 +103,10 @@ export function Player({
   const shuffleRef = useRef(shuffle);
   const queueRef = useRef(queue);
   const trackRef = useRef(track);
+  // A restored session should make the last song visible and ready to play, but reopening the
+  // app must not unexpectedly begin audio. Consume the marker only for that exact track so a
+  // user selecting another song while the restore is loading still starts it normally.
+  const restoredTrackIdRef = useRef(restoredTrackId);
   const crossfadeRef = useRef(crossfade);
   const volumeRef = useRef(volume);
   const prevVolumeRef = useRef(volume > 0 ? volume : 0.4);
@@ -435,11 +441,18 @@ export function Player({
       crossfadeFailedTrackRef.current = null;
       videoModeActiveRef.current = false;
       videoModeTrackIdRef.current = null;
+      const shouldRemainPaused = restoredTrackIdRef.current === track?.videoId;
+      restoredTrackIdRef.current = null;
       a.src = streamUrl;
       a.volume = volCurve(volume);
       volumeRef.current = volume;
-      a.play().catch((e) => console.error("[Player] play() error:", e));
-      setIsPlaying(true);
+      if (shouldRemainPaused) {
+        a.pause();
+        setIsPlaying(false);
+      } else {
+        a.play().catch((e) => console.error("[Player] play() error:", e));
+        setIsPlaying(true);
+      }
       setProgress(0);
     }
 
@@ -885,6 +898,7 @@ export function Player({
         onRefetchLyrics,
         onRemoveCustomLyrics,
         onSetLyricsTranslationLang,
+        onStartSongRadio: startSongRadio,
         onSwitchLyricsProvider,
         onToggleFullscreen,
         onToggleLyrics,
@@ -893,6 +907,7 @@ export function Player({
         prevBouncing,
         prevVolumeRef,
         progress,
+        playerBarControls,
         queueOpen,
         repeat,
         seekDrag,
