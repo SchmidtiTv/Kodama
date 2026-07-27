@@ -140,6 +140,7 @@ class YoutubeMusicSession:
         if self.profiles.is_local(name):
             self.state.ytm = self._client_factory()
             self.state.current_profile = name
+            self.profiles.save_active_profile(name)
             return True
 
         path = self.profiles.profile_file_path(name)
@@ -152,6 +153,7 @@ class YoutubeMusicSession:
             return False
 
         self.state.current_profile = name
+        self.profiles.save_active_profile(name)
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return True
 
@@ -161,6 +163,7 @@ class YoutubeMusicSession:
         self._verify_browser_auth(client)
         self.state.ytm = client
         self.state.current_profile = name
+        self.profiles.save_active_profile(name)
         self._clear_profile_playlist_memory(name)
         threading.Thread(target=self.refresh_session_cookies, kwargs={"force": True}, daemon=True).start()
         return client
@@ -190,6 +193,7 @@ class YoutubeMusicSession:
         self._clear_profile_playlist_memory(self.state.current_profile)
         self.state.current_profile = None
         self.state.ytm = None
+        self.profiles.clear_active_profile()
 
     def _clear_profile_playlist_memory(self, profile_name: Optional[str]) -> None:
         if self._playlist_cache is not None:
@@ -258,9 +262,13 @@ class YoutubeMusicSession:
 
     # Old server.py: autoload
     def autoload_first_profile(self) -> None:
-        """Migrate legacy storage and activate the first usable profile."""
+        """Migrate legacy storage and restore the last usable profile, with a safe fallback."""
         self.profiles.migrate_legacy_browser_profile(self.state.current_profile)
-        for profile in self.profiles.list_profiles(self.state.current_profile):
+        remembered_name = self.profiles.load_active_profile()
+        profiles = self.profiles.list_profiles(remembered_name)
+        remembered = [profile for profile in profiles if profile["name"] == remembered_name]
+        candidates = remembered + [profile for profile in profiles if profile["name"] != remembered_name]
+        for profile in candidates:
             if profile.get("loggedOut"):
                 continue
             profile_name = str(profile["name"])

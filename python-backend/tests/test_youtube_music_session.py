@@ -99,3 +99,20 @@ class YoutubeMusicSessionTests(unittest.TestCase):
 
         self.assertIsNone(playlist_cache.get_memory("LM", "default"))
         self.assertEqual(playlist_cache.get_memory("LM", "second"), {"tracks": ["other"]})
+
+    def test_autoload_prefers_the_last_active_profile(self) -> None:
+        profiles = MagicMock()
+        profiles.load_active_profile.return_value = "second"
+        profiles.list_profiles.return_value = [
+            {"name": "first"},
+            {"name": "second"},
+        ]
+        session = YoutubeMusicSession(profiles=profiles)
+
+        with (
+            patch.object(session, "activate_profile", return_value=True) as activate,
+            patch("src.lib.music.youtube_music.threading.Thread"),
+        ):
+            session.autoload_first_profile()
+
+        activate.assert_called_once_with("second")

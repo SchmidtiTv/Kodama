@@ -25,6 +25,30 @@ class Profile:
     def directory(self) -> Path:
         return self._profiles_dir
 
+    @property
+    def active_profile_path(self) -> Path:
+        """Path for the non-profile marker naming the most recently active account."""
+        return self._profiles_dir / ".active-profile"
+
+    def load_active_profile(self) -> Optional[str]:
+        """Return the remembered account name, if a previous session recorded one."""
+        try:
+            name = self.active_profile_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        return name or None
+
+    def save_active_profile(self, name: str) -> None:
+        """Remember the account to restore on the next backend startup."""
+        self.active_profile_path.write_text(name, encoding="utf-8")
+
+    def clear_active_profile(self) -> None:
+        """Forget the selection after logout or deleting the active account."""
+        try:
+            self.active_profile_path.unlink()
+        except FileNotFoundError:
+            pass
+
     # Old server.py: profile_path
     def profile_file_path(self, name: str) -> Path:
         return self._profiles_dir / f"{name}.json"

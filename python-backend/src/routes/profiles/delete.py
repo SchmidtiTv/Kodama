@@ -17,7 +17,6 @@ def delete_profile() -> RouteResponse:
     session = music_session()
     profile_repository.delete_files(name)
     if session.state.current_profile == name:
-        session.state.current_profile = None
-        session.state.ytm = None
+        session.clear_active_profile()
         session.autoload_first_profile()
     return jsonify({"ok": True})
