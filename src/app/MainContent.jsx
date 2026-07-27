@@ -49,6 +49,8 @@ export function MainContent({
   isOffline,
   language,
 }) {
+  const activeProfileKey = profiles.find((profile) => profile.active)?.name || "default";
+
   return (
     <ScrollShadowRoot
       key={appKey}
@@ -57,7 +59,7 @@ export function MainContent({
       style={{ height: "100%" }}
     >
       {view === "home" && (
-        <AnimatedView key={`home-${viewRefreshKey}`} animations={animations}>
+        <AnimatedView key={`home-${activeProfileKey}-${viewRefreshKey}`} animations={animations}>
           <HomeView
             displayName={profiles.find((p) => p.active)?.displayName}
             onOpenPlaylist={(item) => openPlaylist(item, "home")}
@@ -68,6 +70,8 @@ export function MainContent({
               setTrackContextMenu({ x: e.clientX, y: e.clientY, track })
             }
             hideExplicit={hideExplicit}
+            profileKey={activeProfileKey}
+            refreshKey={viewRefreshKey}
           />
         </AnimatedView>
       )}

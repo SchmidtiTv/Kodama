@@ -29,6 +29,19 @@ import { useLang } from "@/shared/i18n/context.jsx";
 import { Carousel } from "../components/carousel.jsx";
 import { usePlayerActions } from "../../player/player-context.jsx";
 
+// Home is unmounted when the user navigates to another primary view. Keep the
+// response in memory per profile so returning to it is instant, while still
+// allowing the sidebar's explicit refresh action to request new data.
+const homeCache = new Map();
+
+function readHomeCache(profileKey) {
+  return homeCache.get(profileKey);
+}
+
+function updateHomeCache(profileKey, update) {
+  homeCache.set(profileKey, { ...readHomeCache(profileKey), ...update });
+}
+
 export function HomeView({
   displayName,
   onOpenPlaylist,
@@ -37,13 +50,17 @@ export function HomeView({
   onContextMenu,
   onTrackContextMenu,
   hideExplicit,
+  profileKey = "default",
+  refreshKey = 0,
 }) {
   const { handlePlay } = usePlayerActions();
-  const [sections, setSections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [sections, setSections] = useState(() => readHomeCache(profileKey)?.sections || []);
+  const [loading, setLoading] = useState(() => !readHomeCache(profileKey)?.hasHomeData);
   const [error, setError] = useState(null);
-  const [moodGroups, setMoodGroups] = useState({}); // { "For you": [...], "Moods & moments": [...], "Genres": [...] }
-  const [activeMoodTab, setActiveMoodTab] = useState(null);
+  const [moodGroups, setMoodGroups] = useState(() => readHomeCache(profileKey)?.moodGroups || {}); // { "For you": [...], "Moods & moments": [...], "Genres": [...] }
+  const [activeMoodTab, setActiveMoodTab] = useState(
+    () => readHomeCache(profileKey)?.activeMoodTab || null
+  );
   const [activeMoodChip, setActiveMoodChip] = useState(null);
   const [moodPlaylists, setMoodPlaylists] = useState([]);
   const [moodLoading, setMoodLoading] = useState(false);
@@ -52,50 +69,78 @@ export function HomeView({
   const t = useLang();
   const homeCancelledRef = useRef(false);
 
-  const loadHome = useCallback(async (attempt = 0) => {
-    setLoading(true);
-    setError(null);
-    for (let retry = attempt; retry <= 6; retry += 1) {
-      try {
-        const response = await fetch(`${API}/home`);
-        const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
-        if (homeCancelledRef.current) return;
-        const nextSections = data.sections || [];
-        if (nextSections.length > 0 || retry === 6) {
-          setSections(nextSections);
-          setLoading(false);
-          return;
+  const loadHome = useCallback(
+    async (attempt = 0) => {
+      setLoading(true);
+      setError(null);
+      for (let retry = attempt; retry <= 6; retry += 1) {
+        try {
+          const response = await fetch(`${API}/home`);
+          const data = await response.json();
+          if (!response.ok || data.error) throw new Error(data.error || `HTTP ${response.status}`);
+          if (homeCancelledRef.current) return;
+          const nextSections = data.sections || [];
+          if (nextSections.length > 0 || retry === 6) {
+            updateHomeCache(profileKey, {
+              hasHomeData: true,
+              refreshKey,
+              sections: nextSections,
+            });
+            setSections(nextSections);
+            setLoading(false);
+            return;
+          }
+        } catch (cause) {
+          if (homeCancelledRef.current) return;
+          if (retry === 6) {
+            setSections([]);
+            setError(cause.message || "Unable to load Home");
+            setLoading(false);
+            return;
+          }
         }
-      } catch (cause) {
-        if (homeCancelledRef.current) return;
-        if (retry === 6) {
-          setSections([]);
-          setError(cause.message || "Unable to load Home");
-          setLoading(false);
-          return;
-        }
+        await new Promise((resolve) => setTimeout(resolve, 600));
       }
-      await new Promise((resolve) => setTimeout(resolve, 600));
-    }
-  }, []);
+    },
+    [profileKey, refreshKey]
+  );
 
   useEffect(() => {
     homeCancelledRef.current = false;
-    loadHome();
+    const cached = readHomeCache(profileKey);
+    const shouldRefreshHome = !cached?.hasHomeData || cached.refreshKey !== refreshKey;
+    const homeLoadTimer = shouldRefreshHome ? window.setTimeout(loadHome, 0) : null;
+
+    if (cached?.hasMoodGroups && cached.refreshKey === refreshKey) {
+      return () => {
+        if (homeLoadTimer) window.clearTimeout(homeLoadTimer);
+        homeCancelledRef.current = true;
+      };
+    }
+
+    let moodCancelled = false;
     fetch(`${API}/mood/categories`)
       .then((r) => r.json())
       .then((d) => {
+        if (moodCancelled) return;
         const groups = d && !Array.isArray(d) && typeof d === "object" ? d : {};
-        setMoodGroups(groups);
         const firstKey = Object.keys(groups)[0];
+        updateHomeCache(profileKey, {
+          hasMoodGroups: true,
+          refreshKey,
+          moodGroups: groups,
+          activeMoodTab: firstKey || null,
+        });
+        setMoodGroups(groups);
         if (firstKey) setActiveMoodTab(firstKey);
       })
       .catch(() => {});
     return () => {
+      if (homeLoadTimer) window.clearTimeout(homeLoadTimer);
+      moodCancelled = true;
       homeCancelledRef.current = true;
     };
-  }, [loadHome]);
+  }, [loadHome, profileKey, refreshKey]);
 
   const handleMoodChipClick = (chip) => {
     if (activeMoodChip?.params === chip.params) {
@@ -726,6 +771,7 @@ export function HomeView({
                       return (
                         <CardRoot
                           key={i}
+                          data-track-id={item.videoId}
                           variant="transparent"
                           className="home-card p-0! gap-0! rounded-none! shadow-none!"
                           onClick={() => handlePlay(item, speedDialItems)}

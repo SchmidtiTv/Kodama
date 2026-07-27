@@ -13,7 +13,9 @@ describe("SMK-09 failure safety", () => {
     await browser.refresh();
     const home = await $("[data-testid='view-home']");
     await home.waitForDisplayed();
-    await browser.waitUntil(async () => (await home.getText()).includes("Fixture sidecar failure"));
+    await browser.waitUntil(async () =>
+      (await $("[data-testid='view-home']").getText()).includes("Fixture sidecar failure")
+    );
 
     assert.equal(await home.isDisplayed(), true);
     await assertNoFrontendErrors();

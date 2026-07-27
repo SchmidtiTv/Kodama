@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 
+const { requests } = require("../fixtures/client.cjs");
 const { startWithProfile } = require("./smoke-support.cjs");
 
 describe("SMK-04 navigation", () => {
@@ -26,5 +27,25 @@ describe("SMK-04 navigation", () => {
     await playlist.waitForDisplayed();
     await playlist.click();
     await $("//*[contains(., 'Fixture Playlist')]").waitForDisplayed();
+  });
+
+  it("keeps Home recommendations cached when returning from the library", async () => {
+    await $("//*[contains(., 'Fixture Sunrise')]").waitForDisplayed();
+    const requestsBeforeNavigation = await requests();
+    const initialHomeRequests = requestsBeforeNavigation.filter(
+      (request) => request.pathname === "/home"
+    ).length;
+
+    await $("[data-testid='nav-library']").click();
+    await $("[data-testid='view-library']").waitForDisplayed();
+    await $("[data-testid='nav-home']").click();
+    await $("[data-testid='view-home']").waitForDisplayed();
+    await $("//*[contains(., 'Fixture Sunrise')]").waitForDisplayed();
+
+    const requestsAfterNavigation = await requests();
+    const returnedHomeRequests = requestsAfterNavigation.filter(
+      (request) => request.pathname === "/home"
+    ).length;
+    assert.equal(returnedHomeRequests, initialHomeRequests);
   });
 });
