@@ -177,6 +177,58 @@ class FakeYoutubeClient:
         self.history_items = []
 
     def search(self, query: object, filter: object="songs", limit: object=20) -> object:
+        if filter is None:
+            return [
+                {
+                    "resultType": "song",
+                    "videoId": "vid",
+                    "title": "Song",
+                    "artists": [{"name": "Artist", "id": "UCartist"}],
+                    "album": {"name": "Album", "id": "MPREb"},
+                    "duration": "3:00",
+                    "thumbnails": cast(list[object], []),
+                },
+                {
+                    "resultType": "artist",
+                    "channelId": "UCartist",
+                    "title": "Artist",
+                    "artist": "12K subscribers",
+                    "thumbnails": cast(list[object], []),
+                },
+                {
+                    "resultType": "album",
+                    "browseId": "MPREb",
+                    "title": "Album",
+                    "artist": "Artist",
+                    "year": "2026",
+                    "thumbnails": cast(list[object], []),
+                },
+                {
+                    "resultType": "playlist",
+                    "browseId": "VLPLtest",
+                    "title": "Playlist",
+                    "author": "Artist",
+                    "thumbnails": cast(list[object], []),
+                },
+                # "Top result" card: the artist sits in `artists`, not `title`.
+                {
+                    "category": "Top result",
+                    "resultType": "artist",
+                    "subscribers": "12K",
+                    "artists": [{"name": "Top Artist", "id": "UCtop"}],
+                    "thumbnails": cast(list[object], []),
+                },
+                # Shelf row below a top result: byline is "Song • 5:00", so
+                # ytmusicapi reports the type label as an artist without an id.
+                {
+                    "resultType": "song",
+                    "videoId": "shelf",
+                    "title": "Shelf Song",
+                    "artists": [{"name": "Song", "id": None}],
+                    "duration": "5:00",
+                    "thumbnails": cast(list[object], []),
+                },
+            ]
         if filter == "artists":
             return [{"browseId": "UCartist", "artist": "Artist", "subscribers": "12K", "thumbnails": cast(list[object], [])}]
         if filter == "albums":
@@ -922,6 +974,7 @@ class RouteTestCase(unittest.TestCase):
         self.video_sync = FakeVideoSyncService()
         self.playlist_cache = FakePlaylistCache()
         self.album_cache = FakeAlbumCache()
+        self.band_member_finder = SimpleNamespace(find=lambda artist_name: [])
         self.song_credits_cache = FakeSongCreditsCache()
         self.download_service = FakeDownloadService(self.root)
         self.export_service = FakeExportService()
@@ -942,6 +995,7 @@ class RouteTestCase(unittest.TestCase):
                 "video_sync_service": self.video_sync,
                 "playlist_cache": self.playlist_cache,
                 "album_cache": self.album_cache,
+                "band_member_finder": self.band_member_finder,
                 "song_credits_cache": self.song_credits_cache,
                 "download_service": self.download_service,
                 "export_service": self.export_service,

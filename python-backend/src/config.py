@@ -70,6 +70,7 @@ class Config:
     IMG_CACHE_TTL = 30 * 24 * 3600
     PLAYLIST_CACHE_TTL = 24 * 3600
     ALBUM_CACHE_TTL = 7 * 24 * 3600
+    BAND_MEMBER_CACHE_TTL = 24 * 3600
     CACHE_DEFAULTS = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
 

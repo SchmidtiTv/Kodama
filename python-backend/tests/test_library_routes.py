@@ -177,6 +177,10 @@ class LibraryDetailRouteTests(RouteTestCase):
         self.assertEqual(artist.json["name"], "Artist")
         self.assertEqual(artist.json["songsBrowseId"], "songs")
 
+        self.band_member_finder.find = lambda artist_name: [{"name": "Member"}]
+        members = self.client.get("/artist/UCartist/members?name=Artist")
+        self.assertEqual(members.json, {"members": [{"name": "Member"}]})
+
         self.assertEqual(self.client.post("/artist/UCartist/subscribe", json={"channelId": "UCchannel"}).json, {"ok": True})
         self.assertEqual(self.music_session.client.subscribed_artists, [["UCchannel"]])
         self.assertEqual(self.client.post("/artist/UCartist/unsubscribe", json={"channelId": "UCchannel"}).json, {"ok": True})

@@ -5,6 +5,7 @@ from typing import cast
 from flask import current_app
 
 from src.lib.music.album import Album
+from src.lib.music.band_members import BandMemberFinder
 from src.lib.music.credits import SongCreditsCache
 from src.lib.music.playlist import Playlist
 from src.lib.music.youtube_music import YoutubeMusicSession
@@ -30,6 +31,10 @@ def playlist_cache() -> Playlist:
 
 def album_cache() -> Album:
     return cast(Album, current_app.extensions["album_cache"])
+
+
+def band_member_finder() -> BandMemberFinder:
+    return cast(BandMemberFinder, current_app.extensions["band_member_finder"])
 
 
 def song_credits_cache() -> SongCreditsCache:

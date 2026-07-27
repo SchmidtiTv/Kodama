@@ -6,6 +6,7 @@ from flask_cors import CORS
 from src.config import Config
 from src.lib import (
     Album,
+    BandMemberFinder,
     CacheSettings,
     LastFM,
     ComposerBridge,
@@ -80,6 +81,7 @@ def create_app() -> Flask:
             musixmatch=MusixMatch(),
         )
         app.extensions["album_cache"] = Album()
+        app.extensions["band_member_finder"] = BandMemberFinder()
 
         ytdlp = YTDLP(
             profiles=profile_repository,

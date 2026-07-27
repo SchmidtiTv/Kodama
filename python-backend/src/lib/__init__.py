@@ -8,6 +8,7 @@ from .integrations.lastfm import LastFM
 from .integrations.musixmatch import MusixMatch
 from .integrations.ytdlp import YTDLP
 from .music.album import Album
+from .music.band_members import BandMemberFinder, BandMemberLookupError
 from .music.download import DownloadService
 from .music.credits import SongCreditsCache
 from .music.export import ExportService
@@ -30,6 +31,8 @@ from .runtime.remote import RemoteControl
 
 __all__ = [
     "Album",
+    "BandMemberFinder",
+    "BandMemberLookupError",
     "DelayedCleanup",
     "DirectoryInspector",
     "CacheSettings",

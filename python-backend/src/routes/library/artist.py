@@ -2,10 +2,10 @@
 
 from flask import jsonify, request
 
-from src.lib import YoutubeResponseMapper
+from src.lib import BandMemberLookupError, YoutubeResponseMapper
 
 from . import blueprint
-from ._services import music_session
+from ._services import band_member_finder, music_session
 from src.type_defs import RouteResponse
 
 
@@ -141,6 +141,17 @@ def artist_subscribe(browse_id: str) -> RouteResponse:
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@blueprint.route("/artist/<browse_id>/members")
+def artist_members(browse_id: str) -> RouteResponse:
+    artist_name = request.args.get("name", "").strip()
+    if not artist_name:
+        return jsonify({"error": "artist name is required"}), 400
+    try:
+        return jsonify({"members": band_member_finder().find(artist_name)})
+    except BandMemberLookupError:
+        return jsonify({"error": "band members unavailable"}), 502
 
 
 @blueprint.route("/artist/<browse_id>/unsubscribe", methods=["POST"])

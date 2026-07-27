@@ -73,6 +73,7 @@ class RouteRegistrationTests(RouteTestCase):
             "/radio/<playlist_id>",
             "/album/<browse_id>",
             "/artist/<browse_id>",
+            "/artist/<browse_id>/members",
             "/artist/<browse_id>/subscribe",
             "/artist/<browse_id>/unsubscribe",
             "/song/meta/<video_id>",

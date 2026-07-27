@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Skeleton } from "@heroui/react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { TrackRow } from "@/features/music/components/rows.jsx";
 import { Tooltip } from "@/shared/ui/tooltip.jsx";
@@ -44,6 +45,7 @@ export function ArtistView({
   const [subLoading, setSubLoading] = useState(false);
   const [subError, setSubError] = useState(null);
   const [radioLoading, setRadioLoading] = useState(false);
+  const [bandMembers, setBandMembers] = useState(null);
   const t = useLang();
   const artistAccent = useAccentColor(artist?.thumbnail);
 
@@ -60,6 +62,28 @@ export function ArtistView({
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [browseId]);
+
+  useEffect(() => {
+    if (!artist?.name) return undefined;
+
+    const controller = new AbortController();
+    fetch(`${API}/artist/${browseId}/members?name=${encodeURIComponent(artist.name)}`, {
+      signal: controller.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setBandMembers({ browseId, artistName: artist.name, members: data?.members || [] });
+        }
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          setBandMembers({ browseId, artistName: artist.name, members: [] });
+        }
+      });
+
+    return () => controller.abort();
+  }, [artist?.name, browseId]);
 
   if (loading)
     return (
@@ -124,6 +148,7 @@ export function ArtistView({
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
+          borderRadius: 8,
         }}
       >
         {artist.thumbnail ? (
@@ -136,6 +161,7 @@ export function ArtistView({
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              objectPosition: "top",
             }}
           />
         ) : (
@@ -614,6 +640,98 @@ export function ArtistView({
                   />
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Band members */}
+        {bandMembers?.browseId === browseId &&
+          bandMembers.artistName === artist.name &&
+          bandMembers.members.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>
+              {t("bandMembers")}
+            </div>
+            <div
+              className="carousel"
+              style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}
+            >
+              {bandMembers.members.map((member) => (
+                <div
+                  key={member.id}
+                  onClick={() => member.wikipediaUrl && openUrl(member.wikipediaUrl).catch(console.error)}
+                  style={{ flexShrink: 0, width: 120, cursor: member.wikipediaUrl ? "pointer" : "default" }}
+                >
+                  <div
+                    style={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      background: "var(--bg-elevated)",
+                    }}
+                  >
+                    {member.image ? (
+                      <img
+                        src={member.image}
+                        alt={member.name}
+                        loading="lazy"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "grid",
+                          placeItems: "center",
+                          color: "var(--text-muted)",
+                          fontSize: "var(--t16)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {member.name
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map((word) => word[0])
+                          .join("")
+                          .toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0, marginTop: 8 }}>
+                    <div
+                      style={{
+                        color: "var(--text-primary)",
+                        fontSize: "var(--t12)",
+                        fontWeight: 600,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        textAlign: "center",
+                      }}
+                    >
+                      {member.name}
+                    </div>
+                    {member.roles?.length > 0 && (
+                      <div
+                        style={{
+                          color: "var(--text-secondary)",
+                          fontSize: "var(--t11)",
+                          marginTop: 3,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
+                        }}
+                      >
+                        {member.roles.join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
