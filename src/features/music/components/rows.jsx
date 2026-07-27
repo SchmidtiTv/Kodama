@@ -1,7 +1,7 @@
 import React from "react";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useAnimations } from "@/features/settings/display-context.jsx";
-import { Pause } from "@/shared/icons/icons.jsx";
+import { MusicNote, Pause, Play, Shuffle } from "@/shared/icons/icons.jsx";
 
 export function ExplicitBadge() {
   return (
@@ -152,26 +152,65 @@ export function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu
   );
 }
 
-export function GridCard({ thumbnail, title, subtitle, onClick, onContextMenu, cardId }) {
+export function GridCard({
+  thumbnail,
+  title,
+  subtitle,
+  count,
+  onClick,
+  onPlay,
+  onShuffle,
+  onContextMenu,
+  cardId,
+  playLabel,
+  shuffleLabel,
+}) {
+  const runAction = (action) => (event) => {
+    event.stopPropagation();
+    action?.();
+  };
   return (
-    <div
-      data-card-id={cardId}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      className="grid-card cursor-default overflow-hidden rounded-[14px] bg-surface shadow-[0_2px_10px_rgba(0,0,0,0.3)] transition-[transform,box-shadow] duration-200 hover:scale-[1.03] hover:shadow-[0_12px_32px_rgba(0,0,0,0.55)]"
-    >
-      {/* Thumbnail */}
-      <div className="w-full aspect-square overflow-hidden bg-elevated">
+    <div data-card-id={cardId} onContextMenu={onContextMenu} className="gcard cursor-default">
+      <div className="gcard-thumb aspect-square bg-elevated" onClick={onClick}>
         {thumbnail ? (
-          <img src={thumb(thumbnail)} alt="" className="block w-full h-full object-cover" />
+          <img src={thumb(thumbnail)} alt="" className="gcard-img" />
         ) : (
           <div className="w-full h-full bg-[linear-gradient(135deg,#2a1535,#1a0a25)]" />
         )}
+        {count != null && count !== "" && (
+          <span className="gcard-badge">
+            <MusicNote size={11} weight="fill" />
+            {count}
+          </span>
+        )}
+        {(onPlay || onShuffle) && (
+          <div className="gcard-actions">
+            {onShuffle && (
+              <button
+                className="gcard-btn gcard-btn-shuffle"
+                onClick={runAction(onShuffle)}
+                title={shuffleLabel}
+                aria-label={shuffleLabel}
+              >
+                <Shuffle size={15} weight="bold" />
+              </button>
+            )}
+            {onPlay && (
+              <button
+                className="gcard-btn gcard-btn-play"
+                onClick={runAction(onPlay)}
+                title={playLabel}
+                aria-label={playLabel}
+              >
+                <Play size={17} weight="fill" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      {/* Info footer */}
-      <div className="grid-card-footer min-h-[52px] px-[14px] pt-3 pb-[14px] bg-[rgb(10,10,12)]">
-        <div className="text-t13 font-semibold text-white truncate">{title}</div>
-        <div className="text-t11 text-muted mt-1 min-h-[14px] truncate">{subtitle || ""}</div>
+      <div className="pt-3 px-0.5" onClick={onClick}>
+        <div className="text-t13 font-semibold text-primary truncate">{title}</div>
+        {subtitle ? <div className="text-t12 text-muted mt-0.5 truncate">{subtitle}</div> : null}
       </div>
     </div>
   );

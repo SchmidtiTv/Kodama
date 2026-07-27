@@ -9,6 +9,7 @@ import { sendPlay } from "@/features/player/player-bridge.js";
 import { setContextTarget } from "./bpContext.js";
 import { trackContextActions } from "./Detail.jsx";
 import { MagnifyingGlass, Play } from "@/shared/icons/icons.jsx";
+import { bpt } from "./bp-i18n.js";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const NUMS = "0123456789".split("");
@@ -71,16 +72,16 @@ function Keyboard({ onKey, caps, onShift }) {
         <KeyBtn
           active={upper}
           onPress={onShift}
-          title={caps === "lock" ? "Feststell (LB/RB)" : "Shift (LB/RB)"}
+          title={caps === "lock" ? bpt("bpCapsLock") : bpt("bpShift")}
         >
           {caps === "lock" ? "⇪" : "⇧"}
         </KeyBtn>
         <KeyBtn span={3} onPress={() => onKey(" ")}>
-          Leer
+          {bpt("bpSpace")}
         </KeyBtn>
         <KeyBtn onPress={() => onKey("\b")}>⌫</KeyBtn>
         <KeyBtn span={2} onPress={() => onKey("clear")}>
-          Löschen
+          {bpt("clear")}
         </KeyBtn>
       </div>
     </div>
@@ -247,7 +248,7 @@ export function Search({ chrome }) {
       >
         {chrome}
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 22 }}>
-          Linken Stick drücken (L3) wechselt Groß-/Kleinschreibung
+          {bpt("bpCapsHint")}
         </div>
         <div
           style={{
@@ -268,7 +269,7 @@ export function Search({ chrome }) {
               fontWeight: 600,
             }}
           >
-            {query || "Songs suchen…"}
+            {query || bpt("searchSongs")}
           </span>
           <span
             style={{
@@ -285,15 +286,15 @@ export function Search({ chrome }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             {!query.trim() ? (
               <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, padding: "20px 0" }}>
-                Tippe etwas, um zu suchen.
+                {bpt("bpSearchHint")}
               </div>
             ) : loading && !results.length ? (
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 18, padding: "20px 0" }}>
-                Sucht…
+                {bpt("bpSearching")}
               </div>
             ) : !results.length ? (
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 18, padding: "20px 0" }}>
-                Nichts gefunden.
+                {bpt("noResults")}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

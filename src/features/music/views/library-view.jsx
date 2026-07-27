@@ -12,6 +12,7 @@ import {
 } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { usePlayerActions } from "@/features/player/player-context.jsx";
 
 export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu }) {
   const [tab, setTab] = useState("playlists");
@@ -26,6 +27,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
   const t = useLang();
+  const { handlePlay } = usePlayerActions();
 
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
@@ -97,6 +99,26 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
         (item.artists || "").toLowerCase().includes(q)
       );
     });
+
+  const playCollection = async (kind, id, shuffle) => {
+    const endpoint = kind === "album" ? `${API}/album/${id}` : `${API}/playlist/${id}`;
+    try {
+      const response = await fetch(endpoint);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const tracks = (payload.tracks || []).filter((track) => track.videoId);
+      if (!tracks.length) return;
+      if (shuffle) {
+        for (let index = tracks.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [tracks[index], tracks[swapIndex]] = [tracks[swapIndex], tracks[index]];
+        }
+      }
+      handlePlay(tracks[0], tracks);
+    } catch {
+      // Opening the card remains available if the quick action cannot load the collection.
+    }
+  };
 
   const sortOptions = [
     { value: "default", label: t("sortDefault") },
@@ -266,8 +288,12 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
                   cardId={item.playlistId}
                   thumbnail={item.thumbnail}
                   title={item.title}
-                  subtitle={item.count ? `${item.count} ${t("songs")}` : ""}
+                  count={item.count || undefined}
                   onClick={() => onOpenPlaylist(item)}
+                  onPlay={() => playCollection("playlist", item.playlistId, false)}
+                  onShuffle={() => playCollection("playlist", item.playlistId, true)}
+                  playLabel={t("playAll")}
+                  shuffleLabel={t("shuffle")}
                   onContextMenu={onContextMenu ? (e) => onContextMenu(e, item) : undefined}
                 />
               );
@@ -279,6 +305,10 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
                   title={item.title}
                   subtitle={`${item.artists}${item.year ? ` · ${item.year}` : ""}`}
                   onClick={() => onOpenAlbum(item)}
+                  onPlay={() => playCollection("album", item.browseId, false)}
+                  onShuffle={() => playCollection("album", item.browseId, true)}
+                  playLabel={t("playAll")}
+                  shuffleLabel={t("shuffle")}
                   onContextMenu={
                     onContextMenu ? (e) => onContextMenu(e, { ...item, type: "album" }) : undefined
                   }
@@ -290,7 +320,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
                   key={item.browseId || i}
                   thumbnail={item.thumbnail}
                   title={item.artist}
-                  subtitle={item.songs ? `${item.songs} ${t("songs")}` : ""}
+                  count={item.songs || undefined}
                   onClick={() => onOpenArtist(item)}
                   onContextMenu={
                     onContextMenu

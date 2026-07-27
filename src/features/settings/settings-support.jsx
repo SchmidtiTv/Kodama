@@ -628,6 +628,47 @@ const _debugLevelBg = (level) => {
 };
 const _debugFmtTs = (ts) => new Date(ts * 1000).toTimeString().slice(0, 8);
 
+function _debugFmtAge(ageSeconds) {
+  if (ageSeconds == null) return "—";
+  if (ageSeconds < 60) return `${ageSeconds}s`;
+  const minutes = Math.floor(ageSeconds / 60);
+  if (minutes < 60) return `${minutes}m ${ageSeconds % 60}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function _debugAuthRows(info, t) {
+  const authStatus =
+    info.authed === true ? (
+      <span style={{ color: "#6bdf96", display: "flex", alignItems: "center", gap: 4 }}>
+        <Check size={11} weight="bold" />
+        {t("debugAuthedYes")}
+      </span>
+    ) : info.authed === false ? (
+      <span style={{ color: "#ff7070", display: "flex", alignItems: "center", gap: 4 }}>
+        <WarningCircle size={11} weight="fill" />
+        {t("debugAuthedNo")}
+      </span>
+    ) : (
+      t("debugAuthedUnknown")
+    );
+  const streamError = info.lastStreamError;
+  return [
+    [t("debugAuthStatus"), authStatus],
+    [
+      t("debugCookieRefresh"),
+      info.cookieRefreshAgeS == null
+        ? t("debugCookieRefreshNever")
+        : `${_debugFmtAge(info.cookieRefreshAgeS)} ago`,
+    ],
+    [
+      t("debugLastStreamError"),
+      streamError
+        ? `${streamError.videoId} — ${streamError.error.slice(0, 60)}${streamError.error.length > 60 ? "…" : ""}`
+        : t("debugLastStreamErrorNone"),
+    ],
+  ];
+}
+
 function _buildDebugReport(info, logs) {
   return [
     "=== Kodama Debug Report ===",
@@ -643,6 +684,14 @@ function _buildDebugReport(info, logs) {
           `Plattform:  ${info.platform}`,
           `Uptime:     ${info.uptime}`,
           `Data dir:   ${info.data_dir}`,
+          `\n--- Session/Auth ---`,
+          `Authed:           ${info.authed === true ? "yes" : info.authed === false ? "no" : "unknown"}`,
+          `Cookie-Refresh:   ${_debugFmtAge(info.cookieRefreshAgeS)} ago`,
+          `Last stream err:  ${
+            info.lastStreamError
+              ? `${info.lastStreamError.videoId} — ${info.lastStreamError.error}`
+              : "none"
+          }`,
         ].join("\n")
       : "Backend nicht erreichbar",
     `\n=== Logs (${logs.length} Einträge) ===`,
@@ -739,6 +788,7 @@ export function DebugFloatingWindow({ onClose }) {
         ["Profil", info.profile],
         ["Plattform", info.platform],
         ["Uptime", info.uptime],
+        ..._debugAuthRows(info, t),
       ]
     : [];
 
@@ -1089,6 +1139,7 @@ export function DebugTab({ t }) {
               ["Profil", info.profile],
               ["Plattform", info.platform],
               ["Uptime", info.uptime],
+              ..._debugAuthRows(info, t),
             ].map(([k, v]) => (
               <CardRoot
                 key={k}

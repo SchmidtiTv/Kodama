@@ -168,7 +168,20 @@ class VideoSyncService:
                 tracks = watch.get("tracks") or []
                 counterpart = (tracks[0].get("counterpart") if tracks else None) or None
                 counterpart_id = counterpart.get("videoId") if counterpart else None
-                if counterpart_id:
+                if not counterpart_id:
+                    # Some uploads are videos themselves rather than audio releases with a
+                    # separate official-video counterpart. Their existing audio clock can drive
+                    # the same muted video at offset zero without cross-correlation.
+                    video_type = (tracks[0].get("videoType") if tracks else None) or ""
+                    if video_type and video_type != "MUSIC_VIDEO_TYPE_ATV":
+                        result = {
+                            "available": True,
+                            "counterpartVideoId": video_id,
+                            "offsetSeconds": 0,
+                            "confidence": 999,
+                            "selfVideo": True,
+                        }
+                else:
                     ffmpeg_dir = self._ffmpeg.find()
                     if ffmpeg_dir is False:
                         result = {"available": False, "error": "ffmpeg not found"}

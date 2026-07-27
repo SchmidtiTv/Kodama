@@ -222,12 +222,15 @@ class FakeYoutubeClient:
         self.ratings.append((video_id, rating))
 
     def get_library_playlists(self, limit: object=50) -> object:
+        self.library_playlists_limit = limit
         return [{"playlistId": "pl", "title": "Playlist", "count": "2", "thumbnails": [{"url": "http://img/pl.jpg"}]}]
 
     def get_library_albums(self, limit: object=50) -> object:
+        self.library_albums_limit = limit
         return [{"browseId": "alb", "title": "Album", "artists": [{"name": "Artist"}], "year": "2026", "thumbnails": cast(list[object], [])}]
 
     def get_library_artists(self, limit: object=50) -> object:
+        self.library_artists_limit = limit
         return [{"browseId": "artist", "artist": "Artist", "songs": "10", "thumbnails": cast(list[object], [])}]
 
     def create_playlist(self, title: object, description: object, privacy_status: object="PRIVATE", video_ids: object=None) -> object:
@@ -402,6 +405,8 @@ class FakeMusicSession:
             current_profile="default",
             ytm=object(),
             playlist_cache={"cached": {"playlist": []}},
+            psidts_last_refresh=1000.0,
+            last_authenticated=True,
         )
         self.client = FakeYoutubeClient()
 
@@ -518,6 +523,7 @@ class FakeUpstream:
 class FakeStreamService:
     def __init__(self) -> None:
         self.warmed = []
+        self.last_error = None
 
     def resolve_stream(self, video_id: str) -> tuple[dict[str, str], int]:
         return {"url": f"https://stream/{video_id}"}, 200

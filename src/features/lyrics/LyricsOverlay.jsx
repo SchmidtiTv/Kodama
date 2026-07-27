@@ -846,12 +846,13 @@ function LyricsOverlayContent({
     // Fluid wraps each line in a will-change:transform div (its own offsetParent), so the
     // inner [data-lyric] offsetTop is ~0 — measure the wrapper for positioning instead.
     const sel = fluidLyrics ? "[data-lyricdrift]" : "[data-lyric]";
+    const bottomInset = fullscreen && playerBarVisible ? 104 : 0;
     const measure = () => {
       const activeEl = container.querySelectorAll(sel)[activeIdx];
       if (!activeEl) return null;
       return Math.max(
         0,
-        activeEl.offsetTop - container.clientHeight / 2 + activeEl.clientHeight / 2
+        activeEl.offsetTop - (container.clientHeight - bottomInset) / 2 + activeEl.clientHeight / 2
       );
     };
     const frame = requestAnimationFrame(() => {
@@ -1251,21 +1252,31 @@ function LyricsOverlayContent({
           position: "relative",
           zIndex: 1,
           flex: 1,
-          overflowY: "auto",
-          padding: "40vh 80px 40vh",
-          // Fluid: soft top/bottom edge-fade so lines dissolve instead of hard-clipping.
-          ...(fluidLyrics
+          ...(lyrics
             ? {
-                maskImage:
-                  "linear-gradient(to bottom, transparent 0, #000 110px, #000 calc(100% - 110px), transparent 100%)",
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, transparent 0, #000 110px, #000 calc(100% - 110px), transparent 100%)",
+                overflowY: "auto",
+                padding: "40vh 80px 40vh",
+                ...(fluidLyrics
+                  ? {
+                      maskImage:
+                        "linear-gradient(to bottom, transparent 0, #000 110px, #000 calc(100% - 110px), transparent 100%)",
+                      WebkitMaskImage:
+                        "linear-gradient(to bottom, transparent 0, #000 110px, #000 calc(100% - 110px), transparent 100%)",
+                    }
+                  : {}),
               }
-            : {}),
+            : {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                padding: "0 80px",
+              }),
         }}
       >
         {loading && (
-          <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: 60 }}>
+          <div style={{ textAlign: "center", color: "var(--text-muted)" }}>
             {t("lyricsLoading")}
           </div>
         )}
@@ -1276,7 +1287,6 @@ function LyricsOverlayContent({
               flexDirection: "column",
               alignItems: "center",
               gap: 16,
-              marginTop: 60,
             }}
           >
             <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "var(--t14)" }}>

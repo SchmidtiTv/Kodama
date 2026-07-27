@@ -13,6 +13,7 @@ import {
   RepeatOnce,
   Microphone,
 } from "@/shared/icons/icons.jsx";
+import { bpt } from "./bp-i18n.js";
 
 const fmt = (s) => {
   s = Math.max(0, Math.floor(s || 0));
@@ -145,7 +146,7 @@ function LyricsBtn({ onPress }) {
           "transform .12s, background .12s, box-shadow .12s, color .12s, outline-color .12s",
       }}
     >
-      <Microphone size={20} weight="fill" /> Lyrics
+      <Microphone size={20} weight="fill" /> {bpt("lyrics")}
     </div>
   );
 }
@@ -199,7 +200,7 @@ export function NowPlaying({ onOpenLyrics }) {
               WebkitBoxOrient: "vertical",
             }}
           >
-            {np.title || "Nichts spielt gerade"}
+            {np.title || bpt("bpNoTrackActive")}
           </div>
           <div
             style={{

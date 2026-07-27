@@ -8,6 +8,7 @@ import { thumbHi } from "@/shared/api/thumbnails.js";
 import { sendPlay } from "@/features/player/player-bridge.js";
 import { setContextTarget } from "./bpContext.js";
 import { trackContextActions } from "./Detail.jsx";
+import { bpt } from "./bp-i18n.js";
 
 function readHistory() {
   try {
@@ -78,10 +79,10 @@ function Card({ item, section, onOpenCard }) {
     },
   });
   const sub = isArtist
-    ? "Künstler"
+    ? bpt("artist")
     : item.type === "album"
-      ? item.year || artistsOf(item) || "Album"
-      : artistsOf(item) || (item.type === "playlist" ? "Playlist" : "");
+      ? item.year || artistsOf(item) || bpt("album")
+      : artistsOf(item) || (item.type === "playlist" ? bpt("playlist") : "");
   return (
     <div ref={ref} onClick={activate} style={{ width: 176, flexShrink: 0, cursor: "default" }}>
       <div
@@ -216,7 +217,7 @@ export function Home({ chrome, onOpenCard }) {
       >
         {chrome}
         {history.length ? (
-          <Shelf title="Zuletzt gespielt" items={history} onOpenCard={onOpenCard} />
+          <Shelf title={bpt("bpRecentlyPlayed")} items={history} onOpenCard={onOpenCard} />
         ) : null}
         {sections.map((s, i) => (
           <Shelf key={i} title={s.title} items={s.items} section={s} onOpenCard={onOpenCard} />

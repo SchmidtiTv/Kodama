@@ -5,6 +5,7 @@ from typing import cast
 from flask import current_app
 
 from src.lib.music.youtube_music import YoutubeMusicSession
+from src.lib.music.stream import StreamService
 from src.lib.runtime.network import NetworkSettings
 from src.lib.runtime.overlay import OverlayServer
 from src.lib.runtime.remote import RemoteControl
@@ -24,6 +25,10 @@ def network_settings() -> NetworkSettings:
 
 def music_session() -> YoutubeMusicSession:
     return cast(YoutubeMusicSession, current_app.extensions["youtube_music_session"])
+
+
+def stream_service() -> StreamService:
+    return cast(StreamService, current_app.extensions["stream_service"])
 
 
 def server_start_time() -> float:

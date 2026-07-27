@@ -649,37 +649,36 @@ export function AppOverlays({
         />
       )}
 
-      {createPlaylistOpen && (
-        <CreatePlaylistModal
-          t={(key) => translate(language, key)}
-          onClose={() => {
-            setCreatePlaylistOpen(false);
-            setCreatePlaylistForSelection(false);
-            setCreatePlaylistTracks(null);
-          }}
-          onCreated={async (id, title) => {
-            const pending = createPlaylistTracks;
-            if (pending && pending.length > 0) {
-              try {
-                await fetch(`${API}/playlist/${id}/add`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    videoIds: pending.map((t) => t.videoId),
-                    tracks: pending,
-                  }),
-                });
-              } catch {
-                /* intentionally ignored */
-              }
-              if (createPlaylistForSelection) clearSelection();
+      <CreatePlaylistModal
+        isOpen={createPlaylistOpen}
+        t={(key) => translate(language, key)}
+        onClose={() => {
+          setCreatePlaylistOpen(false);
+          setCreatePlaylistForSelection(false);
+          setCreatePlaylistTracks(null);
+        }}
+        onCreated={async (id, title) => {
+          const pending = createPlaylistTracks;
+          if (pending && pending.length > 0) {
+            try {
+              await fetch(`${API}/playlist/${id}/add`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  videoIds: pending.map((t) => t.videoId),
+                  tracks: pending,
+                }),
+              });
+            } catch {
+              /* intentionally ignored */
             }
-            setCreatePlaylistTracks(null);
-            setCreatePlaylistForSelection(false);
-            openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
-          }}
-        />
-      )}
+            if (createPlaylistForSelection) clearSelection();
+          }
+          setCreatePlaylistTracks(null);
+          setCreatePlaylistForSelection(false);
+          openPlaylist({ playlistId: id, title, thumbnail: "" }, view);
+        }}
+      />
 
       {/* Add to playlist — dedicated modal (search + rich playlist rows) */}
       {addToPlaylistFor && (

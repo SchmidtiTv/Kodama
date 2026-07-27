@@ -5,13 +5,14 @@
 import { useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { thumbHi } from "@/shared/api/thumbnails.js";
 import { useNowPlaying } from "@/features/player/player-bridge.js";
+import { bpt } from "./bp-i18n.js";
 
 export const TABS = [
-  { key: "home", label: "Home", icon: "house" },
-  { key: "search", label: "Suche", icon: "magnifying-glass" },
-  { key: "playlists", label: "Playlists", icon: "list-music" },
-  { key: "albums", label: "Alben", icon: "compact-disc" },
-  { key: "artists", label: "Künstler", icon: "microphone" },
+  { key: "home", labelKey: "home", icon: "house" },
+  { key: "search", labelKey: "search", icon: "magnifying-glass" },
+  { key: "playlists", labelKey: "playlists", icon: "list-music" },
+  { key: "albums", labelKey: "albums", icon: "compact-disc" },
+  { key: "artists", labelKey: "artists", icon: "microphone" },
 ];
 
 function scrollPageTop(node) {
@@ -43,7 +44,7 @@ function Tab({ t, active, onSelect }) {
       }}
     >
       <i className={`fa-solid fa-${t.icon}`} style={{ fontSize: 19 }} aria-hidden="true" />
-      {t.label}
+      {bpt(t.labelKey)}
       {on || focused ? (
         <span
           style={{
@@ -117,7 +118,7 @@ function NowCard({ onOpen }) {
             marginBottom: 3,
           }}
         >
-          Läuft gerade
+          {bpt("nowPlaying")}
         </div>
         <div
           style={{

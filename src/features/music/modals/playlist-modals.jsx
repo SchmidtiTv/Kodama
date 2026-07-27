@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   cn,
   Button,
@@ -20,11 +20,19 @@ import { ModalDialog } from "@/shared/ui/zoomed-heroui.jsx";
 import { Lock, EyeSlash, Globe, Playlist, PencilSimple, Trash } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 
-export function CreatePlaylistModal({ onClose, onCreated, t }) {
+export function CreatePlaylistModal({ isOpen, onClose, onCreated, t }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [privacy, setPrivacy] = useState("PRIVATE");
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTitle("");
+    setDescription("");
+    setPrivacy("PRIVATE");
+    setCreating(false);
+  }, [isOpen]);
 
   const handleCreate = async () => {
     if (!title.trim() || creating) return;
@@ -56,7 +64,7 @@ export function CreatePlaylistModal({ onClose, onCreated, t }) {
 
   return (
     <ModalRoot
-      isOpen
+      isOpen={isOpen}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}

@@ -696,7 +696,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    const lang = localStorage.getItem("kiyoshi-lang") || "de";
+    const lang = getInitialLang();
     import("@tauri-apps/api/core").then(({ invoke }) => {
       invoke("update_tray_labels", {
         showLabel: translate(lang, "trayShow"),

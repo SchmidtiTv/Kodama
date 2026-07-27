@@ -302,6 +302,13 @@ export function Player({
 
     if (showVideoView) {
       if (!videoSync?.ready || !videoSync.counterpartVideoId) return;
+      if (videoSync.selfVideo) {
+        videoModeActiveRef.current = true;
+        videoModeTrackIdRef.current = trackId;
+        crossfadeActiveRef.current = false;
+        crossfadePendingTrackRef.current = null;
+        return;
+      }
       const offset = videoSync.offsetSeconds || 0;
       (async () => {
         const targetPosition = Math.max(0, audio.currentTime + offset);
@@ -316,6 +323,11 @@ export function Player({
         if (wasPlaying) setIsPlaying(true);
       })();
     } else if (videoModeActiveRef.current && videoModeTrackIdRef.current === trackId) {
+      if (videoSync?.selfVideo) {
+        videoModeActiveRef.current = false;
+        videoModeTrackIdRef.current = null;
+        return;
+      }
       const offset = videoSync?.offsetSeconds || 0;
       (async () => {
         const targetPosition = Math.max(0, audio.currentTime - offset);
@@ -379,6 +391,8 @@ export function Player({
 
   useEffect(() => {
     if (!track) return;
+    videoModeActiveRef.current = false;
+    videoModeTrackIdRef.current = null;
     setLoading(true);
     setStreamUrl(null);
     let cancelled = false;

@@ -1,6 +1,7 @@
 import { ScrollShadowRoot } from "@heroui/react";
 
 export function Carousel({ children, style, insetX = 0 }) {
+  const shadowPadding = 16;
   return (
     <ScrollShadowRoot
       orientation="horizontal"
@@ -10,8 +11,10 @@ export function Carousel({ children, style, insetX = 0 }) {
       style={{
         display: "flex",
         overflowX: "auto",
-        marginLeft: insetX,
-        marginRight: insetX,
+        marginLeft: insetX - shadowPadding,
+        marginRight: insetX - shadowPadding,
+        paddingLeft: shadowPadding,
+        paddingRight: shadowPadding,
         ...style,
       }}
     >

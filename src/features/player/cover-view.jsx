@@ -61,6 +61,7 @@ export function CoverView({
   compact = false,
   narrow = false,
   isActive = true,
+  ambientBackground = false,
 }) {
   const hq = hiResThumb(track.thumbnail);
   const specRef = useRef(null);
@@ -446,7 +447,7 @@ export function CoverView({
       }}
     >
       {/* Ambient colour blobs — negative inset keeps edges outside the visible area */}
-      {ambientVisualizer && isActive && vizConfig?.blobs !== false && (
+      {ambientVisualizer && isActive && !ambientBackground && vizConfig?.blobs !== false && (
         <>
           <div
             style={{

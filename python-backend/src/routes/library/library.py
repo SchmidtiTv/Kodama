@@ -22,7 +22,9 @@ def library_playlists() -> RouteResponse:
                 ).fetchall()
             result = [{"playlistId": r[0], "title": r[1], "description": r[2], "count": str(r[3]), "thumbnail": ""} for r in rows]
             return jsonify({"playlists": result})
-        playlists = session.get_active_client().get_library_playlists(limit=50)
+        # ``None`` follows every continuation. Numeric limits stop at a page boundary and
+        # silently truncate larger libraries (for example, limit=50 returned roughly 75 of 229).
+        playlists = session.get_active_client().get_library_playlists(limit=None)
         result = []
         for p in playlists:
             result.append({
@@ -44,7 +46,7 @@ def library_albums() -> RouteResponse:
     try:
         if profile_repo.is_local(profile_name):
             return jsonify({"albums": []})
-        albums = session.get_active_client().get_library_albums(limit=50)
+        albums = session.get_active_client().get_library_albums(limit=None)
         result = []
         for a in albums:
             artists = ", ".join(x["name"] for x in a.get("artists", []))
@@ -68,7 +70,7 @@ def library_artists() -> RouteResponse:
     try:
         if profile_repo.is_local(profile_name):
             return jsonify({"artists": []})
-        artists = session.get_active_client().get_library_artists(limit=50)
+        artists = session.get_active_client().get_library_artists(limit=None)
         result = []
         for a in artists:
             result.append({

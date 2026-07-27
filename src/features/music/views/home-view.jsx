@@ -403,7 +403,7 @@ export function HomeView({
             display: "flex",
             alignItems: "center",
             gap: 5,
-            textAlign: isArtist ? "center" : "left",
+            textAlign: "left",
           }}
         >
           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</span>
@@ -418,7 +418,7 @@ export function HomeView({
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              textAlign: isArtist ? "center" : "left",
+              textAlign: "left",
             }}
           >
             {item.subtitle || item.artists || "Artist"}

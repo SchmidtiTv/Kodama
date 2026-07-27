@@ -4,6 +4,7 @@
 // extra bridging; the current track comes from the player bridge.
 import { LyricsOverlay } from "@/features/lyrics/LyricsOverlay.jsx";
 import { useNowPlaying, getAudio } from "@/features/player/player-bridge.js";
+import { bpt } from "./bp-i18n.js";
 
 // LyricsOverlay expects a ref whose .current is the playback clock. That's the IpcAudio shim the
 // Player registered on the bridge (currentTime/paused + timeupdate events), not a DOM element.
@@ -27,7 +28,7 @@ export function Lyrics() {
         }}
       >
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 22 }}>
-          Kein Titel aktiv · B / Esc zurück
+          {bpt("bpNoTrackActive")} · {bpt("bpBackHint")}
         </div>
       </div>
     );

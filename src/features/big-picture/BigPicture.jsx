@@ -19,6 +19,7 @@ import { initSounds, playNav, playSelect, playBack, playOpen } from "./bpSounds.
 import { Keybar } from "./Keybar.jsx";
 import { setInputMode } from "./bpInput.js";
 import { TabChrome } from "./TabChrome.jsx";
+import { bpt } from "./bp-i18n.js";
 
 // Top-level tabs (peer views switched by LB/RB). Each maps to its screen id.
 const TAB_KEYS = ["home", "search", "playlists", "albums", "artists"];
@@ -279,6 +280,18 @@ export function BigPicture() {
   );
   useController({ active: open, onDirection, onEnter, onBack, onButton });
 
+  // Escape follows the same back stack as the controller's B button and closes the root screen.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event) => {
+      if (menuRef.current || event.key !== "Escape") return;
+      event.preventDefault();
+      onBack();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onBack]);
+
   // A playlist/album card opens its detail screen; an artist card opens the artist screen.
   const openDetail = useCallback(
     (type, item) => {
@@ -343,18 +356,18 @@ export function BigPicture() {
   let hints;
   if (menu) {
     hints = [
-      { kind: "select", label: "Auswählen" },
-      { kind: "back", label: "Schließen", right: true },
+      { kind: "select", label: bpt("select") },
+      { kind: "back", label: bpt("close"), right: true },
     ];
   } else {
     hints = [
-      { kind: "nav", label: "Bewegen" },
-      { kind: "select", label: "Auswählen" },
+      { kind: "nav", label: bpt("bpMove") },
+      { kind: "select", label: bpt("select") },
     ];
-    if (activeTab) hints.push({ kind: "tabs", label: "Tabs" });
+    if (activeTab) hints.push({ kind: "tabs", label: bpt("bpTabs") });
     if (!(screen === "nowplaying" || screen === "lyrics"))
-      hints.push({ kind: "menu", label: "Optionen" });
-    hints.push({ kind: "back", label: activeTab ? "Schließen" : "Zurück", right: true });
+      hints.push({ kind: "menu", label: bpt("bpOptions") });
+    hints.push({ kind: "back", label: activeTab ? bpt("close") : bpt("back"), right: true });
   }
 
   return (
@@ -440,7 +453,7 @@ export function BigPicture() {
                 padding: "10px 0 6px",
               }}
             >
-              A wählt · B / Esc schließt
+              {bpt("bpMenuHint")}
             </div>
           </div>
         </div>

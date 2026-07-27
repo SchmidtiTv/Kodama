@@ -206,6 +206,7 @@ export function PlayerOverlay({
                   vizConfig={vizConfig}
                   narrow={coverSplitActive}
                   isActive={overlayOpen && coverVisible}
+                  ambientBackground={ambientBackground}
                 />
               </div>
               <div
@@ -231,6 +232,7 @@ export function PlayerOverlay({
                     fluidCaptions={fluidLyrics}
                     captionsTranslation={showLyricsTranslation}
                     captionsTranslationLang={lyricsTranslationLang}
+                    captionsRomaji={showRomaji}
                     captionsSyllableZoom={syllableZoom}
                   />
                 )}

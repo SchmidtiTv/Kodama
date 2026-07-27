@@ -9,6 +9,7 @@ import { sendPlay } from "@/features/player/player-bridge.js";
 import { setContextTarget } from "./bpContext.js";
 import { trackContextActions } from "./Detail.jsx";
 import { Play, Shuffle } from "@/shared/icons/icons.jsx";
+import { bpt } from "./bp-i18n.js";
 
 function artistsOf(track) {
   return Array.isArray(track.artists)
@@ -320,20 +321,20 @@ export function Artist({ item, onOpenAlbum, onPlayed }) {
     return (
       <div style={bg}>
         <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 20 }}>
-          Künstler konnte nicht geladen werden. · B / Esc zurück
+          {bpt("bpArtistLoadError")} · {bpt("bpBackHint")}
         </div>
       </div>
     );
   if (!data)
     return (
       <div style={bg}>
-        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 20 }}>Lädt…</div>
+        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 20 }}>{bpt("loading")}</div>
       </div>
     );
 
   const stats = [
-    data.subscribers && `${data.subscribers} Abonnenten`,
-    data.monthlyListeners && `${data.monthlyListeners} monatliche Hörer`,
+    data.subscribers && `${data.subscribers} ${bpt("subscribers")}`,
+    data.monthlyListeners && `${data.monthlyListeners} ${bpt("bpMonthlyListeners")}`,
   ]
     .filter(Boolean)
     .join("  ·  ");
@@ -384,12 +385,12 @@ export function Artist({ item, onOpenAlbum, onPlayed }) {
               <div style={{ display: "flex", gap: 12 }}>
                 <ActionBtn
                   icon={<Play size={19} weight="fill" />}
-                  label="Alles abspielen"
+                  label={bpt("playAll")}
                   onPress={playAll}
                 />
                 <ActionBtn
                   icon={<Shuffle size={19} weight="bold" />}
-                  label="Zufall"
+                  label={bpt("shuffle")}
                   onPress={playShuffle}
                 />
               </div>
@@ -401,7 +402,7 @@ export function Artist({ item, onOpenAlbum, onPlayed }) {
         {topTracks.length ? (
           <div style={{ marginBottom: 38 }}>
             <div style={{ color: "#fff", fontSize: 22, fontWeight: 700, marginBottom: 12 }}>
-              Top-Songs
+              {bpt("topSongs")}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 900 }}>
               {topTracks.map((tr, i) => (
@@ -411,8 +412,8 @@ export function Artist({ item, onOpenAlbum, onPlayed }) {
           </div>
         ) : null}
 
-        <Shelf title="Alben" items={data.albums} onSelect={onOpenAlbum} />
-        <Shelf title="Singles" items={data.singles} onSelect={onOpenAlbum} />
+        <Shelf title={bpt("albums")} items={data.albums} onSelect={onOpenAlbum} />
+        <Shelf title={bpt("singles")} items={data.singles} onSelect={onOpenAlbum} />
       </div>
     </FocusContext.Provider>
   );

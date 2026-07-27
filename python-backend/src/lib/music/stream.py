@@ -57,6 +57,7 @@ class StreamService:
         self._audio_url_lock = threading.Lock()
         self._audio_url_inflight: dict[str, threading.Event] = {}
         self._stream_resolution_lock = threading.Lock()
+        self.last_error: dict[str, str] | None = None
 
     # ── yt-dlp extraction helpers ────────────────────────────────────────────
     # Old server.py: _ydl_extract_url
@@ -332,6 +333,7 @@ class StreamService:
         premium = "Music Premium" in err_str
         unavailable = self._is_unavailable(err_str)
         self._logger.error(f"[stream] {video_id}: {type(last_err).__name__}: {err_str}")
+        self.last_error = {"videoId": video_id, "error": err_str}
         return {"error": err_str, "premium_only": premium, "unavailable": unavailable}, 500
 
     # ── /stream-prepare ──────────────────────────────────────────────────────
@@ -388,6 +390,7 @@ class StreamService:
         premium = "Music Premium" in err_str
         unavailable = self._is_unavailable(err_str)
         self._logger.error(f"[stream-prepare] {video_id}: {type(last_err).__name__}: {err_str}")
+        self.last_error = {"videoId": video_id, "error": err_str}
         return {"error": err_str, "premium_only": premium, "unavailable": unavailable}, 500
 
     # ── Progressive streaming proxy ──────────────────────────────────────────

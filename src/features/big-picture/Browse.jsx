@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { FocusContext, useFocusable } from "@noriginmedia/norigin-spatial-navigation";
 import { API } from "@/shared/api/client.js";
 import { thumbHi } from "@/shared/api/thumbnails.js";
+import { bpt } from "./bp-i18n.js";
 
 const ENDPOINT = {
   playlists: "/library/playlists",
@@ -12,7 +13,7 @@ const ENDPOINT = {
   artists: "/library/artists",
 };
 const LISTKEY = { playlists: "playlists", albums: "albums", artists: "artists" };
-const TITLE = { playlists: "Playlists", albums: "Alben", artists: "Künstler" };
+const TITLE = { playlists: "playlists", albums: "albums", artists: "artists" };
 
 function Card({ item, type, onSelect }) {
   const { ref, focused } = useFocusable({
@@ -26,10 +27,10 @@ function Card({ item, type, onSelect }) {
   const sub =
     type === "artists"
       ? item.songs
-        ? `${item.songs} Songs`
+        ? `${item.songs} ${bpt("songs")}`
         : ""
       : item.count
-        ? `${item.count} Songs`
+        ? `${item.count} ${bpt("songs")}`
         : item.artists || "";
   const round = type === "artists";
   return (
@@ -129,10 +130,12 @@ export function Browse({ type, chrome, onSelect }) {
       >
         {chrome}
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 24 }}>
-          {items === null ? "Lädt…" : `${TITLE[type]} · ${items.length} Einträge`}
+          {items === null
+            ? bpt("loading")
+            : `${bpt(TITLE[type])} · ${bpt("bpEntries", { n: items.length })}`}
         </div>
         {items === null ? null : items.length === 0 ? (
-          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 18 }}>Nichts gefunden.</div>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 18 }}>{bpt("noResults")}</div>
         ) : (
           <div
             style={{

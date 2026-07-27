@@ -28,10 +28,17 @@ export function useVideoSync(videoId, enabled, maxHeight) {
     offsetSeconds: 0,
     counterpartVideoId: null,
     ready: false,
+    selfVideo: false,
   });
 
   useEffect(() => {
-    setState({ videoUrl: null, offsetSeconds: 0, counterpartVideoId: null, ready: false });
+    setState({
+      videoUrl: null,
+      offsetSeconds: 0,
+      counterpartVideoId: null,
+      ready: false,
+      selfVideo: false,
+    });
     if (!enabled || !videoId) return;
     let cancelled = false;
     fetch(`${API}/video-sync/offset/${videoId}`)
@@ -54,6 +61,7 @@ export function useVideoSync(videoId, enabled, maxHeight) {
               offsetSeconds: d.offsetSeconds,
               counterpartVideoId: d.counterpartVideoId,
               ready: true,
+              selfVideo: Boolean(d.selfVideo),
             });
           });
       })
@@ -138,13 +146,15 @@ export function VideoSyncVideo({ src, offsetSeconds, audioRef, isPlaying, style 
 // endTime (e.g. one voice answering another) — mirrored here the same way the main lyrics view
 // handles it: a "trailing" line stays visible (still finishing its own wipe) alongside the new
 // "main" one, instead of just snapping to the newest line the instant it starts.
-function useCaptionLine(track, audioRef, enabled, showTranslation, translationLang) {
+function useCaptionLine(track, audioRef, enabled, showTranslation, translationLang, showRomaji) {
   const [mainLine, setMainLine] = useState(null);
   const [trailingLine, setTrailingLine] = useState(null);
   const [currentTranslation, setCurrentTranslation] = useState("");
+  const [currentRomaji, setCurrentRomaji] = useState("");
   const [lines, setLines] = useState([]);
   const linesRef = useRef([]);
   const translationsRef = useRef(null);
+  const romajisRef = useRef(null);
   const curIdxRef = useRef(-1);
   const trailingIdxRef = useRef(-1);
   const snapRef = useRef({ ct: 0, pt: 0, playing: false });
@@ -153,11 +163,13 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
   useEffect(() => {
     linesRef.current = [];
     translationsRef.current = null;
+    romajisRef.current = null;
     curIdxRef.current = -1;
     trailingIdxRef.current = -1;
     setMainLine(null);
     setTrailingLine(null);
     setCurrentTranslation("");
+    setCurrentRomaji("");
     setLines([]);
     if (!enabled || !track) return;
     let cancelled = false;
@@ -216,6 +228,30 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
   }, [enabled, showTranslation, lines, translationLang]);
 
   useEffect(() => {
+    romajisRef.current = null;
+    if (!enabled || !showRomaji || !lines.length) return;
+    let cancelled = false;
+    fetch(`${API}/romanize-lyrics`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines: lines.map((line) => line.text) }),
+    })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled) return;
+        romajisRef.current = payload.romanizations || null;
+        const index = curIdxRef.current;
+        const romanization = index >= 0 ? romajisRef.current?.[index] : null;
+        const lineText = index >= 0 ? linesRef.current[index]?.text : null;
+        setCurrentRomaji(romanization && romanization !== lineText ? romanization : "");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, showRomaji, lines]);
+
+  useEffect(() => {
     const audio = audioRef?.current;
     if (!audio || !enabled) return;
     const snap = () => {
@@ -269,6 +305,8 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
         setMainLine(line);
         const tr = idx >= 0 ? translationsRef.current?.[idx] : null;
         setCurrentTranslation(tr && tr !== line?.text ? tr : "");
+        const romanization = idx >= 0 ? romajisRef.current?.[idx] : null;
+        setCurrentRomaji(romanization && romanization !== line?.text ? romanization : "");
       }
       if (trailingIdx !== trailingIdxRef.current) {
         trailingIdxRef.current = trailingIdx;
@@ -280,7 +318,13 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
     return () => cancelAnimationFrame(raf);
   }, [enabled]);
 
-  return { mainLine, trailingLine, translation: currentTranslation, timeRef };
+  return {
+    mainLine,
+    trailingLine,
+    translation: currentTranslation,
+    romaji: currentRomaji,
+    timeRef,
+  };
 }
 
 // Renders one line — word-synced main text (if available) plus a smaller background-vocal row
@@ -378,17 +422,20 @@ function CaptionOverlay({
   fluid = false,
   showTranslation = false,
   translationLang = "DE",
+  showRomaji = false,
   syllableZoom = false,
 }) {
-  const { mainLine, trailingLine, translation, timeRef } = useCaptionLine(
+  const { mainLine, trailingLine, translation, romaji, timeRef } = useCaptionLine(
     track,
     audioRef,
     true,
     showTranslation,
-    translationLang
+    translationLang,
+    showRomaji
   );
   const [shownMain, setShownMain] = useState(null);
   const [shownTranslation, setShownTranslation] = useState("");
+  const [shownRomaji, setShownRomaji] = useState("");
   const [animKey, setAnimKey] = useState(0);
 
   useEffect(() => {
@@ -398,12 +445,14 @@ function CaptionOverlay({
     if (!mainLine) return;
     if (mainLine.text === shownMain?.text) {
       if (translation !== shownTranslation) setShownTranslation(translation);
+      if (romaji !== shownRomaji) setShownRomaji(romaji);
       return;
     }
     setShownMain(mainLine);
     setShownTranslation(translation);
+    setShownRomaji(romaji);
     setAnimKey((key) => key + 1);
-  }, [mainLine, translation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mainLine, translation, romaji]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!shownMain) return null;
 
@@ -475,6 +524,26 @@ function CaptionOverlay({
           bgFontSize={20}
         />
       </div>
+      {shownRomaji && (
+        <div
+          key={`${animKey}-ro`}
+          style={{
+            color: "rgba(255,255,255,0.6)",
+            fontWeight: 500,
+            fontSize: 18,
+            textAlign: "center",
+            lineHeight: 1.35,
+            maxWidth: 900,
+            overflowWrap: "anywhere",
+            textShadow: "0 2px 10px rgba(0,0,0,0.6)",
+            animation: fluid
+              ? "videoCaptionFluidIn 0.55s cubic-bezier(0.22,1,0.36,1) 0.04s backwards"
+              : "videoCaptionFadeIn 0.2s ease",
+          }}
+        >
+          {shownRomaji}
+        </div>
+      )}
       {shownTranslation && (
         <div
           key={`${animKey}-tr`}
@@ -516,6 +585,7 @@ export function VideoSyncView({
   fluidCaptions = false,
   captionsTranslation = false,
   captionsTranslationLang = "DE",
+  captionsRomaji = false,
   captionsSyllableZoom = false,
 }) {
   return (
@@ -553,6 +623,7 @@ export function VideoSyncView({
           fluid={fluidCaptions}
           showTranslation={captionsTranslation}
           translationLang={captionsTranslationLang}
+          showRomaji={captionsRomaji}
           syllableZoom={captionsSyllableZoom}
         />
       )}

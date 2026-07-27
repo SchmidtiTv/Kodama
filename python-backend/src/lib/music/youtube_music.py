@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 import threading
 import time
@@ -35,6 +36,7 @@ class YoutubeMusicSessionState:
         self.psidts_last_refresh = 0.0
         # Old server.py: _adding_account
         self.adding_account = False
+        self.last_authenticated: Optional[bool] = None
 
 
 class YoutubeMusicSession:
@@ -74,6 +76,7 @@ class YoutubeMusicSession:
         self._playlist_cache = playlist_cache
         self._client_factory = client_factory
         self._session_factory = session_factory
+        self._logger = logging.getLogger(__name__)
         self._cookie_refresh_loop_lock = threading.Lock()
         self._cookie_refresh_loop_started = False
 
@@ -145,7 +148,7 @@ class YoutubeMusicSession:
         try:
             self.state.ytm = self.create_client(name)
         except Exception as error:
-            print(f"[auth] load_profile failed for {name}: {error}", flush=True)
+            self._logger.error("[auth] load_profile failed for %s: %s", name, error)
             return False
 
         self.state.current_profile = name
@@ -225,7 +228,7 @@ class YoutubeMusicSession:
 
         self.state.psidts_last_refresh = time.time()
         has_psidts = "__Secure-1PSIDTS" in cookie_string or "__Secure-3PSIDTS" in cookie_string
-        print(f"[cookies] WebView refresh applied (PSIDTS present: {has_psidts})", flush=True)
+        self._logger.info("[cookies] WebView refresh applied (PSIDTS present: %s)", has_psidts)
         return True, None, has_psidts
 
     # Old server.py: get_ytmusic
@@ -322,14 +325,15 @@ class YoutubeMusicSession:
                 if cookie.name in self.SHORT_LIVED_COOKIES
             }
             if authenticated is False:
-                print(
-                    f"[cookies] refresh ping is LOGGED OUT (statuses: {', '.join(statuses)}) - re-login required.",
-                    flush=True,
+                self._logger.warning(
+                    "[cookies] refresh ping is LOGGED OUT (statuses: %s) - re-login required.",
+                    ", ".join(statuses),
                 )
             if not fresh_cookies:
-                print(
-                    f"[cookies] refresh: no rotating cookies returned (authed={authenticated}, statuses: {', '.join(statuses)})",
-                    flush=True,
+                self._logger.info(
+                    "[cookies] refresh: no rotating cookies returned (authed=%s, statuses: %s)",
+                    authenticated,
+                    ", ".join(statuses),
                 )
                 return
 
@@ -361,13 +365,16 @@ class YoutubeMusicSession:
                 pass
 
             self.state.psidts_last_refresh = now
-            print(
-                f"[cookies] session refreshed (authed={authenticated}): "
-                f"{', '.join(sorted(fresh_cookies))} | {', '.join(statuses)}",
-                flush=True,
+            if authenticated is not None:
+                self.state.last_authenticated = authenticated
+            self._logger.info(
+                "[cookies] session refreshed (authed=%s): %s | %s",
+                authenticated,
+                ", ".join(sorted(fresh_cookies)),
+                ", ".join(statuses),
             )
         except Exception as error:
-            print(f"[cookies] PSIDTS refresh failed (non-fatal): {error}", flush=True)
+            self._logger.warning("[cookies] PSIDTS refresh failed (non-fatal): %s", error)
 
     # Old server.py: _psidts_refresher_loop
     def run_cookie_refresh_loop(self) -> object:

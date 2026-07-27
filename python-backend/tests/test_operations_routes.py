@@ -33,6 +33,9 @@ class OperationsRouteTests(RouteTestCase):
         self.assertEqual(response.json["node"], "/usr/bin/node")
         self.assertEqual(response.json["profile"], "default")
         self.assertEqual(response.json["uptime"], "1m 5s")
+        self.assertTrue(response.json["authed"])
+        self.assertEqual(response.json["cookieRefreshAgeS"], 65)
+        self.assertIsNone(response.json["lastStreamError"])
         self.assertIn("python", response.json)
         self.assertIn("logs", response.json)
 

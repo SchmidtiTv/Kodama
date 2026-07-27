@@ -9,14 +9,15 @@ import { thumbHi } from "@/shared/api/thumbnails.js";
 import { sendPlay, sendEnqueue } from "@/features/player/player-bridge.js";
 import { setContextTarget } from "./bpContext.js";
 import { Play, Shuffle } from "@/shared/icons/icons.jsx";
+import { bpt } from "./bp-i18n.js";
 
 // Standard context-menu actions for a track (add-to-queue). Reused across the track lists.
 export function trackContextActions(track) {
   return {
     title: track.title || "",
     actions: [
-      { label: "Als Nächstes abspielen", run: () => sendEnqueue(track, "next") },
-      { label: "Zur Warteschlange hinzufügen", run: () => sendEnqueue(track, "end") },
+      { label: bpt("playNext"), run: () => sendEnqueue(track, "next") },
+      { label: bpt("addToQueue"), run: () => sendEnqueue(track, "end") },
     ],
   };
 }
@@ -313,18 +314,18 @@ export function Detail({ type, item, onPlayed }) {
               marginBottom: 22,
             }}
           >
-            {loading && !tracks.length ? "Lädt…" : `${tracks.length} Songs`}
+            {loading && !tracks.length ? bpt("loading") : `${tracks.length} ${bpt("songs")}`}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <ActionBtn
               icon={<Play size={20} weight="fill" />}
-              label="Alles abspielen"
+              label={bpt("playAll")}
               onPress={playAll}
               disabled={!playable}
             />
             <ActionBtn
               icon={<Shuffle size={20} weight="bold" />}
-              label="Zufall"
+              label={bpt("shuffle")}
               onPress={playShuffle}
               disabled={!playable}
             />
@@ -333,7 +334,7 @@ export function Detail({ type, item, onPlayed }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           {!tracks.length ? (
             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 18, padding: "20px 0" }}>
-              {loading ? "Lädt…" : "Keine Titel."}
+              {loading ? bpt("loading") : bpt("bpNoTracks")}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

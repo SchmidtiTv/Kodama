@@ -41,6 +41,9 @@ class LibraryListingRouteTests(RouteTestCase):
         artists = self.client.get("/library/artists")
         self.assertEqual(artists.status_code, 200)
         self.assertEqual(artists.json["artists"][0]["artist"], "Artist")
+        self.assertIsNone(self.music_session.client.library_playlists_limit)
+        self.assertIsNone(self.music_session.client.library_albums_limit)
+        self.assertIsNone(self.music_session.client.library_artists_limit)
 
     def test_local_library_listing_routes(self) -> None:
         self.profile_repository.local_profiles.add("default")
