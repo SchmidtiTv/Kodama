@@ -61,3 +61,6 @@ CI=true npm run tauri -- build --target "$TARGET"
 
 print -- "Build complete. Artifacts:"
 print -- "  $ROOT_DIR/src-tauri/target/$TARGET/release/bundle/"
+
+print -- "==> Opening Build Artifacts"
+open "$ROOT_DIR/src-tauri/target/$TARGET/release/bundle/"
