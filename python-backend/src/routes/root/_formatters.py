@@ -2,11 +2,10 @@
 
 from src.lib import YoutubeResponseMapper
 from typing import cast
-from typing import cast
 
 
 def song_result(track: dict[str, object]) -> dict[str, object]:
-    artists = cast(list[dict[str, str]], track.get("artists", []))
+    artists = cast(list[dict[str, str]], YoutubeResponseMapper.drop_type_label_artist(cast(list[dict[str, str]], track.get("artists", []))))
     album = cast(dict[str, str], track.get("album") or {})
     return {
         "type": "song",

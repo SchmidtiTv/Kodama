@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Button,
   cn,
@@ -16,16 +15,11 @@ import {
   DropdownTrigger,
   ListBox,
   ListBoxItem,
-  SearchFieldClearButton,
-  SearchFieldGroup,
-  SearchFieldInput,
-  SearchFieldRoot,
-  SearchFieldSearchIcon,
 } from "@heroui/react";
 import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
-import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { IS_MAC } from "@/shared/lib/platform.js";
+import { SpotlightSearch } from "@/features/music/components/spotlight-search.jsx";
 import {
   ArrowCircleUp,
   ArrowClockwise,
@@ -39,7 +33,6 @@ import {
   Gear,
   Heart,
   House,
-  MagnifyingGlass,
   Megaphone,
   Microphone,
   Playlist,
@@ -86,30 +79,7 @@ export function Sidebar({
 }) {
   const { profiles, activeProfile: currentProfileData } = useProfileState();
   const { logout: onLogout } = useProfileActions();
-  const [query, setQuery] = useState("");
-  // Search autocomplete: debounced suggestion fetch + a dropdown under the field.
-  const [suggestions, setSuggestions] = useState([]);
-  const [sugOpen, setSugOpen] = useState(false);
-  const [activeSuggestion, setActiveSuggestion] = useState(-1);
-  const sugBlurRef = useRef(null);
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const id = setTimeout(() => {
-      fetch(`${API}/search/suggestions?q=${encodeURIComponent(q)}`)
-        .then((r) => r.json())
-        .then((d) => setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []))
-        .catch(() => {});
-    }, 180);
-    return () => clearTimeout(id);
-  }, [query]);
   const [tooltip, setTooltip] = useState(null);
-  const [tetoVisible, setTetoVisible] = useState(false);
-  const [tetoLeaving, setTetoLeaving] = useState(false);
-  const tetoTimerRef = useRef(null);
   const [quitHolding, setQuitHolding] = useState(false);
   const quitHoldTimer = useRef(null);
   const t = useLang();
@@ -183,130 +153,6 @@ export function Sidebar({
     if (pl.type === "album") onOpenAlbum?.(pl);
     else if (pl.type === "artist") onOpenArtist?.(pl);
     else onOpenPlaylist(pl);
-  };
-
-  useEffect(() => {
-    if (tetoVisible && !query.toLowerCase().includes("teto")) hideTeto();
-  }, [query]);
-
-  const hideTeto = () => {
-    setTetoLeaving(true);
-    clearTimeout(tetoTimerRef.current);
-    tetoTimerRef.current = setTimeout(() => {
-      setTetoVisible(false);
-      setTetoLeaving(false);
-    }, 450);
-  };
-
-  const handleSubmit = (value) => {
-    const q = value.trim();
-    if (!q) return;
-    setSugOpen(false);
-    // Paste a YouTube / YT Music playlist link (or a bare playlist id) -> open it
-    // directly. Works for unlisted "link only" playlists, which never show in search.
-    let plId = null;
-    const urlM = q.match(/[?&]list=([A-Za-z0-9_-]+)/);
-    if (urlM && /(?:music\.)?youtube\.com|youtu\.be/i.test(q)) plId = urlM[1];
-    else if (/^(VL)?(PL|OLAK5uy_|RDCLAK|RDAMPL)[A-Za-z0-9_-]{10,}$/.test(q)) plId = q;
-    if (plId) {
-      onCloseOverlay?.();
-      onOpenPlaylist?.({ playlistId: plId.replace(/^VL/, "") });
-      setQuery("");
-      return;
-    }
-    onSearch(q);
-    setView("search");
-    onCloseOverlay?.();
-    if (q.toLowerCase().includes("teto")) {
-      clearTimeout(tetoTimerRef.current);
-      setTetoLeaving(false);
-      setTetoVisible(true);
-    } else if (tetoVisible) {
-      hideTeto();
-    }
-  };
-
-  const pickSuggestion = (s) => {
-    setQuery(s);
-    setActiveSuggestion(-1);
-    handleSubmit(s);
-  };
-  const handleSearchChange = (value) => {
-    setQuery(value);
-    setActiveSuggestion(-1);
-  };
-  const handleSearchKeyDown = (event) => {
-    if (event.nativeEvent.isComposing) return;
-
-    if (event.key === "ArrowDown" && suggestions.length > 0) {
-      event.preventDefault();
-      setSugOpen(true);
-      setActiveSuggestion((index) => (index + 1) % suggestions.length);
-    } else if (event.key === "ArrowUp" && suggestions.length > 0) {
-      event.preventDefault();
-      setSugOpen(true);
-      setActiveSuggestion((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      pickSuggestion(suggestions[activeSuggestion] || query);
-    } else if (event.key === "Escape") {
-      setSugOpen(false);
-      setActiveSuggestion(-1);
-    }
-  };
-  // Dropdown of live suggestions, positioned under the (relatively-positioned) field wrapper.
-  const suggestionsBox =
-    sugOpen && query.trim().length >= 2 && suggestions.length > 0 ? (
-      <div
-        onMouseDown={(e) => e.preventDefault()} /* keep field focus so onClick fires before blur */
-        style={{
-          position: "absolute",
-          top: "100%",
-          left: 0,
-          right: 0,
-          zIndex: 60,
-          marginTop: 4,
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border)",
-          borderRadius: 10,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-          overflow: "hidden",
-          padding: 4,
-        }}
-      >
-        {suggestions.map((s, i) => (
-          <div
-            key={i}
-            onClick={() => pickSuggestion(s)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "7px 10px",
-              borderRadius: 6,
-              cursor: "default",
-              fontSize: "var(--t13)",
-              color: "var(--text-secondary)",
-              background: activeSuggestion === i ? "var(--bg-hover)" : "transparent",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-            onMouseEnter={() => setActiveSuggestion(i)}
-            onMouseLeave={() => setActiveSuggestion(-1)}
-          >
-            <MagnifyingGlass size={13} style={{ opacity: 0.5, flexShrink: 0 }} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{s}</span>
-          </div>
-        ))}
-      </div>
-    ) : null;
-  const sugFocus = () => {
-    clearTimeout(sugBlurRef.current);
-    setSugOpen(true);
-  };
-  const sugBlur = () => {
-    sugBlurRef.current = setTimeout(() => setSugOpen(false), 150);
   };
 
   const mainNavItems = [
@@ -584,9 +430,7 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Keep a dedicated, non-interactive drag strip above the macOS search row.
-          Putting the search itself in a drag region makes WebKit treat pointer gestures as
-          window drags and puts it underneath the native traffic lights. */}
+      {/* Keep a dedicated drag strip above the macOS sidebar controls. */}
       {IS_MAC && !collapsed && (
         <div data-tauri-drag-region aria-hidden="true" className="h-5 shrink-0" />
       )}
@@ -620,39 +464,29 @@ export function Sidebar({
           </Button>
         )}
 
-        {!collapsed &&
-          (IS_MAC ? (
-            <>
-              <div
-                className="flex-1 min-w-0"
-                style={{
-                  contain: "layout style",
-                  position: "relative",
-                  zIndex: sugOpen ? 70 : "auto",
-                }}
-                onFocus={sugFocus}
-                onBlur={sugBlur}
-              >
-                <SearchFieldRoot
-                  value={query}
-                  onChange={handleSearchChange}
-                  onSubmit={() => handleSubmit(query)}
-                  className="w-full"
-                >
-                  <SearchFieldGroup>
-                    <SearchFieldSearchIcon>
-                      <MagnifyingGlass size={16} />
-                    </SearchFieldSearchIcon>
-                    <SearchFieldInput
-                      data-testid="sidebar-search"
-                      placeholder={t("search")}
-                      onKeyDown={handleSearchKeyDown}
-                    />
-                    <SearchFieldClearButton />
-                  </SearchFieldGroup>
-                </SearchFieldRoot>
-                {suggestionsBox}
-              </div>
+        {!collapsed && (
+          <>
+            {IS_MAC && !settingsOpen && (
+              <SpotlightSearch
+                onSearch={onSearch}
+                onOpenPlaylist={onOpenPlaylist}
+                onCloseOverlay={onCloseOverlay}
+                launcherStyle={{ flex: 1, minWidth: 0 }}
+              />
+            )}
+            {!IS_MAC && (
+              <>
+                <img
+                  src="/Kodama%20Logo.png"
+                  alt="Kodama"
+                  width="20"
+                  height="20"
+                  className="shrink-0"
+                />
+                <span className="text-t15 font-medium whitespace-nowrap">Kodama</span>
+              </>
+            )}
+            <div className="ml-auto flex items-center gap-0.5 shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -664,75 +498,40 @@ export function Sidebar({
               >
                 <ArrowClockwise size={14} />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                onPress={onToggleCollapse}
-                className="shrink-0 rounded-full"
-                title={t("collapse") || "Collapse"}
-                style={{ contain: "layout style" }}
-              >
-                <CaretLineLeft size={16} />
-              </Button>
-            </>
-          ) : (
-            <>
-              <img
-                src="/Kodama%20Logo.png"
-                alt="Kodama"
-                width="20"
-                height="20"
-                className="shrink-0"
-              />
-              <span className="text-t15 font-medium whitespace-nowrap">Kodama</span>
-              <div className="ml-auto flex items-center gap-0.5 shrink-0">
+              {IS_MAC && (
                 <Button
                   variant="ghost"
                   size="sm"
                   isIconOnly
-                  onPress={onRefreshView}
+                  onPress={onToggleCollapse}
                   className="shrink-0 rounded-full"
-                  title={t("refresh")}
+                  title={t("collapse") || "Collapse"}
                   style={{ contain: "layout style" }}
                 >
-                  <ArrowClockwise size={14} />
+                  <CaretLineLeft size={16} />
                 </Button>
-              </div>
-            </>
-          ))}
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Search row — Windows/Linux only (macOS shows the search inside the header above).
-          contain:layout style isolates React Aria's data-attribute updates from app-wide
-          style recalcs without the paint-clipping of contain:content. */}
-      {!collapsed && !IS_MAC && (
-        <div
-          className="px-3 mb-3"
-          style={{ contain: "layout style", position: "relative", zIndex: sugOpen ? 70 : "auto" }}
-          onFocus={sugFocus}
-          onBlur={sugBlur}
-        >
-          <SearchFieldRoot
-            value={query}
-            onChange={handleSearchChange}
-            onSubmit={() => handleSubmit(query)}
-            className="w-full"
-          >
-            <SearchFieldGroup>
-              <SearchFieldSearchIcon>
-                <MagnifyingGlass size={16} />
-              </SearchFieldSearchIcon>
-              <SearchFieldInput
-                data-testid="sidebar-search"
-                placeholder={t("search")}
-                onKeyDown={handleSearchKeyDown}
-              />
-              <SearchFieldClearButton />
-            </SearchFieldGroup>
-          </SearchFieldRoot>
-          {suggestionsBox}
+      {!collapsed && !IS_MAC && !settingsOpen && (
+        <div className="px-3 mb-3">
+          <SpotlightSearch
+            onSearch={onSearch}
+            onOpenPlaylist={onOpenPlaylist}
+            onCloseOverlay={onCloseOverlay}
+          />
         </div>
+      )}
+      {collapsed && !settingsOpen && (
+        <SpotlightSearch
+          onSearch={onSearch}
+          onOpenPlaylist={onOpenPlaylist}
+          onCloseOverlay={onCloseOverlay}
+          showLauncher={false}
+        />
       )}
 
       {/* Main + secondary nav — HeroUI ListBox */}
@@ -928,22 +727,6 @@ export function Sidebar({
           </div>
         </div>
       )}
-
-      {/* 🎵 Easter Egg: Kasane Teto */}
-      {tetoVisible &&
-        createPortal(
-          <img
-            src="/Teto_Drinking_Boba.png"
-            alt="Kasane Teto"
-            className="fixed bottom-18 right-0 w-auto h-64 pointer-events-none z-9500"
-            style={{
-              animation: tetoLeaving
-                ? "tetoSlideOut 0.45s cubic-bezier(0.4,0,0.2,1) forwards"
-                : "tetoSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
-            }}
-          />,
-          document.body
-        )}
     </div>
   );
 }

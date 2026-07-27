@@ -8,6 +8,25 @@ from typing import cast
 class YoutubeResponseMapper:
     """Normalizes artists and thumbnails from YouTube response payloads."""
 
+    # YouTube prefixes a search row's byline with the row type ("Song • 5:00").
+    # ytmusicapi normally strips it, but not when the row omits the artist -- as
+    # the shelf below a "Top result" artist card does -- and then parses the
+    # label itself as an artist without an identifier.
+    RESULT_TYPE_LABELS = frozenset(
+        {"album", "artist", "ep", "episode", "playlist", "podcast", "profile", "single", "song", "station", "video"}
+    )
+
+    @staticmethod
+    def drop_type_label_artist(artist_list: Sequence[Mapping[str, object]] | None) -> list[Mapping[str, object]]:
+        """Return artists without a leading result-type label parsed as an artist."""
+        artists = list(artist_list or [])
+        if not artists or artists[0].get("id") or artists[0].get("browseId"):
+            return artists
+        name = artists[0].get("name")
+        if isinstance(name, str) and name.casefold() in YoutubeResponseMapper.RESULT_TYPE_LABELS:
+            return artists[1:]
+        return artists
+
     @staticmethod
     # Old server.py: _artist_links
     def build_artist_links(artist_list: Sequence[Mapping[str, object]] | None) -> list[dict[str, object]]:

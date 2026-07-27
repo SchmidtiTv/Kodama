@@ -73,7 +73,12 @@ export function SearchView({
     <div
       key={a.browseId || i}
       onClick={() => a.browseId && onOpenArtist?.({ browseId: a.browseId, artist: a.title })}
-      style={{ cursor: "default", borderRadius: 8, padding: "12px 0", textAlign: "center" }}
+      style={{
+        cursor: a.browseId ? "pointer" : "default",
+        borderRadius: 8,
+        padding: "12px 0",
+        textAlign: "center",
+      }}
       onMouseEnter={(e) =>
         (e.currentTarget.querySelector(".sr-title").style.color = "var(--accent)")
       }
@@ -199,7 +204,7 @@ export function SearchView({
             color: "var(--text-muted)",
             fontSize: "var(--t12)",
             fontFamily: "var(--font)",
-            cursor: "default",
+            cursor: "pointer",
             transition: "color 0.15s",
           }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
@@ -232,7 +237,7 @@ export function SearchView({
                 borderRadius: 20,
                 padding: "6px 16px",
                 fontSize: "var(--t13)",
-                cursor: "default",
+                cursor: "pointer",
                 fontFamily: "var(--font)",
                 transition: "all 0.15s",
               }}
