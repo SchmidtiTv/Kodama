@@ -39,7 +39,7 @@ export function LanguagePickerScreen({ currentLanguage, onConfirm }) {
           maxWidth: "92vw",
           padding: 36,
           maxHeight: "calc(100vh - 40px)",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+          boxShadow: "var(--elevation-4)",
         }}
       >
         {/* Logo + heading */}
@@ -89,7 +89,7 @@ export function LanguagePickerScreen({ currentLanguage, onConfirm }) {
                   gap: 14,
                   flexShrink: 0,
                   padding: "13px 14px",
-                  borderRadius: 12,
+                  borderRadius: "var(--r-xl)",
                   cursor: "default",
                   fontFamily: "var(--font)",
                   textAlign: "left",
@@ -110,7 +110,7 @@ export function LanguagePickerScreen({ currentLanguage, onConfirm }) {
                   style={{
                     width: 44,
                     height: 28,
-                    borderRadius: 5,
+                    borderRadius: "var(--r-md)",
                     overflow: "hidden",
                     flexShrink: 0,
                   }}
@@ -444,7 +444,7 @@ export function FfmpegUpdateBanner({ installed, latest, onClose }) {
     >
       <div className="flex items-center gap-3 pl-4 pr-2.5 py-2.5 rounded-2xl bg-elevated border-[0.5px] border-border shadow-[0_10px_40px_rgba(0,0,0,0.55)] w-[400px] max-w-[calc(100vw-32px)]">
         <div
-          className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${phase === "error" ? "bg-[rgba(255,112,112,0.16)] text-[#ff7070]" : "bg-accent-dim text-accent"}`}
+          className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${phase === "error" ? "bg-[rgba(255,112,112,0.16)] text-[var(--status-danger)]" : "bg-accent-dim text-accent"}`}
         >
           {phase === "done" ? (
             <CheckCircle size={18} weight="fill" />

@@ -128,7 +128,7 @@ export function SpotlightSearch({
             width: "100%",
             padding: "8px 12px",
             border: "1px solid var(--border)",
-            borderRadius: 10,
+            borderRadius: "var(--r-xl)",
             background: "color-mix(in srgb, var(--bg-elevated) 88%, transparent)",
             boxShadow: "0 5px 16px rgba(0,0,0,0.18)",
             color: "var(--text-secondary)",
@@ -143,7 +143,7 @@ export function SpotlightSearch({
           <kbd
             style={{
               padding: "2px 5px",
-              borderRadius: 4,
+              borderRadius: "var(--r-sm)",
               background: "var(--bg-hover)",
               color: "var(--text-muted)",
               fontSize: "var(--t11)",
@@ -182,7 +182,7 @@ export function SpotlightSearch({
                 width: "min(640px, calc(100vw - 32px))",
                 overflow: "hidden",
                 border: "1px solid var(--border)",
-                borderRadius: 14,
+                borderRadius: "var(--r-xl)",
                 background: "var(--bg-elevated)",
                 boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
               }}

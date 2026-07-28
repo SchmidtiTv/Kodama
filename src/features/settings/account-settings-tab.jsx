@@ -314,7 +314,7 @@ export function AccountSettingsTab({ hideUserHandle, onToggleHideUserHandle }) {
                   isIconOnly
                   onPress={() => setConfirmRemove(a.name)}
                   title={t("removeAccountTitle")}
-                  className="text-muted hover:text-[#f44336]"
+                  className="text-muted hover:text-[var(--status-danger)]"
                 >
                   <Trash size={14} />
                 </Button>

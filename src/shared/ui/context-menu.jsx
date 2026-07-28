@@ -57,7 +57,7 @@ export function CtxItem({ icon: Icon, label, onSelect, danger, id, textValue }) 
       onAction={onSelect}
       className={
         danger
-          ? "text-[#e05252]! data-[focused]:text-[#e05252]! data-[hovered]:text-[#e05252]!"
+          ? "text-[var(--status-danger)]! data-[focused]:text-[var(--status-danger)]! data-[hovered]:text-[var(--status-danger)]!"
           : undefined
       }
     >

@@ -79,7 +79,7 @@ export function QueueDock({
               transform: "translateY(-50%)",
               width: 3,
               height: 44,
-              borderRadius: 2,
+              borderRadius: "var(--r-full)",
               background: "var(--accent)",
               opacity: queueResizing ? 1 : 0,
               transition: "opacity 0.15s",

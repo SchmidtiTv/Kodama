@@ -31,7 +31,7 @@ export function TitleBar() {
     cursor: "default",
     width: 36,
     height: 28,
-    borderRadius: 5,
+    borderRadius: "var(--r-md)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

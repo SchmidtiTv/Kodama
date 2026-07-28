@@ -227,9 +227,31 @@
   --r-md: 6px;
   --r-lg: 8px;
   --r-xl: 12px;
+  --r-2xl: 16px;
+  --r-full: 999px;
   /* Legacy aliases */
   --radius: var(--r-lg);
   --radius-lg: var(--r-xl);
+
+  /* Semantic status roles */
+  --status-danger: #ff7070;
+  --status-danger-soft: color-mix(in srgb, var(--status-danger) 12%, transparent);
+  --status-danger-line: color-mix(in srgb, var(--status-danger) 30%, transparent);
+  --status-success: #6bdf96;
+  --status-success-soft: color-mix(in srgb, var(--status-success) 12%, transparent);
+  --status-success-line: color-mix(in srgb, var(--status-success) 30%, transparent);
+  --status-warning: #f0b429;
+  --status-warning-soft: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  --status-warning-line: color-mix(in srgb, var(--status-warning) 30%, transparent);
+
+  /* Elevation */
+  --elevation-1: 0 2px 8px rgba(0, 0, 0, 0.22);
+  --elevation-2: 0 4px 14px rgba(0, 0, 0, 0.28);
+  --elevation-3: 0 10px 24px rgba(0, 0, 0, 0.42);
+  --elevation-4: 0 18px 48px rgba(0, 0, 0, 0.5);
+  --elevation-5: 0 28px 70px rgba(0, 0, 0, 0.58);
+
+  --placeholder-gradient: linear-gradient(135deg, #2a1535, #1a0a25);
 
   /* â”€â”€ Misc â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --slider-track: #333333;
@@ -285,6 +307,14 @@
   --text-secondary: var(--t2);
   --text-muted: var(--t3);
   --slider-track: #b8b8b8;
+  --status-danger: #d32f2f;
+  --status-success: #2e7d32;
+  --status-warning: #b26a00;
+  --elevation-1: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --elevation-2: 0 4px 14px rgba(0, 0, 0, 0.14);
+  --elevation-3: 0 10px 24px rgba(0, 0, 0, 0.2);
+  --elevation-4: 0 18px 48px rgba(0, 0, 0, 0.26);
+  --elevation-5: 0 28px 70px rgba(0, 0, 0, 0.32);
 }
 
 /* â”€â”€â”€ High Contrast Mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -458,6 +488,26 @@ body,
    shift sideways the moment a view grows tall enough to actually need the scrollbar. */
 .scrollable {
   scrollbar-gutter: stable;
+}
+
+.modal__container[data-entering="true"] {
+  --tw-duration: 0.26s;
+  --tw-enter-scale: 0.95;
+  --tw-enter-translate-y: 10px;
+}
+
+.modal__container[data-exiting="true"] {
+  --tw-duration: 0.2s;
+  --tw-exit-scale: 0.96;
+  --tw-exit-translate-y: 6px;
+}
+
+.modal__backdrop[data-entering="true"] {
+  --tw-duration: 0.22s;
+}
+
+.modal__backdrop[data-exiting="true"] {
+  --tw-duration: 0.2s;
 }
 
 .gcard-thumb {

@@ -1,18 +1,23 @@
 // Shared real-time audio levels streamed from the Rust audio thread (`audio-levels`
 // event, ~30fps). One listener feeds a mutable singleton; visualizer components read
 // `audioLevels.bands` / `.level` inside their own rAF loop (no React re-renders).
-export const audioLevels = {
-  bands: new Array(48).fill(0),
-  level: 0,
-  ts: 0, // performance.now() of the last update — lets consumers detect staleness
-};
+const analysisStore =
+  globalThis.__kodamaAudioAnalysis ||
+  (globalThis.__kodamaAudioAnalysis = {
+    levels: {
+      bands: new Array(48).fill(0),
+      level: 0,
+      ts: 0,
+    },
+    listenerStarted: false,
+    activeConsumers: 0,
+  });
 
-let started = false;
-let activeConsumers = 0;
+export const audioLevels = analysisStore.levels;
 
 export function startAudioLevels() {
-  if (started) return;
-  started = true;
+  if (analysisStore.listenerStarted) return;
+  analysisStore.listenerStarted = true;
   import("@tauri-apps/api/event")
     .then(({ listen }) => {
       listen("audio-levels", ({ payload }) => {
@@ -33,8 +38,8 @@ function setNativeAnalysisEnabled(enabled) {
 // Visualizer surfaces acquire analysis only while they are actually drawing. This keeps sample
 // capture, FFT work, and the Tauri event stream dormant for normal audio-only playback.
 export function acquireAudioAnalysis() {
-  activeConsumers += 1;
-  if (activeConsumers === 1) {
+  analysisStore.activeConsumers += 1;
+  if (analysisStore.activeConsumers === 1) {
     audioLevels.bands = new Array(48).fill(0);
     audioLevels.level = 0;
     startAudioLevels();
@@ -45,7 +50,7 @@ export function acquireAudioAnalysis() {
   return () => {
     if (released) return;
     released = true;
-    activeConsumers = Math.max(0, activeConsumers - 1);
-    if (activeConsumers === 0) setNativeAnalysisEnabled(false);
+    analysisStore.activeConsumers = Math.max(0, analysisStore.activeConsumers - 1);
+    if (analysisStore.activeConsumers === 0) setNativeAnalysisEnabled(false);
   };
 }

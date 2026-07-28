@@ -76,7 +76,7 @@ function SeekBar({ position, duration }) {
       style={{
         outline: focused ? "3px solid var(--accent)" : "3px solid transparent",
         outlineOffset: 8,
-        borderRadius: 10,
+        borderRadius: "var(--r-xl)",
         padding: "6px 4px",
       }}
     >
@@ -106,13 +106,18 @@ function SeekBar({ position, duration }) {
       <div
         style={{
           height: 8,
-          borderRadius: 4,
+          borderRadius: "var(--r-sm)",
           background: "rgba(255,255,255,0.15)",
           overflow: "hidden",
         }}
       >
         <div
-          style={{ height: "100%", width: pct + "%", background: "var(--accent)", borderRadius: 4 }}
+          style={{
+            height: "100%",
+            width: pct + "%",
+            background: "var(--accent)",
+            borderRadius: "var(--r-sm)",
+          }}
         />
       </div>
     </div>

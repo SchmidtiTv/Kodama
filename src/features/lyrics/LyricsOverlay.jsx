@@ -760,6 +760,20 @@ function LyricsOverlayContent({
         }
       }
 
+      let shown = false;
+      const applyBest = ({ best }) => {
+        if (cancelled || shown || best === undefined) return;
+        shown = true;
+        if (best) {
+          setLyrics(best.lrc);
+          setSource(best.source);
+          setSubmitterName(best.submitterName || null);
+          setAppliedVersionId(null);
+          onSourceChange?.(best.source);
+        }
+        setLoading(false);
+      };
+
       fetchLyrics(
         track.title,
         track.artists,
@@ -767,15 +781,18 @@ function LyricsOverlayContent({
         parseDurationToSeconds(track.duration),
         providers,
         track.videoId || "",
-        abortController.signal
+        abortController.signal,
+        applyBest
       ).then((res) => {
         if (cancelled) return;
         if (res?.lrc) {
-          setLyrics(res.lrc);
-          setSource(res.source);
-          setSubmitterName(res.submitterName || null);
-          setAppliedVersionId(null);
-          onSourceChange?.(res.source);
+          if (!shown) {
+            setLyrics(res.lrc);
+            setSource(res.source);
+            setSubmitterName(res.submitterName || null);
+            setAppliedVersionId(null);
+            onSourceChange?.(res.source);
+          }
           try {
             localStorage.setItem(
               cacheKey,
@@ -1302,7 +1319,7 @@ function LyricsOverlayContent({
                 style={{
                   background: "rgba(255,255,255,0.08)",
                   border: "none",
-                  borderRadius: 10,
+                  borderRadius: "var(--r-xl)",
                   padding: "8px 16px",
                   cursor: "default",
                   color: "#fff",
@@ -1329,7 +1346,7 @@ function LyricsOverlayContent({
                 style={{
                   background: "rgba(255,255,255,0.08)",
                   border: "none",
-                  borderRadius: 10,
+                  borderRadius: "var(--r-xl)",
                   padding: "8px 16px",
                   cursor: "default",
                   color: "#fff",
@@ -1356,7 +1373,7 @@ function LyricsOverlayContent({
               style={{
                 background: "rgba(255,255,255,0.06)",
                 border: "none",
-                borderRadius: 10,
+                borderRadius: "var(--r-xl)",
                 padding: "8px 20px",
                 cursor: "default",
                 color: "#fff",
@@ -1470,7 +1487,7 @@ function LyricsOverlayContent({
                     ? "transform 0.25s ease-out, opacity 0.4s ease-out, filter 0.4s ease-out"
                     : "filter 0.4s ease, opacity 0.4s ease",
                   userSelect: "none",
-                  borderRadius: 8,
+                  borderRadius: "var(--r-lg)",
                   padding: "2px 8px",
                   margin: "0 -8px 24px",
                   textAlign,

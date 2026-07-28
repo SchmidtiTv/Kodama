@@ -357,7 +357,7 @@ export function ColorPicker({ value, onChange, swatch }) {
         style={{
           width: 32,
           height: 32,
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           border: "0.5px solid var(--border)",
           cursor: "default",
           flexShrink: 0,
@@ -377,10 +377,10 @@ export function ColorPicker({ value, onChange, swatch }) {
               zIndex: 9999,
               width: 244,
               padding: 12,
-              borderRadius: 14,
+              borderRadius: "var(--r-xl)",
               background: "#1c1c1c",
               border: "0.5px solid rgba(255,255,255,0.12)",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+              boxShadow: "var(--elevation-4)",
               userSelect: "none",
             }}
           >
@@ -408,7 +408,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   justifyContent: "center",
                   width: 20,
                   height: 20,
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   background: "none",
                   border: "none",
                   color: "var(--text-muted)",
@@ -425,7 +425,7 @@ export function ColorPicker({ value, onChange, swatch }) {
               style={{
                 width: "100%",
                 height: 160,
-                borderRadius: 10,
+                borderRadius: "var(--r-xl)",
                 background: `linear-gradient(to right, #fff, ${hueColor})`,
                 position: "relative",
                 cursor: "crosshair",
@@ -438,7 +438,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   position: "absolute",
                   inset: 0,
                   background: "linear-gradient(to bottom, transparent, #000)",
-                  borderRadius: 10,
+                  borderRadius: "var(--r-xl)",
                 }}
               />
               <div
@@ -451,7 +451,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   height: 14,
                   borderRadius: "50%",
                   border: "2px solid #fff",
-                  boxShadow: "0 1px 6px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--elevation-1)",
                   background: currentHex,
                   pointerEvents: "none",
                 }}
@@ -482,7 +482,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   height: 18,
                   borderRadius: "50%",
                   border: "2.5px solid #fff",
-                  boxShadow: "0 1px 6px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--elevation-1)",
                   background: hueColor,
                   pointerEvents: "none",
                 }}
@@ -514,7 +514,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                     width: 30,
                     height: 30,
                     flexShrink: 0,
-                    borderRadius: 8,
+                    borderRadius: "var(--r-lg)",
                     background: "var(--bg-elevated)",
                     border: "0.5px solid rgba(255,255,255,0.12)",
                     color: "var(--text-muted)",
@@ -534,7 +534,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   style={{
                     height: 30,
                     padding: "0 8px",
-                    borderRadius: 8,
+                    borderRadius: "var(--r-lg)",
                     minWidth: 56,
                     display: "flex",
                     alignItems: "center",
@@ -559,10 +559,10 @@ export function ColorPicker({ value, onChange, swatch }) {
                       zIndex: 1,
                       minWidth: 72,
                       padding: 4,
-                      borderRadius: 8,
+                      borderRadius: "var(--r-lg)",
                       background: "#242424",
                       border: "0.5px solid rgba(255,255,255,0.12)",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                      boxShadow: "var(--elevation-3)",
                     }}
                   >
                     {["hex", "rgb", "hsl"].map((f) => (
@@ -577,7 +577,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                           width: "100%",
                           textAlign: "left",
                           padding: "6px 8px",
-                          borderRadius: 6,
+                          borderRadius: "var(--r-md)",
                           background: f === mode ? "rgba(255,255,255,0.08)" : "none",
                           border: "none",
                           color: "var(--text-primary)",
@@ -619,7 +619,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                   height: 30,
                   boxSizing: "border-box",
                   padding: "0 10px",
-                  borderRadius: 8,
+                  borderRadius: "var(--r-lg)",
                   background: "var(--bg-elevated)",
                   border: "0.5px solid rgba(255,255,255,0.12)",
                   color: "var(--text-primary)",
@@ -642,7 +642,7 @@ export function ColorPicker({ value, onChange, swatch }) {
                     style={{
                       width: "100%",
                       aspectRatio: "1",
-                      borderRadius: 6,
+                      borderRadius: "var(--r-md)",
                       background: c,
                       border:
                         c.toLowerCase() === currentHex.toLowerCase()

@@ -114,7 +114,7 @@ export function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu
         {track.thumbnail ? (
           <img src={thumb(track.thumbnail)} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-[linear-gradient(135deg,#2a1535,#1a0a25)]" />
+          <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
         )}
         {isPlaying && (
           <div className="absolute inset-0 flex items-center justify-center gap-0.5 bg-black/50">
@@ -175,7 +175,7 @@ export function GridCard({
         {thumbnail ? (
           <img src={thumb(thumbnail)} alt="" className="gcard-img" />
         ) : (
-          <div className="w-full h-full bg-[linear-gradient(135deg,#2a1535,#1a0a25)]" />
+          <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
         )}
         {count != null && count !== "" && (
           <span className="gcard-badge">
@@ -231,7 +231,7 @@ export function SkeletonRow() {
         style={{
           width: 44,
           height: 44,
-          borderRadius: 6,
+          borderRadius: "var(--r-md)",
           background: "var(--bg-elevated)",
           flexShrink: 0,
           animation: "pulse 1.4s ease-in-out infinite",
@@ -242,7 +242,7 @@ export function SkeletonRow() {
           style={{
             height: 12,
             width: "45%",
-            borderRadius: 4,
+            borderRadius: "var(--r-sm)",
             background: "var(--bg-elevated)",
             animation: "pulse 1.4s ease-in-out infinite",
           }}
@@ -251,7 +251,7 @@ export function SkeletonRow() {
           style={{
             height: 10,
             width: "30%",
-            borderRadius: 4,
+            borderRadius: "var(--r-sm)",
             background: "var(--bg-elevated)",
             animation: "pulse 1.4s ease-in-out 0.2s infinite",
           }}
@@ -261,7 +261,7 @@ export function SkeletonRow() {
         style={{
           height: 10,
           width: 36,
-          borderRadius: 4,
+          borderRadius: "var(--r-sm)",
           background: "var(--bg-elevated)",
           animation: "pulse 1.4s ease-in-out infinite",
         }}

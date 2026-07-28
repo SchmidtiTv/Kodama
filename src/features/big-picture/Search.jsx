@@ -23,7 +23,7 @@ function KeyBtn({ children, onPress, span, active }) {
       style={{
         gridColumn: span ? `span ${span}` : undefined,
         minHeight: 56,
-        borderRadius: 12,
+        borderRadius: "var(--r-xl)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -112,7 +112,7 @@ function ResultRow({ track }) {
         alignItems: "center",
         gap: 16,
         padding: "10px 14px",
-        borderRadius: 12,
+        borderRadius: "var(--r-xl)",
         cursor: "default",
         background: focused ? "rgba(255,255,255,0.10)" : "transparent",
         outline: focused ? "3px solid var(--accent)" : "3px solid transparent",
@@ -123,7 +123,7 @@ function ResultRow({ track }) {
         style={{
           width: 52,
           height: 52,
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           overflow: "hidden",
           flexShrink: 0,
           background: "linear-gradient(135deg,#2a1535,#17091f)",
@@ -256,7 +256,7 @@ export function Search({ chrome }) {
             alignItems: "center",
             gap: 14,
             background: "rgba(255,255,255,0.06)",
-            borderRadius: 14,
+            borderRadius: "var(--r-xl)",
             padding: "16px 22px",
             marginBottom: 30,
           }}

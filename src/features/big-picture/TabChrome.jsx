@@ -53,7 +53,7 @@ function Tab({ t, active, onSelect }) {
             right: -2,
             bottom: -8,
             height: 3,
-            borderRadius: 2,
+            borderRadius: "var(--r-full)",
             background: on ? "var(--accent)" : "rgba(255,255,255,0.4)",
           }}
         />

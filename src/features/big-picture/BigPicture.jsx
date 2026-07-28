@@ -433,7 +433,7 @@ export function BigPicture() {
                 }}
                 style={{
                   padding: "15px 16px",
-                  borderRadius: 12,
+                  borderRadius: "var(--r-xl)",
                   fontSize: 18,
                   fontWeight: 600,
                   cursor: "default",

@@ -71,7 +71,7 @@ export function ArtistDescription({ text, name, url }) {
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 14,
+          borderRadius: "var(--r-xl)",
           padding: "12px 14px 10px",
         }}
       >

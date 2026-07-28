@@ -44,7 +44,9 @@ export function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizonta
       isIconOnly={iconOnly}
       onPress={onClick}
       className={`rounded-xl shrink-0 ${
-        danger ? "text-[#ff7070]! hover:text-white! hover:bg-[rgba(239,68,68,0.85)]!" : ""
+        danger
+          ? "text-[var(--status-danger)]! hover:text-white! hover:bg-[rgba(239,68,68,0.85)]!"
+          : ""
       } ${horizontal ? "gap-2 px-4.5!" : ""}`}
     >
       {icon}
@@ -131,7 +133,7 @@ export function TableRow({
           {track.thumbnail ? (
             <img src={thumb(track.thumbnail)} alt="" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-[linear-gradient(135deg,#2a1535,#1a0a25)]" />
+            <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
           )}
           {isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center gap-0.5 bg-black/50">
@@ -189,9 +191,9 @@ export function TableRow({
         }}
       >
         {isPremiumOnly ? (
-          <Crown size={14} weight="fill" className="text-[#f0b429]" />
+          <Crown size={14} weight="fill" className="text-[var(--status-warning)]" />
         ) : isCached ? (
-          <CheckCircle size={14} className="text-[#4caf50]" />
+          <CheckCircle size={14} className="text-[var(--status-success)]" />
         ) : isDownloading ? (
           <DownloadSimple size={14} className="text-accent animate-pulse" />
         ) : onDownload ? (
@@ -353,7 +355,7 @@ export function PlaylistLayout({
             style={{
               width: 190,
               height: 190,
-              borderRadius: 12,
+              borderRadius: "var(--r-xl)",
               flexShrink: 0,
               overflow: "hidden",
               background: "var(--bg-elevated)",
@@ -441,7 +443,7 @@ export function PlaylistLayout({
                       alignItems: "center",
                       background: `rgba(${accentColor},0.25)`,
                       border: `1px solid rgba(${accentColor},0.42)`,
-                      borderRadius: 20,
+                      borderRadius: "var(--r-full)",
                       padding: "3px 12px",
                       fontSize: "var(--t13)",
                       fontWeight: 600,
@@ -522,7 +524,7 @@ export function PlaylistLayout({
                   style={{
                     background: `rgba(${accentColor},0.18)`,
                     border: `1px solid rgba(${accentColor},0.38)`,
-                    borderRadius: 28,
+                    borderRadius: "var(--r-full)",
                     height: 50,
                     padding: "0 28px",
                     display: "flex",
@@ -562,7 +564,7 @@ export function PlaylistLayout({
                   style={{
                     background: "rgba(255,255,255,0.06)",
                     border: "1px solid var(--border)",
-                    borderRadius: 28,
+                    borderRadius: "var(--r-full)",
                     height: 50,
                     padding: "0 22px",
                     display: "flex",
@@ -611,7 +613,7 @@ export function PlaylistLayout({
                     style={{
                       background: "rgba(0,0,0,0.35)",
                       border: "0.5px solid rgba(255,255,255,0.18)",
-                      borderRadius: 20,
+                      borderRadius: "var(--r-full)",
                       padding: "9px 14px",
                       fontSize: "var(--t13)",
                       color: "#fff",
@@ -677,7 +679,7 @@ export function PlaylistLayout({
                     const someDownloading =
                       downloadingIds && tracks.some((tr) => downloadingIds.has(tr.videoId));
                     const btnBase = {
-                      borderRadius: 28,
+                      borderRadius: "var(--r-full)",
                       height: 42,
                       display: "flex",
                       alignItems: "center",
@@ -697,7 +699,7 @@ export function PlaylistLayout({
                           style={{
                             ...btnBase,
                             cursor: "default",
-                            color: "#4caf50",
+                            color: "var(--status-success)",
                             background: "rgba(76,175,80,0.12)",
                             border: "0.5px solid rgba(76,175,80,0.3)",
                           }}
@@ -726,7 +728,7 @@ export function PlaylistLayout({
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.background = "rgba(224,82,82,0.25)";
-                                e.currentTarget.style.color = "#e05252";
+                                e.currentTarget.style.color = "var(--status-danger)";
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background = "rgba(0,0,0,0.3)";
@@ -822,14 +824,14 @@ export function PlaylistLayout({
             style={{
               height: 3,
               background: "var(--bg-elevated)",
-              borderRadius: 2,
+              borderRadius: "var(--r-full)",
               overflow: "hidden",
             }}
           >
             <div
               style={{
                 height: "100%",
-                borderRadius: 2,
+                borderRadius: "var(--r-full)",
                 background: "linear-gradient(90deg,var(--accent),#c020e0)",
                 width: `${progress}%`,
                 transition: "width 0.4s ease",

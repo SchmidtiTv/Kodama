@@ -531,7 +531,7 @@ export function CoverView({
             height: coverSize,
             borderRadius: compact ? 12 : 16,
             overflow: "hidden",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+            boxShadow: "var(--elevation-5)",
             transform: isPlaying ? "scale(1.03)" : "scale(0.97)",
             transition: ambientVisualizer ? "none" : "transform 0.6s cubic-bezier(0.4,0,0.2,1)",
           }}
@@ -547,7 +547,7 @@ export function CoverView({
               style={{
                 width: "100%",
                 height: "100%",
-                background: "linear-gradient(135deg,#2a1535,#1a0a25)",
+                background: "var(--placeholder-gradient)",
               }}
             />
           )}

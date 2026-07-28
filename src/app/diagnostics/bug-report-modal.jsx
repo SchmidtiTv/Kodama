@@ -25,6 +25,7 @@ import { Toggle } from "@/shared/ui/settings-controls.jsx";
 import { API } from "@/shared/api/client.js";
 import { getConsoleErrors } from "@/app/diagnostics/error-capture.js";
 import { useZoom } from "@/features/settings/display-context.jsx";
+import { useAnimatedClose } from "@/shared/hooks/use-animated-close.js";
 
 // Short, human-readable OS string for bug-report diagnostics.
 const OS_INFO = (() => {
@@ -39,6 +40,7 @@ const OS_INFO = (() => {
 })();
 
 export function BugReportModal({ onClose, screenshot, t, version, currentTrack }) {
+  const [isOpen, close] = useAnimatedClose(onClose);
   const zoom = useZoom();
   const CATS = [
     { value: "Bug", label: t("catBug") || "Bug" },
@@ -168,9 +170,9 @@ export function BugReportModal({ onClose, screenshot, t, version, currentTrack }
 
   return (
     <ModalRoot
-      isOpen
+      isOpen={isOpen}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
     >
       <ModalBackdrop className="z-[300]!">
@@ -343,7 +345,7 @@ export function BugReportModal({ onClose, screenshot, t, version, currentTrack }
                     ? t("reportContactNote") || "Rückfragen möglich"
                     : t("reportAnon") || "Anonym · keine Account-Daten"}
                 </span>
-                <Button variant="ghost" onPress={onClose}>
+                <Button variant="ghost" onPress={close}>
                   {t("cancel")}
                 </Button>
                 <Button

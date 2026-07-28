@@ -59,7 +59,7 @@ export function PasswordEntryInput({
             onKeyDown={(event) => {
               if (event.key === "Enter" && value.length > 0) onSubmit(value);
             }}
-            className={cn("pr-11", error && "border-[#f44336]!")}
+            className={cn("pr-11", error && "border-[var(--status-danger)]!")}
           />
         </TextFieldRoot>
         <button
@@ -71,7 +71,7 @@ export function PasswordEntryInput({
         </button>
       </div>
       {error && (
-        <div className="text-t12 font-medium" style={{ color: "#f44336" }}>
+        <div className="text-t12 font-medium" style={{ color: "var(--status-danger)" }}>
           {error}
         </div>
       )}

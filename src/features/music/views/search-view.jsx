@@ -75,7 +75,7 @@ export function SearchView({
       onClick={() => a.browseId && onOpenArtist?.({ browseId: a.browseId, artist: a.title })}
       style={{
         cursor: a.browseId ? "pointer" : "default",
-        borderRadius: 8,
+        borderRadius: "var(--r-lg)",
         padding: "12px 0",
         textAlign: "center",
       }}
@@ -107,7 +107,7 @@ export function SearchView({
             style={{
               width: "100%",
               height: "100%",
-              background: "linear-gradient(135deg,#2a1535,#1a0a25)",
+              background: "var(--placeholder-gradient)",
             }}
           />
         )}
@@ -234,7 +234,7 @@ export function SearchView({
                 background: filter === tab_.id ? "var(--accent)" : "var(--bg-elevated)",
                 color: filter === tab_.id ? "#fff" : "var(--text-secondary)",
                 border: "none",
-                borderRadius: 20,
+                borderRadius: "var(--r-full)",
                 padding: "6px 16px",
                 fontSize: "var(--t13)",
                 cursor: "pointer",
@@ -252,7 +252,7 @@ export function SearchView({
         <div style={{ padding: "0 16px", color: "var(--text-secondary)" }}>{t("loadingDots")}</div>
       )}
       {error && (
-        <div style={{ padding: "0 16px", color: "#f44336" }}>
+        <div style={{ padding: "0 16px", color: "var(--status-danger)" }}>
           {t("errorLoading")}: {error}
         </div>
       )}

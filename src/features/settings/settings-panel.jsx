@@ -599,7 +599,7 @@ export function SettingsPanel({
             position: "absolute",
             inset: 0,
             zIndex: 20,
-            borderRadius: 12,
+            borderRadius: "var(--r-xl)",
             background: "var(--bg-base)",
             display: "flex",
             flexDirection: "column",
@@ -647,7 +647,13 @@ export function SettingsPanel({
               <>
                 <PinDots count={PIN_LEN} filled={pinDigits.length} />
                 {pinError && (
-                  <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>
+                  <div
+                    style={{
+                      fontSize: "var(--t12)",
+                      color: "var(--status-danger)",
+                      fontWeight: 500,
+                    }}
+                  >
                     {t("pinWrong")}
                   </div>
                 )}
@@ -681,9 +687,9 @@ export function SettingsPanel({
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 12,
-                background: "rgba(244,67,54,0.08)",
-                border: "0.5px solid rgba(244,67,54,0.3)",
-                borderRadius: 12,
+                background: "var(--status-danger-soft)",
+                border: "0.5px solid var(--status-danger-line)",
+                borderRadius: "var(--r-xl)",
                 padding: "16px 24px",
                 marginTop: 8,
               }}
@@ -691,7 +697,7 @@ export function SettingsPanel({
               <div
                 style={{
                   fontSize: "var(--t12)",
-                  color: "#f44336",
+                  color: "var(--status-danger)",
                   fontWeight: 600,
                   textAlign: "center",
                   maxWidth: 280,
@@ -737,7 +743,7 @@ export function SettingsPanel({
             position: "absolute",
             inset: 0,
             zIndex: 30,
-            borderRadius: 12,
+            borderRadius: "var(--r-xl)",
             background: "color-mix(in srgb, var(--bg-base) 92%, transparent)",
             backdropFilter: "blur(8px)",
             display: "flex",
@@ -763,7 +769,9 @@ export function SettingsPanel({
             <>
               <PinDots count={PIN_LEN} filled={pinSetupDigits.length} />
               {pinSetupError && (
-                <div style={{ fontSize: "var(--t12)", color: "#f44336", fontWeight: 500 }}>
+                <div
+                  style={{ fontSize: "var(--t12)", color: "var(--status-danger)", fontWeight: 500 }}
+                >
                   {pinSetupError}
                 </div>
               )}
@@ -831,7 +839,7 @@ export function SettingsPanel({
                   fontWeight: 700,
                   letterSpacing: "0.06em",
                   padding: "3px 8px",
-                  borderRadius: 5,
+                  borderRadius: "var(--r-md)",
                   background: "var(--accent)",
                   color: "#fff",
                   textTransform: "uppercase",
@@ -952,7 +960,7 @@ export function SettingsPanel({
                       minWidth: 0,
                       height: 34,
                       padding: "0 12px",
-                      borderRadius: 8,
+                      borderRadius: "var(--r-lg)",
                       fontSize: "var(--t13)",
                       color: "var(--text-primary)",
                       background: "var(--bg-elevated)",
@@ -1014,7 +1022,7 @@ export function SettingsPanel({
                           isIconOnly
                           size="sm"
                           variant="ghost"
-                          className="h-7! w-7! min-w-0! text-muted hover:text-[#f44336]"
+                          className="h-7! w-7! min-w-0! text-muted hover:text-[var(--status-danger)]"
                           onPress={() => deleteVizPreset(p.id)}
                           title={t("delete") || "Löschen"}
                         >
@@ -1382,7 +1390,7 @@ export function SettingsPanel({
                         <div
                           style={{
                             background: th.surface,
-                            borderRadius: 6,
+                            borderRadius: "var(--r-md)",
                             padding: "6px 8px",
                             marginBottom: 5,
                           }}
@@ -1411,7 +1419,7 @@ export function SettingsPanel({
                             style={{
                               flex: 1,
                               background: th.elevated,
-                              borderRadius: 4,
+                              borderRadius: "var(--r-sm)",
                               height: 24,
                             }}
                           />
@@ -1419,7 +1427,7 @@ export function SettingsPanel({
                             style={{
                               flex: 1,
                               background: th.elevated,
-                              borderRadius: 4,
+                              borderRadius: "var(--r-sm)",
                               height: 24,
                             }}
                           />
@@ -1460,7 +1468,7 @@ export function SettingsPanel({
                         background: "var(--accent)",
                         color: "#fff",
                         padding: "2px 5px",
-                        borderRadius: 4,
+                        borderRadius: "var(--r-sm)",
                         lineHeight: 1.4,
                       }}
                     >
@@ -1725,7 +1733,7 @@ export function SettingsPanel({
                         background: "var(--accent)",
                         color: "#fff",
                         padding: "2px 5px",
-                        borderRadius: 4,
+                        borderRadius: "var(--r-sm)",
                         lineHeight: 1.4,
                       }}
                     >
@@ -1768,7 +1776,7 @@ export function SettingsPanel({
                     margin: "2px 0 6px",
                     padding: "10px 12px",
                     background: "var(--fill-subtle)",
-                    borderRadius: 10,
+                    borderRadius: "var(--r-xl)",
                   }}
                 >
                   <div
@@ -1829,7 +1837,7 @@ export function SettingsPanel({
                           variant="ghost"
                           size="sm"
                           isIconOnly
-                          className="h-7 min-w-7 text-muted hover:text-[#ff7070]!"
+                          className="h-7 min-w-7 text-muted hover:text-[var(--status-danger)]!"
                           onPress={() => onRemoveCrossfadeOverride?.(key)}
                         >
                           <Trash size={13} />
@@ -1929,7 +1937,7 @@ export function SettingsPanel({
                         background: "var(--accent)",
                         color: "#fff",
                         padding: "2px 5px",
-                        borderRadius: 4,
+                        borderRadius: "var(--r-sm)",
                         lineHeight: 1.4,
                       }}
                     >
@@ -2394,7 +2402,7 @@ export function SettingsPanel({
               <CardRoot
                 variant="secondary"
                 className="px-4 py-3.5 gap-0! text-t12 text-muted leading-[1.7]"
-                style={{ background: "rgba(244,67,54,0.06)" }}
+                style={{ background: "var(--status-danger-soft)" }}
               >
                 <div style={{ marginBottom: 12, color: "var(--text-secondary)", fontWeight: 500 }}>
                   {t("pinEmergencyDesc")}
@@ -2409,7 +2417,13 @@ export function SettingsPanel({
                   </Button>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div style={{ color: "#f44336", fontWeight: 600, fontSize: "var(--t12)" }}>
+                    <div
+                      style={{
+                        color: "var(--status-danger)",
+                        fontWeight: 600,
+                        fontSize: "var(--t12)",
+                      }}
+                    >
                       {t("pinEmergencyConfirmText")}
                     </div>
                     <div className="flex gap-2">
@@ -2685,7 +2699,7 @@ export function SettingsPanel({
                     <>
                       <div
                         className="text-t12 my-2 flex items-center gap-1.5"
-                        style={{ color: "#4caf50" }}
+                        style={{ color: "var(--status-success)" }}
                       >
                         <CheckCircle size={14} weight="fill" />
                         {t("savedToDownloads")}
@@ -2731,7 +2745,7 @@ export function SettingsPanel({
                 </>
               ) : (
                 <div className="flex flex-col items-center gap-2.5 py-10 px-4 text-muted">
-                  <CheckCircle size={36} weight="fill" style={{ color: "#4caf50" }} />
+                  <CheckCircle size={36} weight="fill" style={{ color: "var(--status-success)" }} />
                   <div className="text-t13 font-medium text-secondary text-center">
                     {t("upToDate")}
                   </div>

@@ -1,6 +1,6 @@
 import { API } from "@/shared/api/client.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "./providers.js";
-import { parseLrc, parseRichSync, parseTtml } from "./parse.js";
+import { parseLrc, parseNetease, parseQrc, parseRichSync, parseTtml } from "./parse.js";
 
 async function fetchLyrics(
   title,
@@ -9,7 +9,8 @@ async function fetchLyrics(
   duration,
   providers = DEFAULT_LYRICS_PROVIDERS,
   videoId = "",
-  signal = undefined
+  signal = undefined,
+  onUpdate = null
 ) {
   const opt = signal ? { signal } : undefined; // AbortSignal so a track change can cancel in-flight
   const tryBetter = async () => {
@@ -66,7 +67,7 @@ async function fetchLyrics(
     const r = await fetch(`${API}/lyrics?${params}`, opt);
     if (r.ok) {
       const d = await r.json();
-      if (d.synced) return { source: "Kugou", lrc: parseLrc(d.synced) };
+      if (d.synced) return { source: "Kugou", lrc: parseLrc(d.synced, { title, artist }) };
     }
     return null;
   };
@@ -82,6 +83,33 @@ async function fetchLyrics(
           source: "SimpMusic",
           lrc: d.plain.split("\n").map((t) => ({ time: -1, text: t })),
         };
+    }
+    return null;
+  };
+  const tryPortato = async () => {
+    const params = new URLSearchParams({ title, artist, source: "portato" });
+    if (album) params.set("album", album);
+    if (duration) params.set("duration", Math.round(duration));
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
+    if (r.ok) {
+      const d = await r.json();
+      if (d?.qrc) {
+        const lrc = parseQrc(d.qrc, { title, artist });
+        if (lrc.length) return { source: "Better Lyrics Portato", lrc };
+      }
+    }
+    return null;
+  };
+  const tryPaxNetease = async () => {
+    const params = new URLSearchParams({ title, artist, source: "paxsenix-netease" });
+    if (duration) params.set("duration", Math.round(duration));
+    const r = await fetch(`${API}/lyrics?${params}`, opt);
+    if (r.ok) {
+      const d = await r.json();
+      if (d?.netease) {
+        const lrc = parseNetease(d.netease, { title, artist });
+        if (lrc.length) return { source: "NetEase (Paxsenix)", lrc };
+      }
     }
     return null;
   };
@@ -103,6 +131,8 @@ async function fetchLyrics(
 
   const tryFns = {
     better: tryBetter,
+    portato: tryPortato,
+    "paxsenix-netease": tryPaxNetease,
     unison: tryUnison,
     lrclib: tryLrclib,
     kugou: tryKugou,
@@ -111,27 +141,46 @@ async function fetchLyrics(
   };
   const enabledProviders = providers.filter((p) => p.enabled && tryFns[p.id]);
 
-  // Fetch all providers in parallel — so we know which ones have no lyrics
-  const settled = await Promise.all(
-    enabledProviders.map((p) =>
-      tryFns[p.id]()
+  const settled = new Map();
+  const decideBest = () => {
+    for (const provider of enabledProviders) {
+      if (!settled.has(provider.id)) return undefined;
+      const result = settled.get(provider.id);
+      if (result) return result;
+    }
+    return null;
+  };
+
+  await Promise.all(
+    enabledProviders.map((provider) =>
+      tryFns[provider.id]()
         .catch(() => null)
-        .then((r) => ({ id: p.id, result: r }))
+        .then((result) => {
+          settled.set(provider.id, result ? { ...result, providerId: provider.id } : null);
+          if (!onUpdate) return;
+          try {
+            onUpdate({
+              best: decideBest(),
+              results: enabledProviders.map((item) => settled.get(item.id)).filter(Boolean),
+              failedIds: enabledProviders
+                .filter((item) => settled.get(item.id) === null)
+                .map((item) => item.id),
+              pending: enabledProviders
+                .filter((item) => !settled.has(item.id))
+                .map((item) => item.id),
+            });
+          } catch {
+            // A view callback must never break the provider fetch.
+          }
+        })
     )
   );
 
-  // Pick best result in priority order, collect failures + every available version
-  const failedIds = [];
-  let bestResult = null;
-  const allResults = [];
-  for (const p of enabledProviders) {
-    const { result } = settled.find((s) => s.id === p.id);
-    if (result) {
-      const tagged = { ...result, providerId: p.id };
-      allResults.push(tagged);
-      if (!bestResult) bestResult = tagged;
-    } else failedIds.push(p.id);
-  }
+  const allResults = enabledProviders.map((provider) => settled.get(provider.id)).filter(Boolean);
+  const failedIds = enabledProviders
+    .filter((provider) => !settled.get(provider.id))
+    .map((provider) => provider.id);
+  const bestResult = allResults[0] || null;
 
   return bestResult ? { ...bestResult, failedIds, allResults } : { failedIds, allResults };
 }

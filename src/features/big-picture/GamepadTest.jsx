@@ -83,7 +83,7 @@ export function GamepadTest() {
         style={{
           marginBottom: 16,
           padding: 12,
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           background: "rgba(255,255,255,0.05)",
         }}
       >
@@ -103,7 +103,7 @@ export function GamepadTest() {
           style={{
             marginBottom: 20,
             padding: 14,
-            borderRadius: 10,
+            borderRadius: "var(--r-xl)",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(224,64,251,0.3)",
           }}
@@ -123,7 +123,7 @@ export function GamepadTest() {
                   minWidth: 34,
                   textAlign: "center",
                   padding: "3px 6px",
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   background: b.pressed ? "#e040fb" : "rgba(255,255,255,0.08)",
                   color: b.pressed ? "#fff" : "#aaa",
                   fontWeight: b.pressed ? 700 : 400,

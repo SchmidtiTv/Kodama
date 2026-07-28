@@ -400,7 +400,7 @@ export function Sidebar({
             <span
               className="absolute inset-0 origin-left pointer-events-none"
               style={{
-                background: "rgba(244,67,54,0.28)",
+                background: "var(--status-danger-line)",
                 transform: quitHolding ? "scaleX(1)" : "scaleX(0)",
                 transition: quitHolding ? "transform 1s linear" : "transform 0.15s ease",
               }}
@@ -708,7 +708,7 @@ export function Sidebar({
               <div
                 className="w-9 h-9 rounded flex items-center justify-center transition-all duration-150"
                 style={{
-                  color: isActuallyOffline ? "#f0b429" : "var(--text-muted)",
+                  color: isActuallyOffline ? "var(--status-warning)" : "var(--text-muted)",
                   opacity: isActuallyOffline ? 1 : 0.45,
                 }}
                 onMouseEnter={(e) => {

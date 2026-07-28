@@ -1,7 +1,9 @@
 // Lyrics parsers (LRC / TTML / Musixmatch richsync) + small time helpers. Pure functions,
 // no external deps — extracted from App.jsx.
 
-function parseLrc(lrc) {
+// Pass `meta` ({ title, artist }) for sources that prefix their lyrics with credits — Kugou
+// does, most others do not, so the stripping only happens where it is asked for.
+function parseLrc(lrc, meta = null) {
   if (!lrc) return [];
   const lines = [];
   for (const line of lrc.split("\n")) {
@@ -11,7 +13,8 @@ function parseLrc(lrc) {
       lines.push({ time, text: m[3].trim() });
     }
   }
-  return lines.sort((a, b) => a.time - b.time);
+  lines.sort((a, b) => a.time - b.time);
+  return meta ? stripLeadingCredits(lines, meta) : lines;
 }
 
 function parseRichSync(richsync) {
@@ -213,4 +216,120 @@ function parseDurationToSeconds(str) {
   return null;
 }
 
-export { parseLrc, parseRichSync, parseTtml, ttmlTimeToSeconds, parseDurationToSeconds };
+// QQ Music QRC (Better Lyrics' /qq endpoint). Metadata lines like [ti:...] are skipped;
+// timed lines look like
+//   [lineStart,lineDuration]word(start,duration)word(start,duration)...
+// with every value in milliseconds. Produces the same word-sync shape as parseRichSync.
+//
+// The text is taken from *between* the timing tags rather than matched directly, because it
+// may contain parentheses of its own — "85 (" and "Explicit) - " are real words in the wild,
+// and a pattern like /([^(]*)\((\d+),(\d+)\)/ silently drops them.
+//
+// QQ ships credits as ordinary timed lines at the top ("E85 (Explicit) - Don Toliver",
+// "Lyrics by：…", "Produced by：…"), which otherwise scroll past as if they were lyrics.
+// Pass { title, artist } to strip them: only the leading block is examined and dropping
+// stops at the first line that does not look like a credit, so nothing later is ever lost.
+// The keyword must not run straight into another letter, so "lyrics?" cannot match inside
+// "lyrical". `\b` is unusable here: it is defined on ASCII word characters, so it never fires
+// between a CJK keyword like 制作人 and the space that follows it, which silently let every
+// NetEase credit line through.
+// CJK credits appear both spelled out (作词) and as a single character (词：Yunomi/nicamoq),
+// and in simplified as well as traditional/Japanese forms (词/詞, 编曲/編曲), so all of them
+// are listed. A bare 词/曲/歌 is safe here because the pattern is anchored to the start of a
+// line and still requires a colon within a few characters.
+const CREDIT_LINE =
+  /^\s*(?:lyrics?|words?|music|composed?|composer|arranged?|arranger|produced?|producer|mixed?|mixing|mastered?|mastering|vocals?|作词|作詞|作曲|编曲|編曲|制作人|製作人|混音|母带|母帶|演唱|原唱|歌手|词|詞|曲|歌)(?![\p{L}\p{N}])[^:：]{0,24}[:：]/iu;
+const creditNorm = (s) => (s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+function parseQrc(qrc, meta = null) {
+  if (typeof qrc !== "string") return [];
+  const out = [];
+  for (const raw of qrc.split("\n")) {
+    const line = raw.trim();
+    const head = line.match(/^\[(\d+),(\d+)\]/);
+    if (!head) continue; // [ti:...] / [ar:...] / [offset:...]
+    const body = line.slice(head[0].length);
+    const tag = /\((\d+),(\d+)\)/g;
+    const words = [];
+    let m,
+      cursor = 0;
+    while ((m = tag.exec(body)) !== null) {
+      const text = body.slice(cursor, m.index);
+      cursor = m.index + m[0].length;
+      const start = Number(m[1]) / 1000;
+      words.push({
+        text,
+        time: start,
+        end: start + Number(m[2]) / 1000,
+        isSpace: text.trim() === "",
+      });
+    }
+    if (!words.length) continue;
+    out.push({
+      time: Number(head[1]) / 1000,
+      endTime: (Number(head[1]) + Number(head[2])) / 1000,
+      words,
+      wordSync: true,
+      text: words.map((w) => w.text).join(""),
+    });
+  }
+
+  return stripLeadingCredits(out, meta);
+}
+
+// Both QQ and NetEase ship the track header and its credits as ordinary timed lines at the
+// top, where they would scroll past as if they were lyrics. A line qualifies if it reads like
+// "<role>: …" or repeats both title and artist. Only the leading block is scanned, the walk
+// stops at the first line that is neither, and nothing is dropped if that would empty the
+// lyrics entirely.
+function stripLeadingCredits(lines, meta) {
+  const t = creditNorm(meta?.title),
+    a = creditNorm(meta?.artist);
+  let start = 0;
+  while (start < lines.length) {
+    const text = (lines[start].text || "").trim();
+    const n = creditNorm(text);
+    const isHeader = t && a && n.includes(t) && n.includes(a);
+    if (!CREDIT_LINE.test(text) && !isHeader) break;
+    start++;
+  }
+  return start && start < lines.length ? lines.slice(start) : lines;
+}
+
+// NetEase (via Paxsenix). Each entry is a line whose `text` array holds word segments with
+// millisecond timestamps, so it maps straight onto the same word-sync shape.
+function parseNetease(data, meta = null) {
+  if (!Array.isArray(data)) return [];
+  const out = [];
+  for (const line of data) {
+    const segs = Array.isArray(line?.text) ? line.text : [];
+    if (!segs.length) continue;
+    const words = segs.map((seg) => {
+      const text = seg?.text ?? "";
+      return {
+        text,
+        time: Number(seg?.timestamp || 0) / 1000,
+        end: Number(seg?.endtime || 0) / 1000,
+        isSpace: text.trim() === "",
+      };
+    });
+    out.push({
+      time: Number(line.timestamp || 0) / 1000,
+      endTime: Number(line.endtime || 0) / 1000,
+      words,
+      wordSync: true,
+      text: words.map((w) => w.text).join(""),
+    });
+  }
+  return stripLeadingCredits(out, meta);
+}
+
+export {
+  parseLrc,
+  parseRichSync,
+  parseTtml,
+  parseQrc,
+  parseNetease,
+  ttmlTimeToSeconds,
+  parseDurationToSeconds,
+};

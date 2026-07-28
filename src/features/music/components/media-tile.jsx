@@ -35,7 +35,7 @@ export function MediaTile({
           marginBottom: 8,
           borderRadius: isCircle ? "50%" : 10,
           overflow: "hidden",
-          boxShadow: "0 4px 14px rgba(0,0,0,0.3)",
+          boxShadow: "var(--elevation-2)",
         }}
       >
         <div style={{ width: w, height: h, background: "var(--bg-elevated)" }}>
@@ -56,7 +56,7 @@ export function MediaTile({
               style={{
                 width: "100%",
                 height: "100%",
-                background: "linear-gradient(135deg,#2a1535,#1a0a25)",
+                background: "var(--placeholder-gradient)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -95,7 +95,7 @@ export function MediaTile({
                 justifyContent: "center",
                 pointerEvents: "auto",
                 cursor: "default",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.5)",
+                boxShadow: "var(--elevation-2)",
               }}
             >
               <Play size={17} weight="fill" style={{ color: "white", marginLeft: 2 }} />

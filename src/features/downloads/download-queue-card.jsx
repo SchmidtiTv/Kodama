@@ -25,7 +25,11 @@ export function DownloadQueueCard({
       <div className="flex items-center gap-2">
         {minimized &&
           (allFinished ? (
-            <CheckCircle size={14} weight="fill" className="text-[#4caf50] shrink-0" />
+            <CheckCircle
+              size={14}
+              weight="fill"
+              className="text-[var(--status-success)] shrink-0"
+            />
           ) : (
             <Spinner size="sm" className="shrink-0" />
           ))}
@@ -68,7 +72,11 @@ export function DownloadQueueCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   {isFinished ? (
-                    <CheckCircle size={15} weight="fill" className="text-[#4caf50] shrink-0" />
+                    <CheckCircle
+                      size={15}
+                      weight="fill"
+                      className="text-[var(--status-success)] shrink-0"
+                    />
                   ) : (
                     <Spinner size="sm" className="shrink-0" />
                   )}

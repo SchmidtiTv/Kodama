@@ -37,8 +37,8 @@ export function SelectionActionBar({
         style={{
           pointerEvents: "auto",
           border: "0.5px solid var(--border)",
-          borderRadius: 16,
-          boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+          borderRadius: "var(--r-2xl)",
+          boxShadow: "var(--elevation-4)",
           animation: "ctxMenuIn 0.2s ease-out",
         }}
       >

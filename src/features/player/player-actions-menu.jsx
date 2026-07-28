@@ -173,7 +173,7 @@ export function PlayerActionsMenu(props) {
               <DropdownItem
                 textValue={translate(language, "removeCustomLyrics")}
                 onAction={() => onRemoveCustomLyrics?.()}
-                className="text-[#f44336]"
+                className="text-[var(--status-danger)]"
               >
                 <Trash size={14} />
                 {translate(language, "removeCustomLyrics")}

@@ -1,7 +1,10 @@
 // Captures recent frontend errors (uncaught exceptions, promise rejections, console.error) into a
 // small ring buffer so the bug-report tool can attach them — these never show up in the backend
 // log. Install once at app start; read via getConsoleErrors().
-const _errs = [];
+const captureStore =
+  globalThis.__kodamaErrorCapture ||
+  (globalThis.__kodamaErrorCapture = { errors: [], patched: false });
+const _errs = captureStore.errors;
 function push(s) {
   try {
     _errs.push(`[${new Date().toISOString().slice(11, 19)}] ${String(s).slice(0, 600)}`);
@@ -12,8 +15,8 @@ function push(s) {
 }
 
 export function installErrorCapture() {
-  if (window.__kodamaErrCap) return;
-  window.__kodamaErrCap = true;
+  if (captureStore.patched) return;
+  captureStore.patched = true;
   window.addEventListener("error", (e) => {
     push(`error: ${e.message}` + (e.filename ? ` @ ${e.filename}:${e.lineno}:${e.colno}` : ""));
   });

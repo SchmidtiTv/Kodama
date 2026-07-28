@@ -94,7 +94,7 @@ export function RemotePairModal({ isOpen, onClose, info, devices, onDevice, onRe
                       style={{
                         width: 17,
                         height: 17,
-                        borderRadius: 5,
+                        borderRadius: "var(--r-md)",
                         flexShrink: 0,
                         display: "flex",
                         alignItems: "center",
@@ -110,7 +110,7 @@ export function RemotePairModal({ isOpen, onClose, info, devices, onDevice, onRe
                   <div className="flex gap-2 w-full pt-1">
                     <Button
                       variant="ghost"
-                      className="flex-1 text-[#ff7070]!"
+                      className="flex-1 text-[var(--status-danger)]!"
                       onPress={() => onDevice(dev.id, "deny")}
                     >
                       {t("remoteDeny")}
@@ -135,7 +135,7 @@ export function RemotePairModal({ isOpen, onClose, info, devices, onDevice, onRe
                       style={{
                         width: 180,
                         height: 180,
-                        borderRadius: 14,
+                        borderRadius: "var(--r-xl)",
                         background: "#fff",
                         padding: 8,
                       }}
@@ -203,7 +203,7 @@ export function RemoteControlPanel({ devices, onDevice, onPair, trustedIds, onRe
         margin: "2px 0 6px",
         padding: "14px 16px",
         background: "var(--fill-subtle)",
-        borderRadius: 12,
+        borderRadius: "var(--r-xl)",
         display: "flex",
         flexDirection: "column",
         gap: 11,
@@ -269,7 +269,7 @@ export function RemoteControlPanel({ devices, onDevice, onPair, trustedIds, onRe
                 size="sm"
                 variant="ghost"
                 isIconOnly
-                className="h-7 min-w-7 text-muted hover:text-[#ff7070]!"
+                className="h-7 min-w-7 text-muted hover:text-[var(--status-danger)]!"
                 onPress={() => onDevice(d.id, "remove")}
               >
                 <Trash size={13} />

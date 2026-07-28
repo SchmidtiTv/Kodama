@@ -141,7 +141,7 @@ export function DownloadsView({
                     : "transparent",
                 color: tab === tb.id ? "var(--accent)" : "var(--text-secondary)",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: "var(--r-lg)",
                 padding: "7px 14px",
                 fontSize: "var(--t13)",
                 cursor: "default",

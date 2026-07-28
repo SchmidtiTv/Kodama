@@ -477,7 +477,12 @@ function ColorField({ label, value, onChange, opacity, onOpacity }) {
       <ColorPicker
         value={hex}
         onChange={onChange}
-        swatch={{ width: 16, height: 16, borderRadius: 4, border: "1px solid var(--border)" }}
+        swatch={{
+          width: 16,
+          height: 16,
+          borderRadius: "var(--r-sm)",
+          border: "1px solid var(--border)",
+        }}
       />
       <input
         value={(value ?? "").replace(/^#/, "")}
@@ -648,7 +653,7 @@ function FillList({ t, fills, onChange }) {
             type="button"
             onClick={() => remove(i)}
             aria-label={t("ovlRemove") || "Remove"}
-            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/frow:opacity-100 hover:text-[#ff7070] transition-[color,opacity]"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/frow:opacity-100 hover:text-[var(--status-danger)] transition-[color,opacity]"
           >
             <Minus size={13} />
           </button>
@@ -706,7 +711,7 @@ function StrokeList({ t, strokes, weight, position, onChange, onWeight, onPositi
             type="button"
             onClick={() => remove(i)}
             aria-label={t("ovlRemove") || "Remove"}
-            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/srow:opacity-100 hover:text-[#ff7070] transition-[color,opacity]"
+            className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/srow:opacity-100 hover:text-[var(--status-danger)] transition-[color,opacity]"
           >
             <Minus size={13} />
           </button>
@@ -776,7 +781,7 @@ function EffectList({ t, effects, onChange }) {
               type="button"
               onClick={() => remove(i)}
               aria-label={t("ovlRemove") || "Remove"}
-              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/erow:opacity-100 hover:text-[#ff7070] transition-[color,opacity]"
+              className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-muted opacity-0 group-hover/erow:opacity-100 hover:text-[var(--status-danger)] transition-[color,opacity]"
             >
               <Minus size={13} />
             </button>
@@ -2705,7 +2710,7 @@ export default function OverlayEditor({
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="gap-1.5 text-[#ff7070]!"
+                  className="gap-1.5 text-[var(--status-danger)]!"
                   onPress={deleteSelected}
                 >
                   <Trash size={13} /> {t("ovlMenuDelete")}
@@ -2973,7 +2978,7 @@ export default function OverlayEditor({
                           isIconOnly
                           onPress={() => deleteLayer(selected.id)}
                           aria-label={t("ovlMenuDelete")}
-                          className="shrink-0 text-[#ff7070]!"
+                          className="shrink-0 text-[var(--status-danger)]!"
                         >
                           <Trash size={14} />
                         </Button>

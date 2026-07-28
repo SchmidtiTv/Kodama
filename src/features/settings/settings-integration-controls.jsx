@@ -52,7 +52,11 @@ export function AccentColorPicker({ value, onChange }) {
             className="w-full h-full rounded-md cursor-default transition-transform hover:scale-105 leading-[0]"
             style={
               value === preset.value
-                ? { outline: `2.5px solid ${preset.value}`, outlineOffset: 2, borderRadius: 6 }
+                ? {
+                    outline: `2.5px solid ${preset.value}`,
+                    outlineOffset: 2,
+                    borderRadius: "var(--r-md)",
+                  }
                 : undefined
             }
           >

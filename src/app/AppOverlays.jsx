@@ -181,7 +181,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
           width: 420,
           maxWidth: "92vw",
           padding: 36,
-          boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+          boxShadow: "var(--elevation-4)",
         }}
       >
         {onCancel && step !== "waiting" && (
@@ -295,7 +295,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
             <div
               style={{
                 background: "var(--bg-elevated)",
-                borderRadius: 10,
+                borderRadius: "var(--r-xl)",
                 padding: "12px 14px",
                 marginBottom: 20,
                 border: "0.5px solid var(--border)",
@@ -612,7 +612,7 @@ export function AppOverlays({
               gap: 14,
               minWidth: 220,
               padding: "26px 32px",
-              borderRadius: 16,
+              borderRadius: "var(--r-2xl)",
               background: "var(--bg-elevated)",
               border: "1px solid var(--border)",
               boxShadow: "0 24px 64px rgba(0,0,0,0.42)",

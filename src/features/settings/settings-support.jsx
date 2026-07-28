@@ -258,8 +258,8 @@ export function CacheTab({ t }) {
             padding: "12px 16px",
             marginBottom: 6,
             borderRadius: "var(--r-lg)",
-            background: "rgba(255,60,60,0.12)",
-            color: "#ff7070",
+            background: "var(--status-danger-soft)",
+            color: "var(--status-danger)",
             fontSize: 12,
           }}
         >
@@ -290,12 +290,16 @@ export function CacheTab({ t }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {overLimit && (
-              <div style={{ fontSize: 11, color: "#ff7070", fontWeight: 600 }}>
+              <div style={{ fontSize: 11, color: "var(--status-danger)", fontWeight: 600 }}>
                 {t("cacheWarning")}
               </div>
             )}
             <div
-              style={{ fontSize: 22, fontWeight: 700, color: overLimit ? "#ff7070" : "var(--t1)" }}
+              style={{
+                fontSize: 22,
+                fontWeight: 700,
+                color: overLimit ? "var(--status-danger)" : "var(--t1)",
+              }}
             >
               {stats ? fmtBytes(totalBytes) : "…"}
             </div>
@@ -394,7 +398,7 @@ export function CacheTab({ t }) {
               size="sm"
               isDisabled={isClearing || wasCleared}
               onPress={() => clear(key)}
-              className={cn("min-w-[72px]", wasCleared && "text-[#6bdf96]!")}
+              className={cn("min-w-[72px]", wasCleared && "text-[var(--status-success)]!")}
             >
               {wasCleared ? (
                 <>
@@ -570,7 +574,7 @@ export function LyricsProviderList({ providers, onChange }) {
                     whiteSpace: "nowrap",
                     flexShrink: 0,
                     padding: "2px 6px",
-                    borderRadius: 4,
+                    borderRadius: "var(--r-sm)",
                     background: p.enabled ? sync.bg : "rgba(255,255,255,0.05)",
                     color: p.enabled ? sync.color : "var(--text-muted)",
                     transition: "all 0.2s",
@@ -616,13 +620,13 @@ export function LyricsProviderList({ providers, onChange }) {
 
 const _debugLevelColor = (level) => {
   if (level === "ERROR") return "#ff6b6b";
-  if (level === "WARN") return "#f0b429";
+  if (level === "WARN") return "var(--status-warning)";
   if (level === "INFO") return "#64b5f6";
   return "var(--text-muted)";
 };
 const _debugLevelBg = (level) => {
-  if (level === "ERROR") return "rgba(255,107,107,0.12)";
-  if (level === "WARN") return "rgba(240,180,41,0.10)";
+  if (level === "ERROR") return "var(--status-danger-soft)";
+  if (level === "WARN") return "var(--status-warning-soft)";
   if (level === "INFO") return "rgba(100,181,246,0.08)";
   return "transparent";
 };
@@ -639,12 +643,16 @@ function _debugFmtAge(ageSeconds) {
 function _debugAuthRows(info, t) {
   const authStatus =
     info.authed === true ? (
-      <span style={{ color: "#6bdf96", display: "flex", alignItems: "center", gap: 4 }}>
+      <span
+        style={{ color: "var(--status-success)", display: "flex", alignItems: "center", gap: 4 }}
+      >
         <Check size={11} weight="bold" />
         {t("debugAuthedYes")}
       </span>
     ) : info.authed === false ? (
-      <span style={{ color: "#ff7070", display: "flex", alignItems: "center", gap: 4 }}>
+      <span
+        style={{ color: "var(--status-danger)", display: "flex", alignItems: "center", gap: 4 }}
+      >
         <WarningCircle size={11} weight="fill" />
         {t("debugAuthedNo")}
       </span>
@@ -806,7 +814,7 @@ export function DebugFloatingWindow({ onClose }) {
         background: "var(--bg-surface)",
         border: "0.5px solid var(--stroke)",
         borderRadius: "var(--r-xl)",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.75)",
+        boxShadow: "var(--elevation-4)",
         fontFamily: "var(--font)",
         overflow: "hidden",
         resize: "both",
@@ -853,7 +861,7 @@ export function DebugFloatingWindow({ onClose }) {
           size="sm"
           isIconOnly
           onPress={onClose}
-          className="text-[#ff7070]! rounded-full"
+          className="text-[var(--status-danger)]! rounded-full"
         >
           <X size={12} weight="bold" />
         </Button>
@@ -1095,8 +1103,8 @@ export function DebugTab({ t }) {
             style={{
               padding: "12px 16px",
               borderRadius: "var(--r-lg)",
-              background: "rgba(255,60,60,0.12)",
-              color: "#ff7070",
+              background: "var(--status-danger-soft)",
+              color: "var(--status-danger)",
               fontSize: 12,
               display: "flex",
               alignItems: "center",
@@ -1128,12 +1136,19 @@ export function DebugTab({ t }) {
               [
                 "Node.js",
                 info.node ? (
-                  <span style={{ color: "#6bdf96", display: "flex", alignItems: "center", gap: 4 }}>
+                  <span
+                    style={{
+                      color: "var(--status-success)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
                     <Check size={11} weight="bold" />
                     {info.node.split(/[/\\]/).pop()}
                   </span>
                 ) : (
-                  <span style={{ color: "#ff7070" }}>—</span>
+                  <span style={{ color: "var(--status-danger)" }}>—</span>
                 ),
               ],
               ["Profil", info.profile],
@@ -1520,7 +1535,7 @@ export function UnisonIdentitySection() {
                 ) : null}
               </div>
               {nickErr ? (
-                <div className="text-t10 text-[#e05252]">{nickErr}</div>
+                <div className="text-t10 text-[var(--status-danger)]">{nickErr}</div>
               ) : (
                 <div className="text-t10 text-muted">{t("unisonNameDerived")}</div>
               )}
@@ -1544,12 +1559,16 @@ export function UnisonIdentitySection() {
                 {t("unisonImportKey")}
               </Button>
             </div>
-            <Button variant="ghost" className="justify-center text-[#e05252]!" onPress={remove}>
+            <Button
+              variant="ghost"
+              className="justify-center text-[var(--status-danger)]!"
+              onPress={remove}
+            >
               {t("unisonRemove")}
             </Button>
           </>
         )}
-        {err ? <div className="text-t11 text-[#e05252]">{err}</div> : null}
+        {err ? <div className="text-t11 text-[var(--status-danger)]">{err}</div> : null}
       </CardRoot>
     </>
   );
@@ -1657,7 +1676,10 @@ export function FfmpegUpdateRow() {
             {percent}%
           </span>
         ) : phase === "done" ? (
-          <span className="text-t12 flex items-center gap-1.5" style={{ color: "#4caf50" }}>
+          <span
+            className="text-t12 flex items-center gap-1.5"
+            style={{ color: "var(--status-success)" }}
+          >
             <CheckCircle size={14} weight="fill" />
             {t("ffmpegUpdated")}
           </span>
@@ -1693,7 +1715,10 @@ export function FfmpegUpdateRow() {
         </ProgressBar>
       )}
       {phase === "error" && (
-        <div className="text-t12 mt-1.5 flex items-center gap-1.5" style={{ color: "#ff7070" }}>
+        <div
+          className="text-t12 mt-1.5 flex items-center gap-1.5"
+          style={{ color: "var(--status-danger)" }}
+        >
           {t("ffmpegUpdateFailed")}
         </div>
       )}
@@ -1751,7 +1776,10 @@ export function YtDlpUpdateRow() {
           <ArrowClockwise size={13} style={{ animation: "spin2 0.8s linear infinite" }} />
         </span>
       ) : phase === "done" ? (
-        <span className="text-t12 flex items-center gap-1.5" style={{ color: "#4caf50" }}>
+        <span
+          className="text-t12 flex items-center gap-1.5"
+          style={{ color: "var(--status-success)" }}
+        >
           <CheckCircle size={14} weight="fill" />
           {t("ytdlpUpdated") || "yt-dlp updated"}
         </span>

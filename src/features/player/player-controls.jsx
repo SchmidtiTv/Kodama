@@ -215,7 +215,7 @@ export function PlayerControls(props) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    background: track ? "linear-gradient(135deg,#2a1535,#1a0a25)" : "transparent",
+                    background: track ? "var(--placeholder-gradient)" : "transparent",
                   }}
                 />
               )}
@@ -294,7 +294,7 @@ export function PlayerControls(props) {
                 style={{
                   visibility: track ? "visible" : "hidden",
                   contain: "layout style",
-                  borderRadius: "9999px",
+                  borderRadius: "var(--r-full)",
                   width: 36,
                   height: 36,
                   minWidth: 36,
@@ -541,7 +541,7 @@ export function PlayerControls(props) {
                       <DropdownItem
                         id="off"
                         textValue={translate(language, "cancelSleepTimer")}
-                        className="text-[#f44336]"
+                        className="text-[var(--status-danger)]"
                       >
                         <X size={13} />
                         {translate(language, "cancelSleepTimer")}

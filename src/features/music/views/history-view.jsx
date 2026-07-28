@@ -48,7 +48,7 @@ export function HistoryView({
       <button
         onClick={clearHistory}
         style={{
-          borderRadius: 28,
+          borderRadius: "var(--r-full)",
           height: 42,
           display: "flex",
           alignItems: "center",
@@ -65,9 +65,9 @@ export function HistoryView({
           color: "rgba(255,255,255,0.75)",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = "#f44336";
-          e.currentTarget.style.borderColor = "#f44336";
-          e.currentTarget.style.background = "rgba(244,67,54,0.12)";
+          e.currentTarget.style.color = "var(--status-danger)";
+          e.currentTarget.style.borderColor = "var(--status-danger)";
+          e.currentTarget.style.background = "var(--status-danger-soft)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.color = "rgba(255,255,255,0.75)";

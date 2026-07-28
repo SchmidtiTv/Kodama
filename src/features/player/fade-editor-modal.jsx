@@ -68,7 +68,7 @@ export function FadeEditorModal({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-[#ff7070]!"
+                      className="text-[var(--status-danger)]!"
                       onPress={() => {
                         onClear();
                         onClose();

@@ -30,6 +30,7 @@ import { PROVIDER_SYNC } from "@/features/lyrics/providers.js";
 import { fetchLyrics } from "@/features/lyrics/fetch.js";
 import { parseTtml, parseLrc, parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { getUnisonIdentity, unisonVote, unisonReport } from "@/features/lyrics/community/api.js";
+import { useAnimatedClose } from "@/shared/hooks/use-animated-close.js";
 
 // Browse every available lyrics version for the current track and apply the preferred
 // one. Fetches all providers on open and shows a preview + sync type per version.
@@ -51,6 +52,7 @@ function LyricsBrowserModal({
   onClose,
 }) {
   const t = useLang();
+  const [isOpen, close] = useAnimatedClose(onClose);
   const [results, setResults] = useState(null); // null = loading, [] = none
   const [votes, setVotes] = useState({}); // { [versionId]: { my: -1|0|1, count } }
   const [selectedIdx, setSelectedIdx] = useState(-1); // row currently previewed (right pane)
@@ -95,7 +97,11 @@ function LyricsBrowserModal({
         track.album,
         parseDurationToSeconds(track.duration),
         providers,
-        track.videoId || ""
+        track.videoId || "",
+        undefined,
+        ({ results: partialResults }) => {
+          if (!cancelled) setResults(partialResults);
+        }
       ).catch(() => null);
       let base = res?.allResults || [];
       // Expand the single Unison entry into every community submission for this song.
@@ -165,7 +171,7 @@ function LyricsBrowserModal({
     if (level === "line") return PROVIDER_SYNC.lrclib; // Line badge
     if (level === "plain")
       return { label: "Plain", color: "#9e9e9e", bg: "rgba(158,158,158,0.12)" };
-    return r.providerId === "musixmatch" ? PROVIDER_SYNC.musixmatch : PROVIDER_SYNC.better;
+    return PROVIDER_SYNC[r.providerId] || PROVIDER_SYNC.better;
   };
 
   // Exactly one row is "active": prefer an exact version-id match (set when a version
@@ -215,7 +221,7 @@ function LyricsBrowserModal({
   const handleSelect = () => {
     if (!selected) return;
     onApply(selected);
-    onClose();
+    close();
   };
 
   const handleCopy = () => {
@@ -230,9 +236,9 @@ function LyricsBrowserModal({
 
   return (
     <ModalRoot
-      isOpen
+      isOpen={isOpen}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
     >
       <ModalBackdrop className="z-[300]!">
@@ -352,7 +358,7 @@ function LyricsBrowserModal({
                               title={t("downvote")}
                               className={cn(
                                 "flex items-center justify-center size-6 rounded-md hover:bg-hover transition-colors",
-                                my === -1 ? "text-[#e05252]" : "text-muted"
+                                my === -1 ? "text-[var(--status-danger)]" : "text-muted"
                               )}
                             >
                               <CaretDown size={13} weight="bold" />
@@ -360,7 +366,7 @@ function LyricsBrowserModal({
                             <Dropdown>
                               <DropdownTrigger
                                 title={t("report")}
-                                className="ml-auto flex items-center justify-center size-6 rounded-md hover:bg-hover text-muted hover:text-[#e05252] transition-colors"
+                                className="ml-auto flex items-center justify-center size-6 rounded-md hover:bg-hover text-muted hover:text-[var(--status-danger)] transition-colors"
                               >
                                 <Flag size={13} />
                               </DropdownTrigger>
@@ -391,7 +397,7 @@ function LyricsBrowserModal({
                   className="justify-center gap-2"
                   onPress={() => {
                     openComposer(track?.videoId).catch(console.error);
-                    onClose();
+                    close();
                   }}
                 >
                   <img src="/Boidu Composer Icon.svg" style={{ width: 16, height: 16 }} alt="" />
@@ -413,7 +419,7 @@ function LyricsBrowserModal({
                     {t("lyricsPreview")}
                   </span>
                   <button
-                    onClick={onClose}
+                    onClick={close}
                     title={t("close") || "Close"}
                     className="flex items-center justify-center size-7 rounded-full hover:bg-hover text-muted hover:text-primary transition-colors"
                   >

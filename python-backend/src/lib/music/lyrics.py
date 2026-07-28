@@ -3,6 +3,7 @@
 import base64
 import collections
 import hashlib
+import html
 import json
 import re
 from pathlib import Path
@@ -72,6 +73,10 @@ class LyricsService:
         if not result:
             result = self._lookup_better_lyrics(title, artist, album, duration, source)
         if not result:
+            result = self._lookup_portato(title, artist, album, duration, source)
+        if not result:
+            result = self._lookup_paxsenix_netease(title, artist, duration, source)
+        if not result:
             result = self._lookup_kugou(title, artist, duration, source)
         if not result and source in ("auto", "musixmatch"):
             try:
@@ -135,6 +140,114 @@ class LyricsService:
         return None
 
     @staticmethod
+    def _lookup_portato(
+        title: str, artist: str, album: str, duration: str, source: str
+    ) -> Optional[Dict[str, object]]:
+        if source not in ("auto", "portato"):
+            return None
+        try:
+            params = {"s": title, "a": artist}
+            if album:
+                params["al"] = album
+            if duration:
+                params["d"] = duration
+            response = requests.get(
+                "https://lyrics-api.boidu.dev/qq/getLyrics",
+                params=params,
+                timeout=8,
+            )
+            raw = (response.json() or {}).get("lyrics", "") if response.ok else ""
+            match = re.search(r'LyricContent="(.*?)"\s*/>', raw, re.DOTALL)
+            if match:
+                qrc = html.unescape(match.group(1))
+                if qrc.strip():
+                    return {"source": "Better Lyrics Portato", "qrc": qrc}
+        except Exception as error:
+            print(f"[lyrics] Portato error: {error}", flush=True)
+        return None
+
+    @staticmethod
+    def _pick_paxsenix_song(
+        songs: List[Dict[str, object]], title: str, artist: str, wanted_duration_ms: int
+    ) -> Optional[Dict[str, object]]:
+        def normalize(value: object) -> str:
+            return re.sub(r"[^0-9a-z一-鿿぀-ヿ]+", "", str(value or "").lower())
+
+        wanted_title = normalize(title)
+        wanted_artist = normalize(artist)
+        best_song: Optional[Dict[str, object]] = None
+        best_score = -1
+
+        for song in songs:
+            name = normalize(song.get("name"))
+            raw_artists = song.get("artists")
+            artist_names = (
+                " ".join(str(item.get("name", "")) for item in raw_artists if isinstance(item, dict))
+                if isinstance(raw_artists, list)
+                else ""
+            )
+            artists = normalize(artist_names)
+            if wanted_title and name and not (wanted_title in name or name in wanted_title):
+                continue
+            if wanted_artist and artists and not (
+                wanted_artist in artists or artists in wanted_artist
+            ):
+                continue
+
+            score = 10
+            if name == wanted_title:
+                score += 5
+            raw_duration = song.get("duration")
+            if wanted_duration_ms and isinstance(raw_duration, int | float):
+                difference = abs(raw_duration - wanted_duration_ms)
+                if difference <= 3_000:
+                    score += 5
+                elif difference <= 10_000:
+                    score += 2
+                else:
+                    score -= 4
+            if score > best_score:
+                best_song = song
+                best_score = score
+
+        return best_song
+
+    @classmethod
+    def _lookup_paxsenix_netease(
+        cls, title: str, artist: str, duration: str, source: str
+    ) -> Optional[Dict[str, object]]:
+        if source not in ("auto", "paxsenix-netease"):
+            return None
+        try:
+            response = requests.get(
+                "https://lyrics.paxsenix.org/netease/search",
+                params={"q": f"{title} {artist}".strip()},
+                timeout=5,
+            )
+            raw_songs = (
+                ((response.json() or {}).get("result") or {}).get("songs") or []
+                if response.ok
+                else []
+            )
+            songs = [song for song in raw_songs if isinstance(song, dict)]
+            wanted_duration_ms = int(float(duration) * 1000) if duration else 0
+            song = cls._pick_paxsenix_song(songs, title, artist, wanted_duration_ms)
+            song_id = song.get("id") if song else None
+            if not song_id:
+                return None
+            lyrics_response = requests.get(
+                "https://lyrics.paxsenix.org/netease/lyrics",
+                params={"id": song_id, "word": "true"},
+                timeout=5,
+            )
+            data = lyrics_response.json() if lyrics_response.ok else None
+            if isinstance(data, list) and data:
+                return {"source": "NetEase (Paxsenix)", "netease": data}
+        except Exception as error:
+            print(f"[lyrics] Paxsenix NetEase error: {error}", flush=True)
+        return None
+
+    @staticmethod
     def _lookup_kugou(title: str, artist: str, duration: str, source: str) -> Optional[Dict[str, object]]:
         if source not in ("auto", "kugou"):
             return None
@@ -142,13 +255,14 @@ class LyricsService:
             keyword = f"{title} {artist}".strip()
             duration_ms = int(float(duration) * 1000) if duration else 0
             search_response = requests.get(
-                "https://mobilecdn.kugou.com/api/v3/search/song",
-                params={"keyword": keyword, "page": 1, "pagesize": 5, "format": "json"},
+                "https://songsearch.kugou.com/song_search_v2",
+                params={"keyword": keyword, "page": 1, "pagesize": 5},
                 timeout=8,
+                headers={"User-Agent": "Mozilla/5.0"},
             )
             if not search_response.ok:
                 return None
-            songs = search_response.json().get("data", {}).get("info", [])
+            songs = json.loads(search_response.text.strip()).get("data", {}).get("lists", [])
             if not songs:
                 return None
             candidate_response = requests.get(
@@ -159,7 +273,7 @@ class LyricsService:
                     "client": "pc",
                     "keyword": f"{title} - {artist}",
                     "duration": duration_ms,
-                    "hash": songs[0].get("hash", ""),
+                    "hash": songs[0].get("FileHash", ""),
                 },
                 timeout=8,
             )

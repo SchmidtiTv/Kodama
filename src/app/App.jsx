@@ -29,7 +29,7 @@ import {
   TrackNumberContext,
   ZoomContext,
 } from "@/features/settings/display-context.jsx";
-import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
+import { DEFAULT_LYRICS_PROVIDERS, mergeLyricsProviders } from "@/features/lyrics/providers.js";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { itemId, profileKey } from "@/features/music/lib/playlist-id.js";
 import { useMusicNavigation } from "@/features/music/hooks/use-music-navigation.js";
@@ -578,20 +578,9 @@ export default function App() {
   }, [appFontScale]);
 
   const [lyricsProviders, setLyricsProviders] = useState(() => {
-    const validIds = new Set(DEFAULT_LYRICS_PROVIDERS.map((p) => p.id));
     try {
       const saved = localStorage.getItem("kiyoshi-lyrics-providers");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const filtered = parsed.filter((p) => validIds.has(p.id));
-
-        const ids = filtered.map((p) => p.id);
-        const merged = [
-          ...filtered,
-          ...DEFAULT_LYRICS_PROVIDERS.filter((p) => !ids.includes(p.id)),
-        ];
-        return merged;
-      }
+      if (saved) return mergeLyricsProviders(JSON.parse(saved));
     } catch {
       /* intentionally ignored */
     }
@@ -599,13 +588,9 @@ export default function App() {
   });
 
   useEffect(() => {
-    const validIds = new Set(DEFAULT_LYRICS_PROVIDERS.map((p) => p.id));
     setLyricsProviders((current) => {
-      const filtered = current.filter((p) => validIds.has(p.id));
-      const ids = filtered.map((p) => p.id);
-      const missing = DEFAULT_LYRICS_PROVIDERS.filter((p) => !ids.includes(p.id));
-      if (missing.length === 0 && filtered.length === current.length) return current;
-      const merged = [...filtered, ...missing];
+      const merged = mergeLyricsProviders(current);
+      if (JSON.stringify(merged) === JSON.stringify(current)) return current;
       localStorage.setItem("kiyoshi-lyrics-providers", JSON.stringify(merged));
       return merged;
     });

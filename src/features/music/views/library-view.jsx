@@ -184,7 +184,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
                   ? "color-mix(in srgb, var(--accent) 15%, transparent)"
                   : "none",
               border: "none",
-              borderRadius: 6,
+              borderRadius: "var(--r-md)",
               padding: "3px 9px",
               fontSize: "var(--t12)",
               fontFamily: "var(--font)",
@@ -226,7 +226,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
               style={{
                 background: "var(--bg-elevated)",
                 border: "0.5px solid var(--border)",
-                borderRadius: 20,
+                borderRadius: "var(--r-full)",
                 padding: "5px 12px",
                 fontSize: "var(--t12)",
                 color: "var(--text-primary)",
@@ -271,7 +271,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
       </div>
 
       {loading && <div style={{ color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
-      {error && <div style={{ color: "#f44336" }}>{error}</div>}
+      {error && <div style={{ color: "var(--status-danger)" }}>{error}</div>}
       {!loading && !error && (
         <div
           style={{

@@ -95,7 +95,7 @@ export function ArtistView({
       </div>
     );
 
-  if (error) return <div style={{ padding: 28, color: "#f44336" }}>{error}</div>;
+  if (error) return <div style={{ padding: 28, color: "var(--status-danger)" }}>{error}</div>;
   if (!artist) return null;
 
   const topTracks = (artist.tracks || []).filter((tr) => !hideExplicit || !tr.isExplicit);
@@ -148,7 +148,7 @@ export function ArtistView({
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
         }}
       >
         {artist.thumbnail ? (
@@ -325,7 +325,7 @@ export function ArtistView({
               style={{
                 marginTop: 8,
                 fontSize: "var(--t11)",
-                color: "#ff7070",
+                color: "var(--status-danger)",
                 maxWidth: 280,
                 lineHeight: 1.35,
               }}
@@ -648,93 +648,99 @@ export function ArtistView({
         {bandMembers?.browseId === browseId &&
           bandMembers.artistName === artist.name &&
           bandMembers.members.length > 0 && (
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>
-              {t("bandMembers")}
-            </div>
-            <div
-              className="carousel"
-              style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}
-            >
-              {bandMembers.members.map((member) => (
-                <div
-                  key={member.id}
-                  onClick={() => member.wikipediaUrl && openUrl(member.wikipediaUrl).catch(console.error)}
-                  style={{ flexShrink: 0, width: 120, cursor: member.wikipediaUrl ? "pointer" : "default" }}
-                >
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ fontSize: "var(--t16)", fontWeight: 600, marginBottom: 12 }}>
+                {t("bandMembers")}
+              </div>
+              <div
+                className="carousel"
+                style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8 }}
+              >
+                {bandMembers.members.map((member) => (
                   <div
+                    key={member.id}
+                    onClick={() =>
+                      member.wikipediaUrl && openUrl(member.wikipediaUrl).catch(console.error)
+                    }
                     style={{
+                      flexShrink: 0,
                       width: 120,
-                      height: 120,
-                      borderRadius: "50%",
-                      overflow: "hidden",
-                      background: "var(--bg-elevated)",
+                      cursor: member.wikipediaUrl ? "pointer" : "default",
                     }}
                   >
-                    {member.image ? (
-                      <img
-                        src={member.image}
-                        alt={member.name}
-                        loading="lazy"
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div
-                        aria-hidden="true"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "grid",
-                          placeItems: "center",
-                          color: "var(--text-muted)",
-                          fontSize: "var(--t16)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {member.name
-                          .split(/\s+/)
-                          .slice(0, 2)
-                          .map((word) => word[0])
-                          .join("")
-                          .toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0, marginTop: 8 }}>
                     <div
                       style={{
-                        color: "var(--text-primary)",
-                        fontSize: "var(--t12)",
-                        fontWeight: 600,
+                        width: 120,
+                        height: 120,
+                        borderRadius: "50%",
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        textAlign: "center",
+                        background: "var(--bg-elevated)",
                       }}
                     >
-                      {member.name}
+                      {member.image ? (
+                        <img
+                          src={member.image}
+                          alt={member.name}
+                          loading="lazy"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "grid",
+                            placeItems: "center",
+                            color: "var(--text-muted)",
+                            fontSize: "var(--t16)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {member.name
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((word) => word[0])
+                            .join("")
+                            .toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                    {member.roles?.length > 0 && (
+                    <div style={{ minWidth: 0, marginTop: 8 }}>
                       <div
                         style={{
-                          color: "var(--text-secondary)",
-                          fontSize: "var(--t11)",
-                          marginTop: 3,
+                          color: "var(--text-primary)",
+                          fontSize: "var(--t12)",
+                          fontWeight: 600,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                           textAlign: "center",
                         }}
                       >
-                        {member.roles.join(" · ")}
+                        {member.name}
                       </div>
-                    )}
+                      {member.roles?.length > 0 && (
+                        <div
+                          style={{
+                            color: "var(--text-secondary)",
+                            fontSize: "var(--t11)",
+                            marginTop: 3,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            textAlign: "center",
+                          }}
+                        >
+                          {member.roles.join(" · ")}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Related Artists */}
         {artist.related?.length > 0 && (
