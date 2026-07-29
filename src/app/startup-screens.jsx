@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button, CardRoot, ProgressBar, ProgressBarFill, ProgressBarTrack } from "@heroui/react";
+import { gsap } from "gsap";
 import { API } from "@/shared/api/client.js";
 import { LANGUAGES, translate } from "@/shared/i18n/i18n.js";
 import { ArrowClockwise, Check, CheckCircle, X } from "@/shared/icons/icons.jsx";
@@ -515,29 +516,132 @@ export function FfmpegUpdateBanner({ installed, latest, onClose }) {
   );
 }
 
-export function SplashScreen({ fading }) {
+export function SplashScreen({ animations, onComplete }) {
+  const rootRef = useRef(null);
+  const glowRef = useRef(null);
+  const logoRef = useRef(null);
+  const wordmarkRef = useRef(null);
+  const progressRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+
+    const context = gsap.context(() => {
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (!animations || reducedMotion) {
+        gsap.set([glowRef.current, logoRef.current, wordmarkRef.current, progressRef.current], {
+          clearProps: "all",
+        });
+        gsap.delayedCall(0.15, onComplete);
+        return;
+      }
+
+      gsap
+        .timeline({
+          defaults: { ease: "power3.out" },
+          onComplete,
+        })
+        .fromTo(
+          glowRef.current,
+          { autoAlpha: 0, scale: 0.55 },
+          { autoAlpha: 0.72, scale: 1, duration: 0.65 },
+          0
+        )
+        .fromTo(
+          logoRef.current,
+          { autoAlpha: 0, scale: 0.62, rotation: -7 },
+          { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.62, ease: "back.out(1.55)" },
+          0.08
+        )
+        .fromTo(
+          wordmarkRef.current,
+          { autoAlpha: 0, y: 12 },
+          { autoAlpha: 1, y: 0, duration: 0.42 },
+          0.33
+        )
+        .fromTo(
+          progressRef.current,
+          { scaleX: 0, transformOrigin: "left center" },
+          { scaleX: 1, duration: 0.95, ease: "power2.inOut" },
+          0.48
+        )
+        .to(glowRef.current, { scale: 1.18, autoAlpha: 0.95, duration: 0.42 }, 0.62)
+        .to(glowRef.current, { scale: 1, autoAlpha: 0.72, duration: 0.5 }, 1.04)
+        .to(root, { autoAlpha: 0, scale: 1.025, duration: 0.42, ease: "power2.inOut" }, 1.48);
+    }, root);
+
+    return () => context.revert();
+  }, [animations, onComplete]);
+
   return (
     <div
+      ref={rootRef}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 9999,
         background: "#0d0d0d",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        animation: fading ? "splashFadeOut 0.45s ease forwards" : "none",
         pointerEvents: "none",
       }}
     >
-      <style>{`@keyframes kodamaPulse{0%,100%{transform:scale(0.92);opacity:.7}50%{transform:scale(1.06);opacity:1}}`}</style>
-      <img
-        src="/Kodama%20Logo.png"
-        alt="Kodama"
-        width="96"
-        height="96"
-        style={{ animation: "kodamaPulse 1.5s ease-in-out infinite" }}
-      />
+      <div style={{ position: "relative", width: 118, height: 118 }}>
+        <div
+          ref={glowRef}
+          style={{
+            position: "absolute",
+            inset: -28,
+            borderRadius: "50%",
+            background: "radial-gradient(circle, var(--accent) 0%, transparent 68%)",
+            filter: "blur(18px)",
+            opacity: 0.72,
+          }}
+        />
+        <img
+          ref={logoRef}
+          src="/Kodama%20Logo.png"
+          alt="Kodama"
+          width="118"
+          height="118"
+          style={{ position: "relative", display: "block" }}
+        />
+      </div>
+      <div
+        ref={wordmarkRef}
+        style={{
+          marginTop: 18,
+          color: "#fff",
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+        }}
+      >
+        Kodama
+      </div>
+      <div
+        style={{
+          width: 136,
+          height: 3,
+          marginTop: 22,
+          borderRadius: 999,
+          overflow: "hidden",
+          background: "rgba(255,255,255,0.1)",
+        }}
+      >
+        <div
+          ref={progressRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "inherit",
+            background: "var(--accent)",
+          }}
+        />
+      </div>
     </div>
   );
 }

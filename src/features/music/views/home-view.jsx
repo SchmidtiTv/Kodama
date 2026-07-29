@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Button,
   CardRoot,
@@ -7,6 +7,7 @@ import {
   ToggleButton,
   ToggleButtonGroupRoot,
 } from "@heroui/react";
+import { gsap } from "gsap";
 
 import { ExplicitBadge } from "@/features/music/components/rows.jsx";
 import {
@@ -28,6 +29,7 @@ import { thumb } from "@/shared/api/thumbnails.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { Carousel } from "../components/carousel.jsx";
 import { usePlayerActions } from "../../player/player-context.jsx";
+import { useAnimations } from "@/features/settings/display-context.jsx";
 
 // Home is unmounted when the user navigates to another primary view. Keep the
 // response in memory per profile so returning to it is instant, while still
@@ -54,6 +56,7 @@ export function HomeView({
   refreshKey = 0,
 }) {
   const { handlePlay } = usePlayerActions();
+  const animations = useAnimations();
   const [sections, setSections] = useState(() => readHomeCache(profileKey)?.sections || []);
   const [loading, setLoading] = useState(() => !readHomeCache(profileKey)?.hasHomeData);
   const [error, setError] = useState(null);
@@ -68,6 +71,31 @@ export function HomeView({
   const [speedDialPage, setSpeedDialPage] = useState(0);
   const t = useLang();
   const homeCancelledRef = useRef(false);
+  const headerRef = useRef(null);
+  const headerIconRef = useRef(null);
+  const headerTextRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!header || !animations || reducedMotion) return undefined;
+    const context = gsap.context(() => {
+      gsap
+        .timeline({ defaults: { ease: "power3.out" } })
+        .fromTo(
+          headerIconRef.current,
+          { autoAlpha: 0, y: -22, scale: 0.8 },
+          { autoAlpha: 1, y: 0, scale: 1, duration: 0.6 }
+        )
+        .fromTo(
+          headerTextRef.current,
+          { autoAlpha: 0, y: 16 },
+          { autoAlpha: 1, y: 0, duration: 0.55 },
+          "<0.12"
+        );
+    }, header);
+    return () => context.revert();
+  }, [animations, profileKey, refreshKey]);
 
   const loadHome = useCallback(
     async (attempt = 0) => {
@@ -565,8 +593,6 @@ export function HomeView({
     <div data-testid="view-home" style={{ padding: "0 0 40px 0" }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
-        @keyframes homeHeaderIcon{from{opacity:0;transform:translateY(-22px) scale(0.8)}to{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes homeHeaderText{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
         .carousel::-webkit-scrollbar{height:8px}
         .carousel::-webkit-scrollbar-track{background:transparent}
         .carousel::-webkit-scrollbar-thumb{background-color:transparent;border-radius:4px;border:2.5px solid transparent;background-clip:content-box;transition:background-color 0.2s}
@@ -587,6 +613,7 @@ export function HomeView({
 
       {/* ── Header (centered hero) ── */}
       <div
+        ref={headerRef}
         style={{
           position: "relative",
           padding: "120px 28px 72px",
@@ -605,21 +632,21 @@ export function HomeView({
           }}
         >
           <GreetingIcon
+            ref={headerIconRef}
             size={64}
             weight="duotone"
             style={{
               color: "var(--accent)",
               flexShrink: 0,
-              animation: "homeHeaderIcon 0.6s cubic-bezier(0.22,1,0.36,1) both",
             }}
           />
           <h1
+            ref={headerTextRef}
             style={{
               fontSize: "var(--t26, 28px)",
               fontWeight: 700,
               margin: 0,
               lineHeight: 1.25,
-              animation: "homeHeaderText 0.55s cubic-bezier(0.22,1,0.36,1) 0.12s both",
             }}
           >
             {greeting}

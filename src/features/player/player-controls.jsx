@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef } from "react";
+import { gsap } from "gsap";
 import {
   Button,
   cn,
@@ -119,6 +121,42 @@ export function PlayerControls(props) {
     volCurve,
     volume,
   } = props;
+  const trackPresentationRef = useRef(null);
+  const artworkRef = useRef(null);
+  const trackDetailsRef = useRef(null);
+  const trackId = track?.videoId;
+
+  useLayoutEffect(() => {
+    const root = trackPresentationRef.current;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!root || !trackId || !anim || reducedMotion) return undefined;
+    const context = gsap.context(() => {
+      const timeline = gsap.timeline({ defaults: { ease: "power3.out" } });
+      if (artworkRef.current) {
+        timeline.fromTo(
+          artworkRef.current,
+          { autoAlpha: 0, scale: 0.88, rotation: -2 },
+          {
+            autoAlpha: 1,
+            scale: 1,
+            rotation: 0,
+            duration: 0.52,
+            ease: "back.out(1.45)",
+          },
+          0
+        );
+      }
+      if (trackDetailsRef.current) {
+        timeline.fromTo(
+          trackDetailsRef.current,
+          { autoAlpha: 0, x: 12 },
+          { autoAlpha: 1, x: 0, duration: 0.42 },
+          0.1
+        );
+      }
+    }, root);
+    return () => context.revert();
+  }, [anim, trackId]);
 
   const ctrlBtn = (onClick, active, children, tooltip) => {
     const btn = (
@@ -191,9 +229,13 @@ export function PlayerControls(props) {
           gap: 16,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, width: 340, minWidth: 0 }}>
+        <div
+          ref={trackPresentationRef}
+          style={{ display: "flex", alignItems: "center", gap: 10, width: 340, minWidth: 0 }}
+        >
           {playerBarControls.artwork && (
             <div
+              ref={artworkRef}
               style={{
                 width: 72,
                 height: 72,
@@ -201,7 +243,6 @@ export function PlayerControls(props) {
                 flexShrink: 0,
                 overflow: "hidden",
                 background: "var(--bg-elevated)",
-                animation: anim && track ? "coverPop 0.5s cubic-bezier(0.34,1.56,0.64,1)" : "none",
               }}
             >
               {track?.thumbnail ? (
@@ -222,7 +263,7 @@ export function PlayerControls(props) {
             </div>
           )}
           {playerBarControls.trackDetails && (
-            <div style={{ overflow: "hidden" }}>
+            <div ref={trackDetailsRef} style={{ overflow: "hidden" }}>
               <div
                 style={{
                   fontSize: "var(--t13)",

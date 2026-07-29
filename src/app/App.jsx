@@ -74,7 +74,7 @@ const APP_ICON_DEFAULT = "Kodama App Icon - Standard Pink.png";
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [splashFading, setSplashFading] = useState(false);
+  const finishSplash = useCallback(() => setShowSplash(false), []);
 
   const [ffmpegSetupDone, setFfmpegSetupDone] = useState(
     () => localStorage.getItem("kiyoshi-ffmpeg-ok") === "1"
@@ -99,15 +99,6 @@ export default function App() {
       clearTimeout(tid);
     };
   }, [ffmpegSetupDone]);
-
-  useEffect(() => {
-    const fadeTimer = setTimeout(() => setSplashFading(true), 1700);
-    const hideTimer = setTimeout(() => setShowSplash(false), 2150);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
 
   const [pinnedIds, setPinnedIds] = useState([]);
   const [playerBarControls, setPlayerBarControls] = useState(loadPlayerBarControls);
@@ -1129,7 +1120,9 @@ export default function App() {
                         {!animations && (
                           <style>{`*, *::before, *::after { transition: none !important; animation: none !important; }`}</style>
                         )}
-                        {showSplash && <SplashScreen fading={splashFading} />}
+                        {showSplash && (
+                          <SplashScreen animations={animations} onComplete={finishSplash} />
+                        )}
                         {/* Language picker first on very first launch, before FFmpeg setup */}
                         {showLangPicker && !showLogin && (
                           <LanguagePickerScreen
