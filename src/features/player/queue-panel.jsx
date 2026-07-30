@@ -33,6 +33,26 @@ import {
   usePlayerActions,
 } from "./player-context.jsx";
 
+function TrackArtwork({ thumbnail, className }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div
+      className={`relative overflow-hidden bg-[var(--placeholder-gradient)] ${className || ""}`}
+    >
+      {thumbnail && !failed && (
+        <img
+          src={thumb(thumbnail)}
+          alt=""
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
+}
+
 function QueueRow({
   track,
   globalIdx,
@@ -81,13 +101,11 @@ function QueueRow({
       </div>
 
       {/* Thumbnail */}
-      <div className="w-9 h-9 shrink-0 overflow-hidden rounded-[var(--r-sm)] bg-surface-1">
-        {track.thumbnail ? (
-          <img src={thumb(track.thumbnail)} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
-        )}
-      </div>
+      <TrackArtwork
+        key={track.thumbnail || "missing-artwork"}
+        thumbnail={track.thumbnail}
+        className="w-9 h-9 shrink-0 rounded-[var(--r-sm)]"
+      />
 
       {/* Title + artist */}
       <div className="flex-1 min-w-0">
@@ -363,13 +381,11 @@ export function QueuePanel({ likedIds, onToggleLike, visible }) {
             <>
               {/* Song card */}
               <CardRoot className="flex items-center gap-3 mb-5 px-3.5 py-3">
-                {currentTrack.thumbnail && (
-                  <img
-                    src={currentTrack.thumbnail}
-                    alt=""
-                    className="w-[52px] h-[52px] rounded-[var(--r-md)] object-cover shrink-0"
-                  />
-                )}
+                <TrackArtwork
+                  key={currentTrack.thumbnail || "missing-artwork"}
+                  thumbnail={currentTrack.thumbnail}
+                  className="w-[52px] h-[52px] rounded-[var(--r-md)] shrink-0"
+                />
                 <div className="min-w-0">
                   <div className="text-t13 font-semibold text-primary truncate">
                     {currentTrack.title}
