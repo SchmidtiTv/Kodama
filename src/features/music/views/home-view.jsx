@@ -383,6 +383,7 @@ export function HomeView({
         style={{ flexShrink: 0, width: size, cursor: "default" }}
       >
         <div
+          className="home-card-media"
           style={{
             position: "relative",
             marginBottom: 8,
@@ -607,8 +608,6 @@ export function HomeView({
           transition:--fade-l 0.3s ease,--fade-r 0.3s ease}
         .carousel[data-left-scroll="true"],.carousel[data-left-right-scroll="true"]{--fade-l:28px}
         .carousel[data-right-scroll="true"],.carousel[data-left-right-scroll="true"]{--fade-r:28px}
-        .home-card:hover .home-card-play{opacity:1!important;transform:translateY(0)!important}
-        .home-card:hover .home-card-img{transform:scale(1.04)}
       `}</style>
 
       {/* ── Header (centered hero) ── */}
@@ -812,6 +811,7 @@ export function HomeView({
                           style={{ cursor: "default", minWidth: 0 }}
                         >
                           <div
+                            className="home-card-media"
                             style={{
                               position: "relative",
                               width: "100%",

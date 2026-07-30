@@ -30,6 +30,7 @@ export function MediaTile({
       style={{ flexShrink: 0, width: w, cursor: "default" }}
     >
       <div
+        className="home-card-media"
         style={{
           position: "relative",
           marginBottom: 8,

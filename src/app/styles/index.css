@@ -623,27 +623,48 @@ body,
 
 /* Media tile hover (Home + Artist pages) — image zoom + play-button reveal.
    Global so it applies wherever .home-card tiles render, not just on the Home view. */
+.home-card-media {
+  isolation: isolate;
+  transform: translateZ(0);
+}
+.home-card-img {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0) scale(1);
+  will-change: transform;
+}
+.home-card-play {
+  z-index: 2;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
 .home-card:hover .home-card-play {
   opacity: 1 !important;
-  transform: translateY(0) !important;
+  transform: translate3d(0, 0, 0) !important;
 }
 .home-card:hover .home-card-img {
-  transform: scale(1.04);
+  transform: translateZ(0) scale(1.04);
 }
 /* Play button gets its own lift/brighten when hovered directly. */
 .home-card-play-btn {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0) scale(1);
+  will-change: transform;
   transition:
     transform 0.16s ease,
     box-shadow 0.16s ease,
     filter 0.16s ease;
 }
 .home-card-play-btn:hover {
-  transform: scale(1.12);
+  transform: translateZ(0) scale(1.12);
   filter: brightness(1.1);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6) !important;
 }
 .home-card-play-btn:active {
-  transform: scale(1.04);
+  transform: translateZ(0) scale(1.04);
 }
 
 /* Horizontal carousels â€” same treatment, vertical size stays 8px */
