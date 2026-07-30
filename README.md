@@ -1,113 +1,84 @@
+# THIS IS JUST A FORK AND NOT THE ORIGINAL REPO
+***
 <div align="center">
   <img width="210" height="48" alt="Kodama Logo Full" src="https://github.com/user-attachments/assets/e003560b-1760-4657-a8fc-454195293937" />
 </div>
 
-<div align="center">
-  <p>An unofficial desktop player for YouTube Music.</p>
+## Changes from the original repository
 
-  [![Version](https://img.shields.io/github/v/release/KiyoshiTheDevil/Kodama?include_prereleases&style=for-the-badge&color=a855f7&label=version)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
-  [![Downloads](https://img.shields.io/github/downloads/KiyoshiTheDevil/Kodama/total?style=for-the-badge&color=a855f7&label=downloads)](https://github.com/KiyoshiTheDevil/Kodama/releases)
-  [![Active users](https://img.shields.io/endpoint?style=for-the-badge&url=https%3A%2F%2Fkodama-stats.kiyoshidesign.workers.dev%2Fbadge%3Fmetric%3Dmau)](https://github.com/KiyoshiTheDevil/Kodama)
-  [![Platform](https://img.shields.io/badge/platform-Windows_%7C_macOS-0078d4?style=for-the-badge)](https://github.com/KiyoshiTheDevil/Kodama/releases/latest)
-  [![Tauri](https://img.shields.io/badge/Tauri-2.x-24c8db?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app)
-  [![Crowdin](https://img.shields.io/badge/translate-Crowdin-2e3340?style=for-the-badge&logo=crowdin&logoColor=white)](https://crowdin.com/project/kiyoshi-music)
-  [![License](https://img.shields.io/badge/license-AGPL_v3-3da639?style=for-the-badge)](LICENSE)
-</div>
+### New features and improvements
 
----
+- Added a native Rust playback engine that owns playback state, queue transitions, seeking,
+  crossfades, media controls, Discord Rich Presence, Last.fm updates, and remote/overlay updates.
+- Added per-profile playback-session persistence so the current track and queue can be restored
+  after restarting the app without automatically resuming playback.
+- Added a player-bar customizer for choosing, arranging, and saving the visible playback controls.
+- Made the complete keyboard-shortcut set customizable on Windows, Linux, and macOS, including
+  search, settings, sidebar, queue, feedback, navigation, playback, and zoom actions. Shortcuts can
+  be disabled individually or globally, and conflicting assignments are swapped automatically.
+- Added a Spotlight-style global search with unified song, album, artist, and playlist results.
+- Improved macOS sidebar search suggestions and added platform-appropriate Command-key defaults.
+- Added song and playlist radio playback with automatic queue deduplication.
+- Added search, radio, and custom-lyrics fallback paths when the primary result is unavailable.
+- Added current band-member information to artist pages, including portraits and Wikipedia links.
+  Lookups now run concurrently and are cached on disk between launches.
+- Made lyrics-provider results appear as each provider finishes instead of waiting for the slowest
+  source.
+- Added a user-configurable IPv4-first networking option for environments where IPv6 causes
+  connection or streaming problems.
+- Restored the last active profile automatically and added per-profile recommendation caching.
+- Added explicit loading, retry, empty, and error states to Home and other data-driven views.
+- Added Italian localization, enabled the available Spanish and Russian localizations, and listed
+  Vietnamese as an upcoming language.
+- Reduced playback overhead by running FFT/audio-level analysis only while a visible visualizer
+  needs it and limiting redundant canvas redraws.
+- Added a development playback-debug menu with native engine state and transport controls.
 
-> AI notice: This app has been created with an LLM called **Claude Code**. If you're against the usage of LLMs or AI in any capacity, this app won't be for you. I hope you understand.
+### Bug fixes
 
-## Features
+- Fixed playback resume after a restored or stopped session: when no live audio sink exists, the
+  native engine now rebuilds and starts the current track instead of reporting false playback.
+- Fixed selecting the currently playing track so it restarts, and fixed track selection incorrectly
+  entering a loading state before playback begins.
+- Fixed seeking during a crossfade selecting the outgoing track instead of the incoming track.
+- Fixed native-player volume changes not being persisted, and prevented rounded native snapshots
+  from repeatedly feeding tiny volume changes back into React.
+- Fixed Last.fm now-playing, scrobble, and love requests running when no Last.fm account is
+  connected; connection setup now also verifies that the returned session was actually saved.
+- Fixed streaming failures caused by expired or immediately rejected signed media URLs by probing
+  candidates, invalidating blocked URLs, retrying once, and using multiple extraction fallbacks.
+- Fixed simultaneous playback and queue-warmup requests launching duplicate, slow stream
+  resolutions for the same track.
+- Fixed brand-account sign-in by opening a clean login session and retrying the initial verification
+  while newly issued YouTube cookies settle.
+- Fixed embedded-login failures being silent; the login window now reports actionable errors back
+  to the app.
+- Fixed profile data leaking through the in-memory playlist cache by scoping cached playlists to
+  the active profile, and fixed playback continuing while switching profiles.
+- Fixed Kugou lyrics by replacing an endpoint with an invalid TLS certificate and adapting to the
+  working endpoint's response format.
+- Fixed QQ, Kugou, and NetEase credit/header lines appearing as lyrics, including single-character
+  Simplified Chinese, Traditional Chinese, and Japanese credit markers.
+- Fixed NetEase selecting similarly timed covers or unrelated recordings by requiring both title
+  and artist matches before using duration as a tie-breaker.
+- Fixed incorrect lyrics synchronization badges by deriving word-, syllable-, line-, and plain-sync
+  labels from provider metadata.
+- Fixed renamed lyrics providers retaining stale labels from local storage while preserving each
+  user's provider order and enabled state.
+- Fixed the Lyrics Browser's “Open in Composer” action not being connected.
+- Fixed broken queue artwork leaving an empty box; queue rows and the now-playing card now retain a
+  shared gradient fallback when an image fails.
+- Fixed Home's top row remaining side by side in a narrow content area by making it respond to the
+  view width rather than the full viewport.
+- Fixed media-tile artwork and play-button flicker during hover transitions.
+- Fixed Bug Report and Lyrics Browser modals disappearing without their exit animations.
+- Fixed visualizer audio-level listeners and console capture being registered more than once during
+  hot reload.
+- Fixed obsolete OBS bridge traffic and reduced unchanged overlay updates.
+- Fixed native macOS traffic-light placement.
+- Fixed shared-song links attempting to open the desktop app without consent; the landing page now
+  asks before handing the song to Kodama.
 
-- **Synced lyrics** with word- and syllable-level timing, plus **Unison** community lyrics.
-- **Lyrics Composer** for creating and editing your own.
-- **Crossfade** and a built-in **visualizer**.
-- **Remote control** from your phone.
-- **OBS overlay** for streaming.
-- **Offline downloads**, Discord Rich Presence, and Last.fm scrobbling.
-
-## Reporting issues and bugs
-
-I highly recommend to send a bug report in the new [Discord-Server](https://discord.gg/rhreShDJxn), because that's easier for me to access, track, sort and handle in contrast to GitHub's unstable platform.
-**Starting August, I will stop actively checking issues on GitHub.**
-
-## Download
-
-Grab the latest build from the [**Releases**](https://github.com/KiyoshiTheDevil/Kodama/releases/latest) page:
-
-**Windows:** download and run the `*_x64-setup.exe` installer from the latest release.
-
-**macOS (Apple Silicon):** the build is **unsigned**, so install it with this command (it
-downloads the latest release and avoids Gatekeeper's quarantine):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/install.sh | bash
-```
-
-Automatic Updates on macOS are currently not functional. Hopefully I can fix it in the near future.
-
-## Screenshots
-
-<!-- TODO: add fresh screenshots of the current app (player, lyrics, library, settings). -->
-No screenshot available... yet.
-
-
-> A Google account is not required to use the player, Premium isn't required either.
-> Please be aware, that some content might be inaccessable due to Premium restrictions.
-
-## NEW! Discord Server
-
-Hey! I made a dedicated Discord server for the App, where you can chat about the project and send in bugs and suggestions more directly
-
->> [https://discord.gg/PzSsPF7KW](https://discord.gg/rhreShDJxn)
-
-## For Developers
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) v18+
-- [Rust](https://rustup.rs/) (stable)
-- [Python](https://www.python.org/) 3.10+
-
-### Setup
-
-```bash
-# 1. Clone
-git clone https://github.com/KiyoshiTheDevil/Kodama.git
-cd Kodama
-
-# 2. Frontend dependencies
-npm install
-
-# 3. Python backend dependencies
-cd python-backend
-pip install -r requirements.txt
-cd ..
-
-# 4. (Optional) Authenticate with your YouTube account
-cd python-backend
-python setup_auth.py
-cd ..
-```
-
-### Run in development mode
-
-```bash
-npm run tauri dev
-```
-
-### Build
-
-```bash
-npm run tauri build
-```
-
----
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a full version history.
 
 ## License
 
@@ -119,6 +90,7 @@ The bundled lyrics Composer is a vendored component licensed under the AGPL-3.0 
 
 ## Disclaimer
 
-Kodama is an **unofficial** client and is **not affiliated with or endorsed by YouTube or
+- Kodama is an **unofficial** client and is **not affiliated with or endorsed by YouTube or
 Google**. It relies on the unofficial YouTube Music API and is provided for personal use, as-is
 and without warranty. Use at your own risk.
+- This Fork was primarily tested under macos!
