@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast, ToastProvider } from "@heroui/react";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
@@ -70,6 +79,7 @@ const FONT_SCALE_STORAGE = {
 };
 
 const APP_ICON_DEFAULT = "Kodama App Icon - Standard Pink.png";
+const DevMenu = import.meta.env.DEV ? lazy(() => import("./dev-menu.jsx")) : null;
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -1128,6 +1138,10 @@ export default function App() {
                           placement="bottom end"
                           className="bottom-[120px]! z-[100000]!"
                         />
+
+                        <Suspense fallback={null}>
+                          {DevMenu && <DevMenu player={player} addToast={addToast} />}
+                        </Suspense>
 
                         <AppShell
                           language={language}
