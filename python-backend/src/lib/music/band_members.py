@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass, field
+import hashlib
+import json
+import os
+from pathlib import Path
 from threading import Lock
+import tempfile
 import time
 from typing import Any
 
 import requests
 
-from src.config import Config
+from src.config import Config, config_dirs
 
 
 MUSICBRAINZ_URL = "https://musicbrainz.org/ws/2"
@@ -21,6 +27,8 @@ REQUEST_HEADERS = {
     "Accept": "application/json",
     "User-Agent": "Kodama/1.0 (+https://github.com/KiyoshiTheDevil/Kodama)",
 }
+REQUEST_TIMEOUT = (2, 4)
+MAX_DETAIL_WORKERS = 6
 
 
 class BandMemberLookupError(Exception):
@@ -56,13 +64,18 @@ class BandMemberFinder:
         self,
         get: Callable[..., requests.Response] = requests.get,
         monotonic: Callable[[], float] = time.monotonic,
+        wall_time: Callable[[], float] = time.time,
         sleep: Callable[[float], None] = time.sleep,
         cache_ttl: float = Config.BAND_MEMBER_CACHE_TTL,
+        cache_dir: Path | None = None,
     ) -> None:
         self._get = get
         self._monotonic = monotonic
+        self._wall_time = wall_time
         self._sleep = sleep
         self._cache_ttl = cache_ttl
+        self._cache_dir = cache_dir or config_dirs.BAND_MEMBER_CACHE_DIR
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._member_cache: dict[str, tuple[float, list[dict[str, object]]]] = {}
         self._cache_lock = Lock()
         self._musicbrainz_lock = Lock()
@@ -83,25 +96,78 @@ class BandMemberFinder:
             return self._cache_members(cache_key, [])
         group_data = self._get_json(f"{MUSICBRAINZ_URL}/artist/{group_id}", {"inc": "artist-rels", "fmt": "json"})
         members = self._combine_relations(group_data.get("relations", []))
-        for member in members:
-            member.image, member.wikipedia_url = self._find_member_details(member.id)
+        self._load_member_details(members)
         return self._cache_members(cache_key, [member.as_dict() for member in members])
+
+    def _load_member_details(self, members: list[BandMember]) -> None:
+        if not members:
+            return
+        worker_count = min(len(members), MAX_DETAIL_WORKERS)
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="band-member") as executor:
+            details = executor.map(self._find_member_details, (member.id for member in members))
+            for member, (image, wikipedia_url) in zip(members, details):
+                member.image = image
+                member.wikipedia_url = wikipedia_url
 
     def _cached_members(self, cache_key: str) -> list[dict[str, object]] | None:
         with self._cache_lock:
             entry = self._member_cache.get(cache_key)
-            if not entry:
-                return None
-            saved_at, members = entry
-            if self._monotonic() - saved_at >= self._cache_ttl:
+            if entry:
+                saved_at, members = entry
+                if self._monotonic() - saved_at < self._cache_ttl:
+                    return deepcopy(members)
                 del self._member_cache[cache_key]
+
+            members = self._load_disk_cache(cache_key)
+            if members is None:
                 return None
-            return deepcopy(members)
+            self._member_cache[cache_key] = (self._monotonic(), deepcopy(members))
+            return members
 
     def _cache_members(self, cache_key: str, members: list[dict[str, object]]) -> list[dict[str, object]]:
         with self._cache_lock:
             self._member_cache[cache_key] = (self._monotonic(), deepcopy(members))
+            self._save_disk_cache(cache_key, members)
         return members
+
+    def _cache_path(self, cache_key: str) -> Path:
+        digest = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()
+        return self._cache_dir / f"{digest}.json"
+
+    def _load_disk_cache(self, cache_key: str) -> list[dict[str, object]] | None:
+        path = self._cache_path(cache_key)
+        try:
+            if self._wall_time() - path.stat().st_mtime >= self._cache_ttl:
+                path.unlink(missing_ok=True)
+                return None
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            return None
+        if not isinstance(payload, dict) or payload.get("artist") != cache_key:
+            return None
+        members = payload.get("members")
+        if not isinstance(members, list) or any(not isinstance(member, dict) for member in members):
+            return None
+        return deepcopy(members)
+
+    def _save_disk_cache(self, cache_key: str, members: list[dict[str, object]]) -> None:
+        path = self._cache_path(cache_key)
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self._cache_dir,
+                prefix=f".{path.stem}-",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                json.dump({"artist": cache_key, "members": members}, temporary, ensure_ascii=False)
+                temporary_path = Path(temporary.name)
+            os.replace(temporary_path, path)
+        except (OSError, TypeError, ValueError):
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
 
     def _find_group(self, artist_name: str) -> dict[str, object] | None:
         search = self._get_json(
@@ -233,7 +299,7 @@ class BandMemberFinder:
         try:
             if url.startswith(MUSICBRAINZ_URL):
                 self._wait_for_musicbrainz()
-            response = self._get(url, params=params, headers=REQUEST_HEADERS, timeout=10)
+            response = self._get(url, params=params, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
             payload = response.json()
         except (requests.RequestException, ValueError, AttributeError) as error:

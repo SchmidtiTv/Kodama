@@ -83,6 +83,7 @@ class ConfigDirs:
         self.IMG_CACHE_DIR = self.BASE_DIR / "imgcache"
         self.PLAYLIST_CACHE_DIR = self.BASE_DIR / "playlist_cache"
         self.ALBUM_CACHE_DIR = self.BASE_DIR / "album_cache"
+        self.BAND_MEMBER_CACHE_DIR = self.BASE_DIR / "band_member_cache"
         self.SONG_CACHE_DIR = self.BASE_DIR / "song_cache"
         self.LYRICS_CACHE_DIR = self.BASE_DIR / "lyrics_cache"
         self.CUSTOM_LYRICS_DIR = self.BASE_DIR / "custom_lyrics"
@@ -95,6 +96,7 @@ class ConfigDirs:
             self.IMG_CACHE_DIR,
             self.PLAYLIST_CACHE_DIR,
             self.ALBUM_CACHE_DIR,
+            self.BAND_MEMBER_CACHE_DIR,
             self.SONG_CACHE_DIR,
             self.LYRICS_CACHE_DIR,
             self.CUSTOM_LYRICS_DIR,

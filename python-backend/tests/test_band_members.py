@@ -1,6 +1,10 @@
+import os
+from pathlib import Path
+import tempfile
 import unittest
+from threading import Barrier, Lock, get_ident
 
-from src.lib.music.band_members import BandMemberFinder
+from src.lib.music.band_members import BandMemberFinder, REQUEST_TIMEOUT
 
 
 class FakeResponse:
@@ -15,6 +19,11 @@ class FakeResponse:
 
 
 class BandMemberFinderTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        self.cache_dir = Path(self.temporary_directory.name)
+
     def test_finds_members_combines_roles_and_loads_portraits(self) -> None:
         group_id = "group-id"
         member_id = "member-id"
@@ -61,7 +70,12 @@ class BandMemberFinderTests(unittest.TestCase):
         def get(url: str, **_kwargs: object) -> FakeResponse:
             return FakeResponse(responses[url])
 
-        finder = BandMemberFinder(get=get, monotonic=lambda: 1, sleep=lambda _seconds: None)
+        finder = BandMemberFinder(
+            get=get,
+            monotonic=lambda: 1,
+            sleep=lambda _seconds: None,
+            cache_dir=self.cache_dir,
+        )
 
         self.assertEqual(
             finder.find("The Group"),
@@ -88,8 +102,126 @@ class BandMemberFinderTests(unittest.TestCase):
             get=get,
             monotonic=lambda: 1,
             sleep=lambda _seconds: None,
+            cache_dir=self.cache_dir,
         )
 
         self.assertEqual(finder.find("Solo Artist"), [])
         self.assertEqual(finder.find(" solo artist "), [])
         self.assertEqual(requests, ["https://musicbrainz.org/ws/2/artist/"])
+
+    def test_loads_member_details_concurrently_with_short_timeouts(self) -> None:
+        group_id = "group-id"
+        member_ids = ["member-one", "member-two"]
+        wikidata_barrier = Barrier(len(member_ids))
+        request_threads: set[int] = set()
+        request_timeouts: list[object] = []
+        calls_lock = Lock()
+
+        def get(url: str, **kwargs: object) -> FakeResponse:
+            with calls_lock:
+                request_timeouts.append(kwargs.get("timeout"))
+            if url.endswith("/artist/"):
+                return FakeResponse({"artists": [{"id": group_id}]})
+            if url.endswith(f"/artist/{group_id}"):
+                return FakeResponse(
+                    {
+                        "relations": [
+                            {
+                                "type": "member of band",
+                                "target-type": "artist",
+                                "artist": {"id": member_id, "name": member_id},
+                            }
+                            for member_id in member_ids
+                        ]
+                    }
+                )
+            if any(url.endswith(f"/artist/{member_id}") for member_id in member_ids):
+                member_number = member_ids.index(url.rsplit("/", 1)[-1]) + 1
+                return FakeResponse(
+                    {
+                        "relations": [
+                            {
+                                "type": "wikidata",
+                                "url": {"resource": f"https://www.wikidata.org/wiki/Q{member_number}"},
+                            }
+                        ]
+                    }
+                )
+            if "Special:EntityData" in url:
+                with calls_lock:
+                    request_threads.add(get_ident())
+                wikidata_barrier.wait(timeout=1)
+                wikidata_id = url.rsplit("/", 1)[-1].removesuffix(".json")
+                return FakeResponse({"entities": {wikidata_id: {"claims": {}, "sitelinks": {}}}})
+            raise AssertionError(f"Unexpected URL: {url}")
+
+        finder = BandMemberFinder(
+            get=get,
+            monotonic=lambda: 1,
+            sleep=lambda _seconds: None,
+            cache_dir=self.cache_dir,
+        )
+
+        members = finder.find("The Group")
+
+        self.assertEqual([member["name"] for member in members], member_ids)
+        self.assertEqual(len(request_threads), len(member_ids))
+        self.assertTrue(request_timeouts)
+        self.assertEqual(set(request_timeouts), {REQUEST_TIMEOUT})
+
+    def test_reuses_cached_members_after_restart(self) -> None:
+        def get(url: str, **_kwargs: object) -> FakeResponse:
+            if url.endswith("/artist/"):
+                return FakeResponse({"artists": [{"id": "group-id"}]})
+            if url.endswith("/artist/group-id"):
+                return FakeResponse({"relations": []})
+            raise AssertionError(f"Unexpected URL: {url}")
+
+        first_finder = BandMemberFinder(
+            get=get,
+            monotonic=lambda: 1,
+            sleep=lambda _seconds: None,
+            cache_dir=self.cache_dir,
+        )
+        self.assertEqual(first_finder.find("The Group"), [])
+
+        def fail_get(_url: str, **_kwargs: object) -> FakeResponse:
+            raise AssertionError("Persistent cache should avoid network requests")
+
+        restarted_finder = BandMemberFinder(
+            get=fail_get,
+            monotonic=lambda: 1,
+            sleep=lambda _seconds: None,
+            cache_dir=self.cache_dir,
+        )
+        self.assertEqual(restarted_finder.find(" the group "), [])
+
+    def test_ignores_expired_disk_cache(self) -> None:
+        calls: list[str] = []
+
+        def get(url: str, **_kwargs: object) -> FakeResponse:
+            calls.append(url)
+            return FakeResponse({"artists": []})
+
+        finder = BandMemberFinder(
+            get=get,
+            monotonic=lambda: 1,
+            wall_time=lambda: 100,
+            sleep=lambda _seconds: None,
+            cache_ttl=10,
+            cache_dir=self.cache_dir,
+        )
+        self.assertEqual(finder.find("The Group"), [])
+        cache_path = next(self.cache_dir.glob("*.json"))
+        os.utime(cache_path, (50, 50))
+
+        restarted_finder = BandMemberFinder(
+            get=get,
+            monotonic=lambda: 1,
+            wall_time=lambda: 100,
+            sleep=lambda _seconds: None,
+            cache_ttl=10,
+            cache_dir=self.cache_dir,
+        )
+        self.assertEqual(restarted_finder.find("The Group"), [])
+        self.assertEqual(len(calls), 2)

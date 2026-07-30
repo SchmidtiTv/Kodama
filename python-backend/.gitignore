@@ -12,6 +12,7 @@ playlist_cache/
 song_cache/
 custom_lyrics/
 ytdlp/
+band_member_cache/
 
 # Locally provisioned secrets
 feedback_config.json
