@@ -10,6 +10,7 @@
     "e2e:browser": "wdio run e2e/wdio.browser.conf.cjs",
     "e2e:desktop": "npm run e2e:desktop:build && wdio run e2e/wdio.desktop.conf.cjs",
     "e2e:desktop:build": "node e2e/scripts/build-desktop.cjs",
+    "test:shortcuts": "node --test src/shared/lib/shortcuts.test.mjs",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write src vite.config.js package.json eslint.config.mjs .prettierrc.json",

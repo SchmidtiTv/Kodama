@@ -466,7 +466,6 @@ export function AppOverlays({
     closeSettings,
     settingsTab,
     setSettingsTab,
-    setCustomShortcuts,
     anonStats,
     handleAnonStatsChange,
     hideUserHandle,
@@ -560,7 +559,6 @@ export function AppOverlays({
           <SettingsPanel
             onClose={closeSettings}
             onOpenOverlayEditor={openOverlayEditor}
-            onResetShortcuts={setCustomShortcuts}
             onSectionChange={setSettingsSectionStore}
             language={language}
             onLanguageChange={handleLanguageChange}

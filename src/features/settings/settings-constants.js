@@ -1,3 +1,7 @@
+import { IS_MAC } from "@/shared/lib/platform.js";
+
+const PRIMARY_SHORTCUT_MODIFIER = IS_MAC ? "Meta" : "Ctrl";
+
 export const APP_ICON_DEFAULT = "Kodama App Icon - Standard Pink.png";
 export const APP_ICON_GROUPS = [
   {
@@ -73,6 +77,16 @@ export const ZOOM_LABELS = ["80%", "90%", "100%", "110%", "120%", "130%", "140%"
 export const FONT_STEPS = [0.85, 0.93, 1.0, 1.1, 1.2, 1.35, 1.5];
 export const FONT_LABELS = FONT_STEPS.map((s) => `${Math.round(13 * s)}px`);
 export const DEFAULT_SHORTCUTS = {
+  openSearch: `${PRIMARY_SHORTCUT_MODIFIER}+KeyK`,
+  openSettings: `${PRIMARY_SHORTCUT_MODIFIER}+Comma`,
+  toggleSidebar: `${PRIMARY_SHORTCUT_MODIFIER}+KeyB`,
+  toggleQueue: "KeyQ",
+  feedback: "F8",
+  goHome: "Alt+Digit1",
+  openLibrary: "Alt+Digit2",
+  openLiked: "Alt+Digit3",
+  openHistory: "Alt+Digit4",
+  openDownloads: "Alt+Digit5",
   playPause: "Space",
   nextTrack: "ArrowRight",
   prevTrack: "ArrowLeft",
@@ -83,6 +97,6 @@ export const DEFAULT_SHORTCUTS = {
   lyrics: "KeyL",
   seekBack: "Comma",
   seekForward: "Period",
-  zoomIn: "Ctrl+Equal",
-  zoomOut: "Ctrl+Minus",
+  zoomIn: `${PRIMARY_SHORTCUT_MODIFIER}+Equal`,
+  zoomOut: `${PRIMARY_SHORTCUT_MODIFIER}+Minus`,
 };

@@ -21,7 +21,11 @@ import {
 } from "./startup-screens.jsx";
 import { storageCodecs, usePersistedState } from "@/shared/hooks/use-persisted-state.js";
 import { setAccentSmooth, vibrantAccentFromImage } from "@/shared/lib/accent.js";
-import { CODE_DISPLAY_FALLBACK } from "@/shared/lib/shortcuts.js";
+import {
+  assignShortcut as resolveShortcutAssignment,
+  CODE_DISPLAY_FALLBACK,
+} from "@/shared/lib/shortcuts.js";
+import { IS_MAC } from "@/shared/lib/platform.js";
 import { useNetworkStatus } from "./hooks/use-network-status.js";
 import { useObsOverlay } from "@/features/overlay/hooks/use-obs-overlay.js";
 import { useRemoteControl } from "@/features/remote/hooks/use-remote-control.js";
@@ -500,6 +504,9 @@ export default function App() {
       return { ...DEFAULT_SHORTCUTS };
     }
   });
+  const [shortcutsEnabled, setShortcutsEnabled] = useState(
+    () => localStorage.getItem("kiyoshi-shortcuts-enabled") !== "false"
+  );
   const [shortcutLabels, setShortcutLabels] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("kiyoshi-shortcut-labels") || "{}");
@@ -517,20 +524,36 @@ export default function App() {
     recordingShortcutRef.current = recordingShortcut;
   }, [recordingShortcut]);
 
-  const getShortcutLabel = useCallback(
+  const getShortcutParts = useCallback(
     (stored) => {
-      if (!stored) return "—";
+      if (!stored) return [];
       if (!stored.includes("+")) {
-        const label = shortcutLabels[stored] || CODE_DISPLAY_FALLBACK[stored] || stored;
-        return label.length === 1 ? label.toUpperCase() : label;
+        const savedLabel = shortcutLabels[stored];
+        const label =
+          savedLabel?.length === 1 && savedLabel.trim()
+            ? savedLabel
+            : CODE_DISPLAY_FALLBACK[stored] || stored;
+        return [label.length === 1 ? label.toUpperCase() : label];
       }
 
       const parts = stored.split("+");
       const code = parts[parts.length - 1];
-      const mods = parts.slice(0, -1);
-      const keyLabel = shortcutLabels[code] || CODE_DISPLAY_FALLBACK[code] || code;
+      const mods = parts.slice(0, -1).map((modifier) => {
+        if (!IS_MAC) return modifier === "Meta" ? "Super" : modifier;
+        return {
+          Meta: "⌘",
+          Alt: "⌥",
+          Shift: "⇧",
+          Ctrl: "⌃",
+        }[modifier];
+      });
+      const savedLabel = shortcutLabels[code];
+      const keyLabel =
+        savedLabel?.length === 1 && savedLabel.trim()
+          ? savedLabel
+          : CODE_DISPLAY_FALLBACK[code] || code;
       const displayKey = keyLabel.length === 1 ? keyLabel.toUpperCase() : keyLabel;
-      return [...mods, displayKey].join("+");
+      return [...mods, displayKey];
     },
     [shortcutLabels]
   );
@@ -541,6 +564,31 @@ export default function App() {
       localStorage.setItem("kiyoshi-shortcuts", JSON.stringify(next));
       return next;
     });
+  }, []);
+  const assignShortcut = useCallback((id, shortcut) => {
+    setCustomShortcuts((prev) => {
+      const next = resolveShortcutAssignment(prev, id, shortcut);
+      localStorage.setItem("kiyoshi-shortcuts", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+  const disableShortcut = useCallback((id) => {
+    setCustomShortcuts((prev) => {
+      const next = { ...prev, [id]: null };
+      localStorage.setItem("kiyoshi-shortcuts", JSON.stringify(next));
+      return next;
+    });
+    setRecordingShortcut((current) => (current === id ? null : current));
+  }, []);
+  const resetAllShortcuts = useCallback(() => {
+    setCustomShortcuts({ ...DEFAULT_SHORTCUTS });
+    setRecordingShortcut(null);
+    localStorage.removeItem("kiyoshi-shortcuts");
+  }, []);
+  const handleShortcutsEnabledChange = useCallback((enabled) => {
+    setShortcutsEnabled(enabled);
+    setRecordingShortcut(null);
+    localStorage.setItem("kiyoshi-shortcuts-enabled", String(enabled));
   }, []);
 
   const [appFontScale, setAppFontScale] = usePersistedState(
@@ -979,19 +1027,26 @@ export default function App() {
   const shortcutSettings = useMemo(
     () => ({
       customShortcuts,
-      shortcutLabels,
+      shortcutsEnabled,
       recordingShortcut,
       setRecordingShortcut,
-      getShortcutLabel,
+      getShortcutParts,
+      assignShortcut,
+      disableShortcut,
       resetShortcut,
+      resetAllShortcuts,
+      onShortcutsEnabledChange: handleShortcutsEnabledChange,
     }),
     [
       customShortcuts,
-      shortcutLabels,
+      shortcutsEnabled,
       recordingShortcut,
-      setRecordingShortcut,
-      getShortcutLabel,
+      getShortcutParts,
+      assignShortcut,
+      disableShortcut,
       resetShortcut,
+      resetAllShortcuts,
+      handleShortcutsEnabledChange,
     ]
   );
 
@@ -1032,7 +1087,9 @@ export default function App() {
   const appShellShortcuts = {
     customShortcutsRef,
     recordingShortcutRef,
-    setCustomShortcuts,
+    shortcutsEnabled,
+    searchShortcutParts: shortcutsEnabled ? getShortcutParts(customShortcuts.openSearch) : [],
+    assignShortcut,
     setShortcutLabels,
     setRecordingShortcut,
   };

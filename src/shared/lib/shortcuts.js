@@ -4,25 +4,41 @@ export function serializeShortcut(event) {
   if (event.ctrlKey) modifiers.push("Ctrl");
   if (event.shiftKey) modifiers.push("Shift");
   if (event.altKey) modifiers.push("Alt");
+  if (event.metaKey) modifiers.push("Meta");
   return modifiers.length > 0 ? [...modifiers, event.code].join("+") : event.code;
 }
 
 /**
- * Match a stored shortcut string against a keydown event. Single-key shortcuts (without "+")
- * match by code only for backwards compatibility. Compound shortcuts match their code and the
- * explicitly listed Ctrl/Alt modifiers; Shift remains layout-tolerant for Ctrl+= / Ctrl++.
+ * Match a stored shortcut string against a keydown event. Modifiers are exact so, for example,
+ * Ctrl+Space does not unexpectedly trigger an action assigned to Space.
  */
 export function matchesShortcut(stored, event) {
   if (!stored) return false;
-  if (!stored.includes("+")) return event.code === stored;
   const parts = stored.split("+");
   const code = parts[parts.length - 1];
   const modifiers = new Set(parts.slice(0, -1));
   return (
     event.code === code &&
     event.ctrlKey === modifiers.has("Ctrl") &&
-    event.altKey === modifiers.has("Alt")
+    event.shiftKey === modifiers.has("Shift") &&
+    event.altKey === modifiers.has("Alt") &&
+    event.metaKey === modifiers.has("Meta")
   );
+}
+
+/**
+ * Assign a shortcut without leaving duplicate bindings behind. When the new binding is already
+ * used, the two actions exchange shortcuts so neither action becomes inaccessible.
+ */
+export function assignShortcut(shortcuts, actionId, shortcut) {
+  const previousShortcut = shortcuts[actionId] || null;
+  const conflictingActions = Object.keys(shortcuts).filter(
+    (id) => id !== actionId && shortcuts[id] === shortcut
+  );
+  const next = { ...shortcuts, [actionId]: shortcut };
+  for (const id of conflictingActions) next[id] = null;
+  if (conflictingActions.length > 0) next[conflictingActions[0]] = previousShortcut;
+  return next;
 }
 
 // Fallback code->display-label map for keyboard shortcuts, used when a live layout-aware

@@ -96,7 +96,9 @@ export function AppShell({
   const {
     customShortcutsRef,
     recordingShortcutRef,
-    setCustomShortcuts,
+    shortcutsEnabled,
+    searchShortcutParts,
+    assignShortcut,
     setShortcutLabels,
     setRecordingShortcut,
   } = shortcuts;
@@ -476,6 +478,24 @@ export function AppShell({
     setCursorVisible(true);
     setFullscreenState(value);
   }, []);
+  const openSettingsShortcut = useCallback(() => {
+    setOverlayOpen(false);
+    setSettingsOpen(true);
+  }, [setOverlayOpen]);
+  const openSearchShortcut = useCallback(() => {
+    setOverlayOpen(false);
+    window.dispatchEvent(new Event("kodama-open-search"));
+  }, [setOverlayOpen]);
+  const navigateToShortcut = useCallback(
+    (destination) => {
+      setOverlayOpen(false);
+      navigateTo(destination);
+    },
+    [navigateTo, setOverlayOpen]
+  );
+  const toggleSidebarShortcut = useCallback(() => {
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }, []);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
@@ -521,9 +541,10 @@ export function AppShell({
   useAppShortcuts({
     recordingShortcutRef,
     customShortcutsRef,
+    shortcutsEnabled,
     audioRef,
     queueRef,
-    setCustomShortcuts,
+    assignShortcut,
     setShortcutLabels,
     setRecordingShortcut,
     setIsPlaying,
@@ -535,10 +556,13 @@ export function AppShell({
     setShowLyricsManual,
     setUiZoom,
     openFeedback,
+    openSettings: openSettingsShortcut,
+    openSearch: openSearchShortcut,
+    toggleSidebar: toggleSidebarShortcut,
+    navigateTo: navigateToShortcut,
     currentTrack,
     overlayOpen,
     splitView,
-    isPlaying,
   });
 
   return (
@@ -587,6 +611,7 @@ export function AppShell({
             view={view}
             setView={navigateTo}
             onSearch={handleSearch}
+            searchShortcutParts={searchShortcutParts}
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
             onOpenSettings={() => setSettingsOpen(true)}
@@ -947,7 +972,6 @@ export function AppShell({
             closeSettings,
             settingsTab,
             setSettingsTab,
-            setCustomShortcuts,
             anonStats,
             handleAnonStatsChange,
             hideUserHandle,

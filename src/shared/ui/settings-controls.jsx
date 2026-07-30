@@ -34,10 +34,10 @@ export function Slider({ min, max, step = 1, value, onChange, onChangeCommit, wi
   );
 }
 
-export function Toggle({ value, onChange }) {
+export function Toggle({ value, onChange, ariaLabel = "toggle" }) {
   // Thin wrapper around HeroUI Switch so all existing Toggle({value,onChange}) call sites stay unchanged.
   return (
-    <SwitchRoot isSelected={!!value} onChange={onChange} aria-label="toggle">
+    <SwitchRoot isSelected={!!value} onChange={onChange} aria-label={ariaLabel}>
       <SwitchControl>
         <SwitchThumb />
       </SwitchControl>

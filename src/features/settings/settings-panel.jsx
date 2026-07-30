@@ -49,7 +49,6 @@ import { useSettingsLock } from "./security/use-settings-lock.js";
 import { SettingsLockDialogs } from "./security/settings-lock-dialog.jsx";
 export function SettingsPanel({
   onOpenOverlayEditor,
-  onResetShortcuts,
   onSectionChange,
   language,
   onLanguageChange,
@@ -165,10 +164,14 @@ export function SettingsPanel({
   } = useIntegrationSettings();
   const {
     customShortcuts,
+    shortcutsEnabled,
     recordingShortcut,
     setRecordingShortcut,
-    getShortcutLabel,
+    getShortcutParts,
+    disableShortcut,
     resetShortcut,
+    resetAllShortcuts,
+    onShortcutsEnabledChange,
   } = useShortcutSettings();
   // Scroll-spy for the Discord-style sub-nav: watch the [data-settings-section] blocks in the
   // scroll container and report which one sits in the top band as the active section.
@@ -620,8 +623,11 @@ export function SettingsPanel({
           {tab === "shortcuts" && (
             <ShortcutsSettingsTab
               customShortcuts={customShortcuts}
-              getShortcutLabel={getShortcutLabel}
-              onResetShortcuts={onResetShortcuts}
+              shortcutsEnabled={shortcutsEnabled}
+              getShortcutParts={getShortcutParts}
+              disableShortcut={disableShortcut}
+              onResetShortcuts={resetAllShortcuts}
+              onShortcutsEnabledChange={onShortcutsEnabledChange}
               recordingShortcut={recordingShortcut}
               resetShortcut={resetShortcut}
               setRecordingShortcut={setRecordingShortcut}

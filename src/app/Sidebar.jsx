@@ -53,6 +53,7 @@ export function Sidebar({
   view,
   setView,
   onSearch,
+  searchShortcutParts,
   collapsed,
   onToggleCollapse,
   onOpenSettings,
@@ -469,6 +470,7 @@ export function Sidebar({
             {IS_MAC && !settingsOpen && (
               <SpotlightSearch
                 onSearch={onSearch}
+                shortcutParts={searchShortcutParts}
                 onOpenPlaylist={onOpenPlaylist}
                 onCloseOverlay={onCloseOverlay}
                 launcherStyle={{ flex: 1, minWidth: 0 }}
@@ -520,6 +522,7 @@ export function Sidebar({
         <div className="px-3 mb-3">
           <SpotlightSearch
             onSearch={onSearch}
+            shortcutParts={searchShortcutParts}
             onOpenPlaylist={onOpenPlaylist}
             onCloseOverlay={onCloseOverlay}
           />
@@ -528,6 +531,7 @@ export function Sidebar({
       {collapsed && !settingsOpen && (
         <SpotlightSearch
           onSearch={onSearch}
+          shortcutParts={searchShortcutParts}
           onOpenPlaylist={onOpenPlaylist}
           onCloseOverlay={onCloseOverlay}
           showLauncher={false}

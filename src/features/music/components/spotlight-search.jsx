@@ -23,6 +23,7 @@ export function SpotlightSearch({
   onSearch,
   onOpenPlaylist,
   onCloseOverlay,
+  shortcutParts,
   launcherStyle,
   showLauncher = true,
 }) {
@@ -37,14 +38,9 @@ export function SpotlightSearch({
   const tetoTimerRef = useRef(null);
 
   useEffect(() => {
-    const onKeyDown = (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    const openSearch = () => setIsOpen(true);
+    window.addEventListener("kodama-open-search", openSearch);
+    return () => window.removeEventListener("kodama-open-search", openSearch);
   }, []);
 
   useEffect(() => {
@@ -140,17 +136,19 @@ export function SpotlightSearch({
         >
           <MagnifyingGlass size={16} />
           <span style={{ flex: 1, textAlign: "left" }}>{t("search")}</span>
-          <kbd
-            style={{
-              padding: "2px 5px",
-              borderRadius: "var(--r-sm)",
-              background: "var(--bg-hover)",
-              color: "var(--text-muted)",
-              fontSize: "var(--t11)",
-            }}
-          >
-            {IS_MAC ? "⌘K" : "Ctrl K"}
-          </kbd>
+          {shortcutParts?.length > 0 && (
+            <kbd
+              style={{
+                padding: "2px 5px",
+                borderRadius: "var(--r-sm)",
+                background: "var(--bg-hover)",
+                color: "var(--text-muted)",
+                fontSize: "var(--t11)",
+              }}
+            >
+              {shortcutParts.join(IS_MAC ? "" : " ")}
+            </kbd>
+          )}
         </button>
       )}
 
