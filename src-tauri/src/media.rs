@@ -7,8 +7,15 @@
 use std::cell::RefCell;
 use std::time::Duration;
 
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
+use souvlaki::{
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+    SeekDirection,
+};
 use tauri::{AppHandle, Emitter};
+
+use crate::audio::engine::{PlaybackSourceRequest, PlaybackStatus, TransportUpdate};
+use crate::audio::player::AudioCmd;
+use crate::audio::PlaybackEngine;
 
 thread_local! {
     static CONTROLS: RefCell<Option<MediaControls>> = const { RefCell::new(None) };
@@ -19,9 +26,13 @@ thread_local! {
     static LAST_META: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-/// Create the OS media controls and forward button presses to the frontend as a
-/// `media-control` event. MUST be called on the main thread (call from setup()).
-pub fn init(app: &AppHandle) {
+/// Create the OS media controls and route button presses directly into the native
+/// playback engine. MUST be called on the main thread (call from setup()).
+pub fn init(
+    app: &AppHandle,
+    engine: PlaybackEngine,
+    audio_tx: std::sync::mpsc::SyncSender<AudioCmd>,
+) {
     #[cfg(target_os = "windows")]
     let hwnd: Option<*mut std::ffi::c_void> = app
         .get_webview_window("main")
@@ -46,23 +57,8 @@ pub fn init(app: &AppHandle) {
 
     let app_handle = app.clone();
     let attached = controls.attach(move |event: MediaControlEvent| {
-        let emit = |action: &str| {
-            let _ = app_handle.emit("media-control", serde_json::json!({ "action": action }));
-        };
-        match event {
-            MediaControlEvent::Play => emit("play"),
-            MediaControlEvent::Pause => emit("pause"),
-            MediaControlEvent::Toggle => emit("toggle"),
-            MediaControlEvent::Next => emit("next"),
-            MediaControlEvent::Previous => emit("previous"),
-            MediaControlEvent::Stop => emit("stop"),
-            MediaControlEvent::SetPosition(MediaPosition(d)) => {
-                let _ = app_handle.emit(
-                    "media-control",
-                    serde_json::json!({ "action": "seek", "position": d.as_secs_f64() }),
-                );
-            }
-            _ => {}
+        if let Err(error) = handle_control_event(event, &engine, &audio_tx, &app_handle) {
+            eprintln!("[media] control failed: {error}");
         }
     });
     if let Err(e) = attached {
@@ -73,8 +69,172 @@ pub fn init(app: &AppHandle) {
     CONTROLS.with(|c| *c.borrow_mut() = Some(controls));
 }
 
+fn handle_control_event(
+    event: MediaControlEvent,
+    engine: &PlaybackEngine,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+) -> Result<(), String> {
+    match event {
+        MediaControlEvent::Play => play(engine, audio_tx, app)?,
+        MediaControlEvent::Pause => set_status(engine, audio_tx, app, PlaybackStatus::Paused)?,
+        MediaControlEvent::Toggle => {
+            if matches!(
+                engine.snapshot()?.status,
+                PlaybackStatus::Playing | PlaybackStatus::Loading
+            ) {
+                set_status(engine, audio_tx, app, PlaybackStatus::Paused)?;
+            } else {
+                play(engine, audio_tx, app)?;
+            }
+        }
+        MediaControlEvent::Next => {
+            play_selected(engine.select_next()?, "next", audio_tx, app, engine)?;
+        }
+        MediaControlEvent::Previous => {
+            play_selected(engine.select_previous()?, "previous", audio_tx, app, engine)?;
+        }
+        MediaControlEvent::Stop => {
+            let snapshot = engine.update_transport(TransportUpdate {
+                status: Some(PlaybackStatus::Stopped),
+                position_seconds: Some(0.0),
+                ..TransportUpdate::default()
+            })?;
+            audio_tx
+                .send(AudioCmd::Stop)
+                .map_err(|error| error.to_string())?;
+            emit_snapshot(app, &snapshot);
+        }
+        MediaControlEvent::SetPosition(MediaPosition(position)) => {
+            seek_to(position.as_secs_f64(), engine, audio_tx, app)?;
+        }
+        MediaControlEvent::Seek(direction) => {
+            seek_by(direction, Duration::from_secs(10), engine, audio_tx, app)?;
+        }
+        MediaControlEvent::SeekBy(direction, amount) => {
+            seek_by(direction, amount, engine, audio_tx, app)?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn seek_by(
+    direction: SeekDirection,
+    amount: Duration,
+    engine: &PlaybackEngine,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let current = engine.snapshot()?.position_seconds;
+    let delta = amount.as_secs_f64();
+    let requested = match direction {
+        SeekDirection::Forward => current + delta,
+        SeekDirection::Backward => (current - delta).max(0.0),
+    };
+    seek_to(requested, engine, audio_tx, app)
+}
+
+fn seek_to(
+    requested: f64,
+    engine: &PlaybackEngine,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let current = engine.snapshot()?;
+    let position_seconds = if current.duration_seconds > 0.0 {
+        requested.min(current.duration_seconds)
+    } else {
+        requested
+    };
+    let snapshot = engine.update_transport(TransportUpdate {
+        position_seconds: Some(position_seconds),
+        ..TransportUpdate::default()
+    })?;
+    audio_tx
+        .send(AudioCmd::Seek(position_seconds))
+        .map_err(|error| error.to_string())?;
+    emit_snapshot(app, &snapshot);
+    Ok(())
+}
+
+fn play(
+    engine: &PlaybackEngine,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let current = engine.snapshot()?;
+    if current.status == PlaybackStatus::Stopped {
+        return play_selected(engine.restart_current()?, "play", audio_tx, app, engine);
+    }
+    let snapshot = engine.update_transport(TransportUpdate {
+        status: Some(PlaybackStatus::Playing),
+        ..TransportUpdate::default()
+    })?;
+    audio_tx
+        .send(AudioCmd::Resume)
+        .map_err(|error| error.to_string())?;
+    emit_snapshot(app, &snapshot);
+    Ok(())
+}
+
+fn set_status(
+    engine: &PlaybackEngine,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+    status: PlaybackStatus,
+) -> Result<(), String> {
+    if engine.snapshot()?.status == PlaybackStatus::Stopped {
+        return Ok(());
+    }
+    let snapshot = engine.update_transport(TransportUpdate {
+        status: Some(status),
+        ..TransportUpdate::default()
+    })?;
+    audio_tx
+        .send(AudioCmd::Pause)
+        .map_err(|error| error.to_string())?;
+    emit_snapshot(app, &snapshot);
+    Ok(())
+}
+
+fn play_selected(
+    request: Option<PlaybackSourceRequest>,
+    reason: &str,
+    audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
+    app: &AppHandle,
+    engine: &PlaybackEngine,
+) -> Result<(), String> {
+    let Some(request) = request else {
+        return Ok(());
+    };
+    audio_tx
+        .send(AudioCmd::PlayResolved {
+            request: request.clone(),
+        })
+        .map_err(|error| error.to_string())?;
+    let _ = app.emit(
+        "playback-track-changed",
+        serde_json::json!({ "track": request.track, "reason": reason }),
+    );
+    emit_snapshot(app, &engine.snapshot()?);
+    Ok(())
+}
+
+fn emit_snapshot(app: &AppHandle, snapshot: &crate::audio::engine::PlaybackSnapshot) {
+    let _ = app.emit("playback-state-changed", snapshot);
+}
+
 /// Push the current track's metadata + playback state. Main-thread only.
-fn apply(title: String, artist: String, album: String, cover: String, duration: f64, playing: bool, elapsed: f64) {
+fn apply(
+    title: String,
+    artist: String,
+    album: String,
+    cover: String,
+    duration: f64,
+    playing: bool,
+    elapsed: f64,
+) {
     CONTROLS.with(|cell| {
         if let Some(controls) = cell.borrow_mut().as_mut() {
             // Only re-push metadata (incl. the cover, the expensive part) when it actually
@@ -95,7 +255,11 @@ fn apply(title: String, artist: String, album: String, cover: String, duration: 
                     artist: Some(&artist),
                     album: if album.is_empty() { None } else { Some(&album) },
                     cover_url: if cover.is_empty() { None } else { Some(&cover) },
-                    duration: if duration > 0.0 { Some(Duration::from_secs_f64(duration)) } else { None },
+                    duration: if duration > 0.0 {
+                        Some(Duration::from_secs_f64(duration))
+                    } else {
+                        None
+                    },
                 });
             }
             let progress = Some(MediaPosition(Duration::from_secs_f64(elapsed.max(0.0))));
@@ -114,6 +278,23 @@ fn clear() {
         if let Some(controls) = cell.borrow_mut().as_mut() {
             let _ = controls.set_playback(MediaPlayback::Stopped);
         }
+    });
+}
+
+pub fn update_from_snapshot(app: &AppHandle, snapshot: &crate::audio::engine::PlaybackSnapshot) {
+    let Some(track) = snapshot.current_track.as_ref() else {
+        let _ = app.run_on_main_thread(clear);
+        return;
+    };
+    let title = track.title.clone();
+    let artist = track.artists.join(", ");
+    let album = track.album.clone();
+    let thumbnail = track.thumbnail.clone();
+    let duration = snapshot.duration_seconds;
+    let elapsed = snapshot.position_seconds;
+    let playing = snapshot.status == PlaybackStatus::Playing;
+    let _ = app.run_on_main_thread(move || {
+        apply(title, artist, album, thumbnail, duration, playing, elapsed);
     });
 }
 

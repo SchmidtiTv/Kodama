@@ -12,7 +12,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use audio::{AudioPlayer, start_audio_thread, audio_play, audio_crossfade, audio_pause, audio_resume, audio_stop, audio_seek, audio_set_analysis_enabled, audio_set_volume};
+use audio::{
+    audio_crossfade, audio_pause, audio_play, audio_resume, audio_seek,
+    audio_set_analysis_enabled, audio_set_volume, audio_stop,
+    player_get_snapshot, player_next, player_pause, player_play, player_previous, player_seek,
+    player_set_liked, player_set_queue, player_set_repeat, player_set_shuffle,
+    player_set_ui_visible, player_set_volume, player_update_integrations,
+    playback_engine_replace_queue, playback_engine_set_current_track, playback_engine_snapshot,
+    playback_engine_update_transition_policy, playback_engine_update_transport, start_audio_thread,
+    start_integration_worker, AudioPlayer, PlaybackEngine,
+};
 use discord::{DiscordRpc, disconnect_rpc, update_discord_rpc, clear_discord_rpc};
 use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window, open_composer_window, remove_window_border_for, ensure_session_keeper, rotate_session_cookies, stop_session_keeper};
 use server::{ServerProcess, stop_server};
@@ -206,6 +215,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // A second instance was started — focus the existing window instead
             if let Some(win) = app.get_webview_window("main") {
+                app.state::<PlaybackEngine>().set_ui_visible(true);
                 let _ = win.show();
                 let _ = win.unminimize();
                 let _ = win.set_focus();
@@ -223,10 +233,12 @@ fn main() {
         .manage(WasMaximized::new())
         .manage(DiscordRpc::new())
         .manage(AudioPlayer::new())
+        .manage(PlaybackEngine::new())
         .manage(CloseTray(AtomicBool::new(true)))
         .setup(|app| {
-            let audio_tx = start_audio_thread(app.handle().clone());
-            app.state::<AudioPlayer>().set_sender(audio_tx);
+            let playback_engine = app.state::<PlaybackEngine>().inner().clone();
+            let audio_tx = start_audio_thread(app.handle().clone(), playback_engine);
+            app.state::<AudioPlayer>().set_sender(audio_tx.clone());
 
             // Remove the Windows-accent outer border on the borderless main window.
             if let Some(w) = app.get_webview_window("main") {
@@ -243,7 +255,16 @@ fn main() {
 
             // OS media controls (SMTC / Now Playing / MPRIS). setup() runs on the main thread,
             // which souvlaki requires (and where the main window's HWND is available).
-            media::init(app.handle());
+            media::init(
+                app.handle(),
+                app.state::<PlaybackEngine>().inner().clone(),
+                audio_tx.clone(),
+            );
+            start_integration_worker(
+                app.handle().clone(),
+                app.state::<PlaybackEngine>().inner().clone(),
+                audio_tx,
+            );
 
             #[cfg(windows)]
             start_audio_session_tagger();
@@ -261,6 +282,7 @@ fn main() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(win) = app.get_webview_window("main") {
+                            app.state::<PlaybackEngine>().set_ui_visible(true);
                             let _ = win.show();
                             let _ = win.set_focus();
                         }
@@ -273,6 +295,7 @@ fn main() {
                     if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
                         let app = tray.app_handle();
                         if let Some(win) = app.get_webview_window("main") {
+                            app.state::<PlaybackEngine>().set_ui_visible(true);
                             let _ = win.show();
                             let _ = win.set_focus();
                         }
@@ -305,6 +328,13 @@ fn main() {
             appicon::set_app_icon,
             audio_play, audio_crossfade, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_analysis_enabled, audio_set_volume,
+            player_set_queue, player_play, player_pause, player_next, player_previous,
+            player_seek, player_set_volume, player_set_shuffle, player_set_repeat,
+            player_get_snapshot, player_set_ui_visible, player_set_liked,
+            player_update_integrations,
+            playback_engine_snapshot, playback_engine_replace_queue,
+            playback_engine_set_current_track, playback_engine_update_transport,
+            playback_engine_update_transition_policy,
             relaunch_app, quit_app, stop_server_cmd,
             update_tray_labels, set_close_to_tray,
             capture_screenshot,
@@ -320,6 +350,9 @@ fn main() {
                 {
                     if app_handle.state::<CloseTray>().0.load(Ordering::Relaxed) {
                         api.prevent_close();
+                        app_handle
+                            .state::<PlaybackEngine>()
+                            .set_ui_visible(false);
                         if let Some(win) = app_handle.get_webview_window("main") {
                             let _ = win.hide();
                         }

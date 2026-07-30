@@ -6,6 +6,7 @@ pub struct SampleRing {
     write_pos: AtomicUsize,
     read_pos: AtomicUsize,
     done: AtomicBool,
+    cancelled: AtomicBool,
 }
 
 impl SampleRing {
@@ -19,6 +20,7 @@ impl SampleRing {
             write_pos: AtomicUsize::new(0),
             read_pos: AtomicUsize::new(0),
             done: AtomicBool::new(false),
+            cancelled: AtomicBool::new(false),
         }
     }
 
@@ -38,6 +40,18 @@ impl SampleRing {
         true
     }
 
+    fn push_until_available(&self, sample: f32) -> bool {
+        loop {
+            if self.is_cancelled() {
+                return false;
+            }
+            if self.push(sample) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_micros(100));
+        }
+    }
+
     pub fn pop(&self) -> Option<f32> {
         let rp = self.read_pos.load(Ordering::Relaxed);
         let wp = self.write_pos.load(Ordering::Acquire);
@@ -54,6 +68,12 @@ impl SampleRing {
     }
     pub fn is_done(&self) -> bool {
         self.done.load(Ordering::Acquire)
+    }
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
     }
     pub fn write_pos(&self) -> usize {
         self.write_pos.load(Ordering::Relaxed)
@@ -181,7 +201,10 @@ pub fn spawn_decoder(data: Vec<u8>, track_id: u32, ring: Arc<SampleRing>, seek_t
             }
         }
 
-        loop {
+        'decode: loop {
+            if ring.is_cancelled() {
+                break;
+            }
             let packet = match format.next_packet() {
                 Ok(p) => p,
                 Err(symphonia::core::errors::Error::IoError(ref e))
@@ -208,8 +231,8 @@ pub fn spawn_decoder(data: Vec<u8>, track_id: u32, ring: Arc<SampleRing>, seek_t
             sample_buf.copy_interleaved_ref(decoded);
 
             for &s in sample_buf.samples() {
-                while !ring.push(s) {
-                    std::thread::sleep(std::time::Duration::from_micros(100));
+                if !ring.push_until_available(s) {
+                    break 'decode;
                 }
             }
         }
@@ -265,7 +288,11 @@ pub fn spawn_decoder_streaming(
             };
             let sr = track.codec_params.sample_rate.unwrap_or(48000);
             (
-                track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2),
+                track
+                    .codec_params
+                    .channels
+                    .map(|c| c.count() as u16)
+                    .unwrap_or(2),
                 sr,
                 track.id,
                 track
@@ -275,7 +302,12 @@ pub fn spawn_decoder_streaming(
                 track.codec_params.clone(),
             )
         };
-        let _ = info_tx.send(Ok(ProbeResult { channels, sample_rate, total_duration, track_id }));
+        let _ = info_tx.send(Ok(ProbeResult {
+            channels,
+            sample_rate,
+            total_duration,
+            track_id,
+        }));
 
         let mut decoder = match symphonia::default::get_codecs()
             .make(&codec_params, &DecoderOptions::default())
@@ -291,11 +323,17 @@ pub fn spawn_decoder_streaming(
         if seek_to_secs > 0.05 {
             let _ = format.seek(
                 SeekMode::Coarse,
-                SeekTo::Time { time: Time::from(seek_to_secs), track_id: None },
+                SeekTo::Time {
+                    time: Time::from(seek_to_secs),
+                    track_id: None,
+                },
             );
         }
 
-        loop {
+        'decode: loop {
+            if ring.is_cancelled() {
+                break;
+            }
             let packet = match format.next_packet() {
                 Ok(p) => p,
                 Err(symphonia::core::errors::Error::IoError(ref e))
@@ -319,8 +357,8 @@ pub fn spawn_decoder_streaming(
                 symphonia::core::audio::SampleBuffer::<f32>::new(num_frames as u64, spec);
             sample_buf.copy_interleaved_ref(decoded);
             for &s in sample_buf.samples() {
-                while !ring.push(s) {
-                    std::thread::sleep(std::time::Duration::from_micros(100));
+                if !ring.push_until_available(s) {
+                    break 'decode;
                 }
             }
         }
@@ -383,13 +421,14 @@ impl StreamingSource {
     ) -> Result<Self, String> {
         let ring_cap = 48000usize * 2 * 12; // ~12 s stereo buffer (generous; exact rate unknown yet)
         let ring = Arc::new(SampleRing::new(ring_cap));
-        let (info_tx, info_rx) =
-            std::sync::mpsc::sync_channel::<Result<ProbeResult, String>>(1);
+        let (info_tx, info_rx) = std::sync::mpsc::sync_channel::<Result<ProbeResult, String>>(1);
 
         spawn_decoder_streaming(source, Arc::clone(&ring), seek_to_secs, info_tx);
 
         // Block only until the format is probed (header/moov), not the whole file.
-        let info = info_rx.recv().map_err(|e| format!("probe channel: {e}"))??;
+        let info = info_rx
+            .recv()
+            .map_err(|e| format!("probe channel: {e}"))??;
         eprintln!(
             "[Audio] Streaming(HTTP) decoder started: {}ch, {}Hz, seek={seek_to_secs:.1}s",
             info.channels, info.sample_rate
@@ -411,9 +450,18 @@ impl StreamingSource {
         &mut self,
         enabled: Arc<std::sync::atomic::AtomicBool>,
     ) -> Arc<super::analyzer::AnalysisBuffer> {
-        let a = Arc::new(super::analyzer::AnalysisBuffer::new(self.sample_rate, enabled));
+        let a = Arc::new(super::analyzer::AnalysisBuffer::new(
+            self.sample_rate,
+            enabled,
+        ));
         self.analysis = Some(Arc::clone(&a));
         a
+    }
+}
+
+impl Drop for StreamingSource {
+    fn drop(&mut self) {
+        self.ring.cancel();
     }
 }
 
@@ -451,5 +499,43 @@ impl rodio::Source for StreamingSource {
     }
     fn total_duration(&self) -> Option<std::time::Duration> {
         self.total_duration
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SampleRing, StreamingSource};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    #[test]
+    fn cancellation_unblocks_a_producer_waiting_on_a_full_ring() {
+        let ring = Arc::new(SampleRing::new(1));
+        assert!(ring.push(1.0));
+
+        let producer_ring = Arc::clone(&ring);
+        let producer = std::thread::spawn(move || producer_ring.push_until_available(2.0));
+
+        std::thread::sleep(Duration::from_millis(10));
+        ring.cancel();
+
+        assert!(!producer.join().expect("producer should exit"));
+    }
+
+    #[test]
+    fn dropping_a_streaming_source_cancels_its_decoder_ring() {
+        let ring = Arc::new(SampleRing::new(1));
+        let source = StreamingSource {
+            ring: Arc::clone(&ring),
+            channels: 2,
+            sample_rate: 48_000,
+            total_duration: None,
+            analysis: None,
+            tap_pos: 0,
+        };
+
+        drop(source);
+
+        assert!(ring.is_cancelled());
     }
 }

@@ -2,6 +2,8 @@ use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use std::sync::Mutex;
 use tauri::Manager;
 
+use crate::audio::engine::PlaybackTrack;
+
 pub struct DiscordRpc(Mutex<Option<DiscordIpcClient>>);
 
 impl DiscordRpc {
@@ -14,6 +16,32 @@ impl DiscordRpc {
             Some(client)
         })();
         DiscordRpc(Mutex::new(drpc))
+    }
+
+    pub fn update(
+        &self,
+        track: &PlaybackTrack,
+        duration: f64,
+        elapsed: f64,
+        paused: bool,
+        status_display: &str,
+    ) -> Result<(), String> {
+        update(
+            &self.0,
+            track.title.clone(),
+            track.artists.join(", "),
+            track.album.clone(),
+            track.thumbnail.clone(),
+            duration,
+            elapsed,
+            track.video_id.clone(),
+            paused,
+            status_display.to_string(),
+        )
+    }
+
+    pub fn clear(&self) -> Result<(), String> {
+        clear(&self.0)
     }
 }
 
@@ -32,7 +60,34 @@ pub fn update_discord_rpc(
     // Display": "song" → details (song title), "artist" → state (artist), "app" → name (app name).
     status_display: String,
 ) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    update(
+        &state.0,
+        title,
+        artist,
+        album,
+        thumbnail,
+        duration,
+        elapsed,
+        video_id,
+        paused,
+        status_display,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update(
+    client_state: &Mutex<Option<DiscordIpcClient>>,
+    title: String,
+    artist: String,
+    album: String,
+    thumbnail: String,
+    duration: f64,
+    elapsed: f64,
+    video_id: String,
+    paused: bool,
+    status_display: String,
+) -> Result<(), String> {
+    let mut guard = client_state.lock().map_err(|e| e.to_string())?;
 
     if guard.is_none() {
         let mut client = DiscordIpcClient::new("1483291004067909642");
@@ -65,7 +120,11 @@ pub fn update_discord_rpc(
     let button = activity::Button::new("Listen on YouTube Music", &yt_url);
 
     let state_str = if paused {
-        if artist_c.chars().count() >= 2 { format!("{} · ⏸", artist_c) } else { String::new() }
+        if artist_c.chars().count() >= 2 {
+            format!("{} · ⏸", artist_c)
+        } else {
+            String::new()
+        }
     } else {
         artist_c.clone()
     };
@@ -118,7 +177,11 @@ pub fn update_discord_rpc(
 
 #[tauri::command]
 pub fn clear_discord_rpc(state: tauri::State<'_, DiscordRpc>) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    clear(&state.0)
+}
+
+fn clear(client_state: &Mutex<Option<DiscordIpcClient>>) -> Result<(), String> {
+    let mut guard = client_state.lock().map_err(|e| e.to_string())?;
     if let Some(client) = guard.as_mut() {
         let _ = client.clear_activity();
     }
