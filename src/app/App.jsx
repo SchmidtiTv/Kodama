@@ -30,7 +30,6 @@ import {
   ZoomContext,
 } from "@/features/settings/display-context.jsx";
 import { DEFAULT_LYRICS_PROVIDERS, mergeLyricsProviders } from "@/features/lyrics/providers.js";
-import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { itemId, profileKey } from "@/features/music/lib/playlist-id.js";
 import { useMusicNavigation } from "@/features/music/hooks/use-music-navigation.js";
 import { useLikes } from "@/features/music/hooks/use-likes.js";
@@ -270,14 +269,13 @@ export default function App() {
   const playerIntegrationRef = useRef({
     discordRpc: true,
     discordStatusDisplay: "song",
-    obsEnabled: false,
-    obsPort: 9848,
+    youtubeHistoryEnabled: false,
+    remoteEnabled: false,
   });
   const lastfm = useLastfmClient();
   const player = usePlayerController({
     addToast,
     resetLyricsSessionRef,
-    lastfm,
     integrationsRef: playerIntegrationRef,
   });
   const {
@@ -388,34 +386,6 @@ export default function App() {
     };
   }, [isPlaying]);
 
-  const ytHistoryRef = useRef({ videoId: null, played: 0, sent: false });
-  useEffect(() => {
-    ytHistoryRef.current = {
-      videoId: currentTrack?.videoId || null,
-      played: 0,
-      sent: false,
-    };
-  }, [currentTrack?.videoId]);
-  useEffect(() => {
-    if (!ytmusicHistorySync || !isPlaying) return;
-    const id = setInterval(() => {
-      const state = ytHistoryRef.current;
-      if (!state.videoId || state.sent) return;
-      state.played += 1;
-      const duration = parseDurationToSeconds(currentTrack?.duration) || 0;
-      if (duration < 30) return;
-      if (state.played >= Math.min(duration / 2, 240)) {
-        state.sent = true;
-        fetch(`${API}/ytmusic/history`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoId: state.videoId }),
-        }).catch(() => {});
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [ytmusicHistorySync, isPlaying, currentTrack?.videoId, currentTrack?.duration]);
-
   const [closeTray, setCloseTray] = useState(
     () => localStorage.getItem("kiyoshi-close-tray") !== "false"
   );
@@ -431,11 +401,11 @@ export default function App() {
     playerIntegrationRef.current = {
       discordRpc,
       discordStatusDisplay,
-      obsEnabled,
-      obsPort,
+      youtubeHistoryEnabled: ytmusicHistorySync,
+      remoteEnabled: playerIntegrationRef.current.remoteEnabled,
     };
     refreshNativeIntegrations();
-  }, [discordRpc, discordStatusDisplay, obsEnabled, obsPort, refreshNativeIntegrations]);
+  }, [discordRpc, discordStatusDisplay, ytmusicHistorySync, refreshNativeIntegrations]);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   const [showLyricsTranslation, setShowLyricsTranslation] = useState(
@@ -599,6 +569,13 @@ export default function App() {
     remoteDeviceAction,
     remoteRememberDevice,
   } = useRemoteControl();
+  useEffect(() => {
+    playerIntegrationRef.current = {
+      ...playerIntegrationRef.current,
+      remoteEnabled,
+    };
+    refreshNativeIntegrations();
+  }, [remoteEnabled, refreshNativeIntegrations]);
 
   const [appIcon, setAppIcon] = useState(
     () => localStorage.getItem("kodama-app-icon") || APP_ICON_DEFAULT

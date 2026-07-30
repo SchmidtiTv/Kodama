@@ -102,13 +102,13 @@ export function PlayerControls(props) {
     playerBarControls,
     queueOpen,
     repeat,
+    seekTo,
     seekDrag,
     setNextBouncing,
     setPrevBouncing,
     setSeekDrag,
-    setShuffle,
+    setPlaybackVolume,
     setSleepTimerEnd,
-    setVolume,
     showLyrics,
     showLyricsTranslation,
     shuffle,
@@ -117,8 +117,8 @@ export function PlayerControls(props) {
     t,
     toggleLike,
     togglePlay,
+    toggleShuffle,
     track,
-    volCurve,
     volume,
   } = props;
   const trackPresentationRef = useRef(null);
@@ -208,8 +208,7 @@ export function PlayerControls(props) {
           isDisabled={!track}
           onChange={(v) => setSeekDrag(v)}
           onChangeEnd={(v) => {
-            const a = audioRef.current;
-            if (a && duration) a.currentTime = v;
+            if (duration) seekTo(v);
             setSeekDrag(null);
           }}
           className={cn("player-seek w-full", seekDrag !== null && "seeking")}
@@ -366,7 +365,7 @@ export function PlayerControls(props) {
           }}
         >
           {playerBarControls.shuffle &&
-            ctrlBtn(() => setShuffle((s) => !s), shuffle, <Shuffle size={16} />, t("shuffle"))}
+            ctrlBtn(toggleShuffle, shuffle, <Shuffle size={16} />, t("shuffle"))}
           <Tooltip text={t("scPrev")}>
             <Button
               variant="ghost"
@@ -379,7 +378,7 @@ export function PlayerControls(props) {
                 }
                 const audio = audioRef.current;
                 if (audio && !loading && audio.currentTime >= 4) {
-                  audio.currentTime = 0;
+                  seekTo(0);
                 } else {
                   goAdjacent("prev");
                 }
@@ -458,10 +457,8 @@ export function PlayerControls(props) {
                   variant="ghost"
                   isIconOnly
                   onPress={() => {
-                    const a = audioRef.current;
-                    if (!a) return;
                     const newVol = volume > 0 ? 0 : prevVolumeRef.current;
-                    a.volume = volCurve(newVol);
+                    setPlaybackVolume(newVol);
                   }}
                   className={cn(
                     "rounded-full",
@@ -497,10 +494,7 @@ export function PlayerControls(props) {
                   minValue={0}
                   maxValue={1}
                   step={0.01}
-                  onChange={(v) => {
-                    setVolume(v);
-                    if (audioRef.current) audioRef.current.volume = volCurve(v);
-                  }}
+                  onChange={setPlaybackVolume}
                   onChangeEnd={(v) => {
                     localStorage.setItem("kiyoshi-volume", v);
                   }}

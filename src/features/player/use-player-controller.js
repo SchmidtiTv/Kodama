@@ -3,9 +3,9 @@ import { API } from "@/shared/api/client.js";
 import { translate } from "@/shared/i18n/i18n.js";
 import { IpcAudio } from "./ipc-audio.js";
 import { registerPlayerCommands as bpRegisterCommands } from "@/features/player/player-bridge.js";
-import { useLastfmScrobbling } from "../integrations/lastfm.js";
 import { usePlayerNativeBridges } from "./hooks/use-player-native-bridges.js";
 import { useWindowTitle } from "./hooks/use-window-title.js";
+import { pauseNative } from "./native-playback-engine.js";
 import { loadPlaybackSession, savePlaybackSession } from "./playback-session.js";
 
 function dedupeTracks(tracks) {
@@ -20,7 +20,7 @@ function dedupeTracks(tracks) {
 // Lyrics-session reset (clearing forced/current/failed providers on a new track) is injected as a
 // ref rather than as setters, because App's lyrics-session state is declared *after* this hook is
 // called — passing the setters directly would hit a temporal-dead-zone error in the dep arrays.
-export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, integrationsRef }) {
+export function usePlayerController({ addToast, resetLyricsSessionRef, integrationsRef }) {
   // One IpcAudio for the app lifetime. Kept as a ref so it survives re-renders and stays a
   // singleton (duplicating it would duplicate native audio, listeners, and OBS capture).
   const audioRef = useRef(null);
@@ -28,7 +28,8 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
 
   // Keep the selected track available after a full app restart. This intentionally restores the
   // player paused: reopening the app should show the last song without unexpectedly starting
-  // audio. Playback itself remains owned by Player when the user presses play.
+  // audio. The native subscriber starts playback after a new user selection, while this
+  // restored selection remains paused.
   const [restoredSession] = useState(loadPlaybackSession);
   const [currentTrack, setCurrentTrack] = useState(() => restoredSession?.track || null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -49,15 +50,11 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
 
   // Native window/taskbar title follows playback.
   useWindowTitle(currentTrack, isPlaying);
-  useLastfmScrobbling({ currentTrack, isPlaying, lastfm });
   const [integrationRevision, setIntegrationRevision] = useState(0);
   const refreshNativeIntegrations = useCallback(() => {
     setIntegrationRevision((revision) => revision + 1);
   }, []);
   usePlayerNativeBridges({
-    audioRef,
-    currentTrack,
-    isPlaying,
     integrationsRef,
     integrationRevision,
   });
@@ -65,8 +62,9 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, lastfm, i
   // Pause audio without touching track/queue — used by the Composer-pause event below and by
   // any caller (e.g. the profile switch/remove/logout reset) that clears currentTrack/queue and
   // must stop the actual playing audio in the same step, not just reset the UI.
-  const stopPlayback = useCallback(() => {
-    if (audioRef.current && !audioRef.current.paused) {
+  const stopPlayback = useCallback(async () => {
+    const snapshot = await pauseNative();
+    if (snapshot === null && audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
     }
     setIsPlaying(false);

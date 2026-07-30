@@ -20,7 +20,19 @@ import {
   usePlayerActions,
 } from "./player-context.jsx";
 import { useDownloadState, useDownloadActions } from "../downloads/download-context.jsx";
-import { hiResThumb } from "./cover-art.js";
+import { useNativePlaybackEngine } from "./hooks/use-native-playback-engine.js";
+import { useVideoAudioSync } from "./hooks/use-video-audio-sync.js";
+import {
+  nextNative,
+  pauseNative,
+  playNative,
+  previousNative,
+  seekNative,
+  setNativeLiked,
+  setNativeRepeat,
+  setNativeShuffle,
+  setNativeVolume,
+} from "./native-playback-engine.js";
 
 export function Player({
   expanded,
@@ -35,7 +47,6 @@ export function Player({
   onToggleQueue,
   fullscreen,
   onToggleFullscreen,
-  remoteEnabled = false,
   onOpenAlbum,
   onOpenArtist,
   onRefetchLyrics,
@@ -107,22 +118,11 @@ export function Player({
   // app must not unexpectedly begin audio. Consume the marker only for that exact track so a
   // user selecting another song while the restore is loading still starts it normally.
   const restoredTrackIdRef = useRef(restoredTrackId);
-  const crossfadeRef = useRef(crossfade);
   const volumeRef = useRef(volume);
   const prevVolumeRef = useRef(volume > 0 ? volume : 0.4);
   // Quadratic volume curve — human hearing is logarithmic, so v² feels linear
   const volCurve = (v) => v * v;
 
-  const crossfadeActiveRef = useRef(false); // a crossfade is pending or in flight
-  const crossfadePendingTrackRef = useRef(null); // next track, set until Rust confirms "started"
-  const crossfadeFailedTrackRef = useRef(null); // videoId a crossfade failed for (don't retry it)
-  const skipStreamResetRef = useRef(false); // suppress audio_play after a crossfade advance
-  const videoModeActiveRef = useRef(false);
-  const videoModeTrackIdRef = useRef(null);
-  const showVideoViewRef = useRef(showVideoView);
-  useEffect(() => {
-    showVideoViewRef.current = showVideoView;
-  }, [showVideoView]);
   const _lastProgressTs = useRef(0); // throttle: last time setProgress was called
   useEffect(() => {
     repeatRef.current = repeat;
@@ -137,17 +137,34 @@ export function Player({
     trackRef.current = track;
   }, [track]);
   useEffect(() => {
-    crossfadeRef.current = crossfade;
-  }, [crossfade]);
-  const crossfadeOverridesRef = useRef(crossfadeOverrides);
-  useEffect(() => {
-    crossfadeOverridesRef.current = crossfadeOverrides;
-  }, [crossfadeOverrides]);
-  useEffect(() => {
     volumeRef.current = volume;
   }, [volume]);
 
+  const nativeAvailable = useNativePlaybackEngine({
+    queue,
+    track,
+    restoredTrackId,
+    shuffle,
+    repeat,
+    volume,
+    crossfade,
+    crossfadeOverrides,
+    playbackProgressive,
+    showVideoView,
+    queueRef,
+    trackRef,
+    setProgress,
+    setDuration,
+    setLoading,
+    setIsPlaying,
+    setTrack,
+    setShuffle,
+    setRepeat,
+    setVolume,
+  });
+
   useEffect(() => {
+    if (nativeAvailable !== false) return;
     const audio = audioRef.current;
     if (!audio) return;
     const onVolumeChange = () => {
@@ -162,7 +179,7 @@ export function Player({
     };
     audio.addEventListener("volumechange", onVolumeChange);
     return () => audio.removeEventListener("volumechange", onVolumeChange);
-  }, []);
+  }, [nativeAvailable]);
 
   const getAdjacentTrack = useCallback((dir) => {
     const q = queueRef.current;
@@ -181,6 +198,9 @@ export function Player({
   // was just selected, rather than repeatedly reading the previous render's track.
   const goAdjacent = useCallback(
     (direction) => {
+      if (nativeAvailable) {
+        return direction === "next" ? nextNative() : previousNative();
+      }
       const adjacentTrack = getAdjacentTrack(direction);
       if (adjacentTrack) {
         trackRef.current = adjacentTrack;
@@ -188,7 +208,7 @@ export function Player({
       }
       return adjacentTrack;
     },
-    [getAdjacentTrack, setTrack]
+    [getAdjacentTrack, nativeAvailable, setTrack]
   );
 
   const urlCacheGet = (videoId) => {
@@ -275,80 +295,16 @@ export function Player({
     [onPremiumDetected]
   );
 
-  const fetchUrlRef = useRef(fetchUrl);
-  useEffect(() => {
-    fetchUrlRef.current = fetchUrl;
-  }, [fetchUrl]);
-
-  const loadAndSeek = async (audio, url, targetPosition, wasPlaying) => {
-    audio.src = url;
-    await audio.play().catch((error) => console.error("[VideoSync] play error:", error));
-    await new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        audio.removeEventListener("canplay", finish);
-        resolve();
-      };
-      audio.addEventListener("canplay", finish);
-      setTimeout(finish, 4000);
-    });
-    audio.currentTime = targetPosition;
-    if (!wasPlaying) audio.pause();
-  };
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    const current = trackRef.current;
-    if (!audio || !current) return;
-    const trackId = current.videoId;
-    const wasPlaying = !audio.paused;
-    let cancelled = false;
-
-    if (showVideoView) {
-      if (!videoSync?.ready || !videoSync.counterpartVideoId) return;
-      if (videoSync.selfVideo) {
-        videoModeActiveRef.current = true;
-        videoModeTrackIdRef.current = trackId;
-        crossfadeActiveRef.current = false;
-        crossfadePendingTrackRef.current = null;
-        return;
-      }
-      const offset = videoSync.offsetSeconds || 0;
-      (async () => {
-        const targetPosition = Math.max(0, audio.currentTime + offset);
-        const url = await fetchUrlRef.current(videoSync.counterpartVideoId);
-        if (cancelled || !url || trackRef.current?.videoId !== trackId || !showVideoViewRef.current)
-          return;
-        videoModeActiveRef.current = true;
-        videoModeTrackIdRef.current = trackId;
-        crossfadeActiveRef.current = false;
-        crossfadePendingTrackRef.current = null;
-        await loadAndSeek(audio, url, targetPosition, wasPlaying);
-        if (wasPlaying) setIsPlaying(true);
-      })();
-    } else if (videoModeActiveRef.current && videoModeTrackIdRef.current === trackId) {
-      if (videoSync?.selfVideo) {
-        videoModeActiveRef.current = false;
-        videoModeTrackIdRef.current = null;
-        return;
-      }
-      const offset = videoSync?.offsetSeconds || 0;
-      (async () => {
-        const targetPosition = Math.max(0, audio.currentTime - offset);
-        const url = await fetchUrlRef.current(trackId);
-        if (cancelled || !url || trackRef.current?.videoId !== trackId) return;
-        videoModeActiveRef.current = false;
-        videoModeTrackIdRef.current = null;
-        await loadAndSeek(audio, url, targetPosition, wasPlaying);
-        if (wasPlaying) setIsPlaying(true);
-      })();
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [showVideoView]); // eslint-disable-line react-hooks/exhaustive-deps
+  useVideoAudioSync({
+    enabled: nativeAvailable === false,
+    audioRef,
+    trackRef,
+    fetchUrl,
+    trackId: track?.videoId,
+    showVideoView,
+    videoSync,
+    setIsPlaying,
+  });
 
   // Preload upcoming tracks in the background so sequential listening (album/playlist/queue)
   // has near-instant transitions and "next". Warm the next TWO tracks (most listening is
@@ -387,18 +343,49 @@ export function Player({
   }, [fetchUrl]);
 
   useEffect(() => {
-    if (!track) return;
+    const videoId = track?.videoId;
+    if (!videoId) return;
+    let cancelled = false;
     // Check if track is liked
+    queueMicrotask(() => setIsLiked(false));
     fetch(`${API}/liked/ids`)
       .then((r) => r.json())
-      .then((d) => setIsLiked((d.ids || []).includes(track.videoId)))
+      .then((d) => {
+        if (!cancelled) setIsLiked((d.ids || []).includes(videoId));
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [track?.videoId]);
+  useEffect(() => {
+    setNativeLiked(isLiked);
+  }, [isLiked, track?.videoId]);
+  useEffect(() => {
+    let unlisten = () => {};
+    let cancelled = false;
+    import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen("playback-liked-changed", ({ payload }) => {
+          if (payload?.videoId === trackRef.current?.videoId) {
+            setIsLiked(!!payload.liked);
+          }
+        })
+      )
+      .then((cleanup) => {
+        if (cancelled) cleanup();
+        else unlisten = cleanup;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten();
+    };
+  }, []);
 
   useEffect(() => {
+    if (nativeAvailable !== false) return;
     if (!track) return;
-    videoModeActiveRef.current = false;
-    videoModeTrackIdRef.current = null;
     setLoading(true);
     setStreamUrl(null);
     let cancelled = false;
@@ -417,71 +404,53 @@ export function Player({
     return () => {
       cancelled = true;
     };
-  }, [track]);
+  }, [nativeAvailable, preloadAdjacent, track]);
 
   useEffect(() => {
+    if (nativeAvailable !== false) return;
     const a = audioRef.current;
     if (!a || !streamUrl) return;
 
-    // When a crossfade advanced the track (Rust signalled "started"), Rust is already
-    // playing the incoming track on its second sink — skip audio_play, just sync UI.
-    const skipSrcReset = skipStreamResetRef.current;
-    skipStreamResetRef.current = false;
-
-    if (skipSrcReset) {
-      // Audio already playing from the Rust crossfade — just sync state.
-      // Don't touch a.src — Rust is mid-blend; fall through to (re)attach listeners.
-      // Leave crossfadeActiveRef set: it stays true until Rust emits "done".
-      setIsPlaying(true);
-      if (a.duration) setDuration(a.duration);
+    const shouldRemainPaused = restoredTrackIdRef.current === track?.videoId;
+    restoredTrackIdRef.current = null;
+    a.src = streamUrl;
+    a.volume = volCurve(volume);
+    volumeRef.current = volume;
+    if (shouldRemainPaused) {
+      a.pause();
+      setIsPlaying(false);
     } else {
-      // A fresh/manual play cancels any pending crossfade (Rust's Play stops sink2).
-      crossfadeActiveRef.current = false;
-      crossfadePendingTrackRef.current = null;
-      crossfadeFailedTrackRef.current = null;
-      videoModeActiveRef.current = false;
-      videoModeTrackIdRef.current = null;
-      const shouldRemainPaused = restoredTrackIdRef.current === track?.videoId;
-      restoredTrackIdRef.current = null;
-      a.src = streamUrl;
-      a.volume = volCurve(volume);
-      volumeRef.current = volume;
-      if (shouldRemainPaused) {
-        a.pause();
-        setIsPlaying(false);
-      } else {
-        a.play().catch((e) => console.error("[Player] play() error:", e));
-        setIsPlaying(true);
-      }
-      setProgress(0);
+      a.play().catch((e) => console.error("[Player] play() error:", e));
+      setIsPlaying(true);
     }
+    setProgress(0);
 
     // IpcAudio may return 0 when Rust can't determine duration from metadata;
     // fall back to the track's formatted duration string in that case.
     const onDur = () => {
       const d = a.duration > 0 ? a.duration : parseDurationToSeconds(track?.duration) || 0;
       setDuration(d);
+      setLoading(false);
     };
 
     const onEnd = () => {
-      // If a crossfade has already started, Rust drives the transition — ignore the
-      // outgoing track's end. (Once Rust promotes + emits "done", the guard clears
-      // and a later natural end of the promoted track advances normally.)
-      if (crossfadeActiveRef.current && !crossfadePendingTrackRef.current) return;
-      // A crossfade that was still *pending* (build not started) is aborted here.
-      crossfadeActiveRef.current = false;
-      crossfadePendingTrackRef.current = null;
-      if (repeatRef.current === "one") {
-        a.currentTime = 0;
-        a.play();
-      } else {
-        const next = getAdjacentTrack("next");
-        if (next) setTrack(next);
-        else if (repeatRef.current === "none") setIsPlaying(false);
+      // Rust owns natural advancement. Keep the legacy path only for browser E2E and the
+      // HTML-audio fallback, where no native PlaybackEngine is running.
+      if (a._fallback !== false || a._e2eMedia) {
+        if (repeatRef.current === "one") {
+          a.currentTime = 0;
+          a.play();
+        } else {
+          const next = getAdjacentTrack("next");
+          if (next) setTrack(next);
+          else if (repeatRef.current === "none") setIsPlaying(false);
+        }
+        return;
       }
+      setIsPlaying(false);
     };
 
-    // Combined timeupdate handler: throttled progress + Rust-core crossfade trigger.
+    // Rust owns transition timing; React only paints the coarse progress clock.
     const onTimeUpdate = () => {
       // Throttle setProgress to max 4× per second to avoid excessive re-renders.
       const now = performance.now();
@@ -489,56 +458,6 @@ export function Player({
         _lastProgressTs.current = now;
         setProgress(a.currentTime);
       }
-
-      if (!a.duration) return;
-      // Crossfade is a Rust-core feature (two sinks, OBS-capturable). If we fell
-      // back to HTML5 audio (Rust binary missing), skip it entirely.
-      if (audioRef.current?._fallback !== false) return;
-      if (crossfadeActiveRef.current || repeatRef.current === "one") return;
-      if (videoModeActiveRef.current) return;
-      // Don't keep retrying a crossfade that already failed for this very track.
-      if (crossfadeFailedTrackRef.current === trackRef.current?.videoId) return;
-
-      const next = getAdjacentTrack("next");
-      if (!next) return;
-
-      // Per-transition override beats the global default; secs 0 = hard cut for this pair.
-      const ov = crossfadeOverridesRef.current[`${trackRef.current?.videoId}__${next.videoId}`];
-      const cfWin = ov ? ov.secs : crossfadeRef.current;
-      if (!cfWin || cfWin <= 0) return;
-
-      const remaining = a.duration - a.currentTime;
-      if (remaining > cfWin || remaining <= 0.05) return;
-
-      // Mark immediately so we trigger exactly once. The guard stays set until Rust
-      // confirms the outcome via "started"/"done"/"failed" — never reset by re-renders,
-      // which is what previously caused a re-trigger storm during the build window.
-      crossfadeActiveRef.current = true;
-      crossfadePendingTrackRef.current = next;
-      const fromId = trackRef.current?.videoId;
-      fetchUrl(next.videoId).then((url) => {
-        // Bail if the track changed underneath us (manual skip / natural end) while
-        // the URL was resolving — otherwise we'd start a stale crossfade.
-        if (
-          !url ||
-          trackRef.current?.videoId !== fromId ||
-          crossfadePendingTrackRef.current !== next
-        ) {
-          if (trackRef.current?.videoId === fromId) {
-            crossfadeActiveRef.current = false;
-            crossfadePendingTrackRef.current = null;
-          }
-          return;
-        }
-        // Rust runs both sinks simultaneously (outgoing down, incoming up) so the
-        // blend is captured by OBS / the visualizer just like normal playback. The UI
-        // advances only once Rust emits "audio-crossfade-started" (see listener below).
-        import("@tauri-apps/api/core").then(({ invoke }) => {
-          invoke("audio_crossfade", { url, seekTo: 0, duration: cfWin }).catch((e) =>
-            console.error("[Player] audio_crossfade error:", e)
-          );
-        });
-      });
     };
 
     // Always register listeners — even after a crossfade advance.
@@ -550,50 +469,12 @@ export function Player({
       a.removeEventListener("loadedmetadata", onDur);
       a.removeEventListener("ended", onEnd);
     };
-  }, [streamUrl]);
-
-  // Rust crossfade lifecycle. The UI advances to the incoming track exactly when the
-  // blend actually starts ("started"), and the guard clears only on a definitive
-  // outcome ("done"/"failed") — never on a re-render. This is what prevents the
-  // re-trigger storm that came from clearing the guard during the async build window.
-  useEffect(() => {
-    let unlistens = [];
-    let cancelled = false;
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      const reg = (name, fn) =>
-        listen(name, fn).then((u) => {
-          if (cancelled) u();
-          else unlistens.push(u);
-        });
-
-      reg("audio-crossfade-started", () => {
-        const next = crossfadePendingTrackRef.current;
-        crossfadePendingTrackRef.current = null;
-        // Rust is now audibly playing `next` on its second sink — move the UI to it
-        // and suppress the duplicate audio_play in the streamUrl effect.
-        if (next) {
-          skipStreamResetRef.current = true;
-          setTrack(next);
-        }
-      });
-      reg("audio-crossfade-done", () => {
-        crossfadeActiveRef.current = false;
-      });
-      reg("audio-crossfade-failed", () => {
-        // Mark this track so we don't immediately retry; outgoing keeps playing and
-        // will hand off via the normal `ended` path once it finishes.
-        crossfadeFailedTrackRef.current = trackRef.current?.videoId || null;
-        crossfadeActiveRef.current = false;
-        crossfadePendingTrackRef.current = null;
-      });
-    });
-    return () => {
-      cancelled = true;
-      unlistens.forEach((u) => u());
-    };
-  }, []);
+  }, [nativeAvailable, streamUrl, track?.duration, track?.videoId, volume]);
 
   const togglePlay = () => {
+    if (nativeAvailable) {
+      return isPlaying ? pauseNative() : playNative();
+    }
     const a = audioRef.current;
     if (!a) return;
     if (isPlaying) {
@@ -605,65 +486,44 @@ export function Player({
     }
   };
 
-  // OS media controls (Windows SMTC / macOS Now Playing / Linux MPRIS + keyboard media keys)
-  // emit a `media-control` event from Rust; drive the player from it. Subscribe once and read
-  // the latest handlers through a ref so we don't re-bind the listener on every render.
+  // Local/LAN commands still use the React controller. OS media controls bypass this path and
+  // call the native PlaybackEngine directly.
   const mediaCtlRef = useRef({});
   mediaCtlRef.current = { togglePlay, goAdjacent, setTrack, setIsPlaying, queue };
-  useEffect(() => {
-    let unlisten;
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      listen("media-control", (e) => {
-        const { action, position } = e.payload || {};
-        const h = mediaCtlRef.current;
-        const a = audioRef.current;
-        switch (action) {
-          case "play":
-            if (a && a.paused) {
-              a.play();
-              h.setIsPlaying(true);
-            }
-            break;
-          case "pause":
-            if (a && !a.paused) {
-              a.pause();
-              h.setIsPlaying(false);
-            }
-            break;
-          case "toggle":
-            h.togglePlay();
-            break;
-          case "next":
-            h.goAdjacent("next");
-            break;
-          case "previous":
-            h.goAdjacent("prev");
-            break;
-          case "stop":
-            if (a) {
-              a.pause();
-              h.setIsPlaying(false);
-            }
-            break;
-          case "seek":
-            if (a && typeof position === "number") a.currentTime = position;
-            break;
-          default:
-            break;
-        }
-      }).then((fn) => {
-        unlisten = fn;
-      });
-    });
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, []);
 
-  // LAN remote bridge: while enabled, push now-playing state to the backend and drain
-  // commands the phone enqueued — executed through the same playback controls as media keys.
   const cycleRepeat = () => {
-    setRepeat((value) => (value === "none" ? "all" : value === "all" ? "one" : "none"));
+    const nextRepeat = repeat === "none" ? "all" : repeat === "all" ? "one" : "none";
+    if (nativeAvailable) {
+      setNativeRepeat(nextRepeat);
+    } else {
+      setRepeat(nextRepeat);
+    }
+  };
+
+  const toggleShuffle = () => {
+    if (nativeAvailable) {
+      setNativeShuffle(!shuffle);
+    } else {
+      setShuffle(!shuffle);
+    }
+  };
+
+  const seekTo = (position) => {
+    if (nativeAvailable) {
+      seekNative(position);
+    } else if (audioRef.current) {
+      audioRef.current.currentTime = Math.max(0, position);
+    }
+  };
+
+  const setPlaybackVolume = (nextVolume) => {
+    const normalized = Math.max(0, Math.min(1, nextVolume));
+    if (nativeAvailable) {
+      setNativeVolume(normalized);
+    } else {
+      setVolume(normalized);
+      if (audioRef.current) audioRef.current.volume = volCurve(normalized);
+    }
   };
 
   const runPlaybackAction = (command) => {
@@ -672,116 +532,24 @@ export function Player({
     if (action === "playpause") h.togglePlay();
     else if (action === "next") h.goAdjacent("next");
     else if (action === "prev") h.goAdjacent("prev");
-    else if (action === "shuffle") setShuffle((s) => !s);
+    else if (action === "shuffle") toggleShuffle();
     else if (action === "repeat") cycleRepeat();
     else if (action === "like") h.toggleLike?.();
     else if (action === "seek" && typeof command.position === "number") {
-      const audio = audioRef.current;
-      if (audio) audio.currentTime = Math.max(0, command.position);
+      seekTo(command.position);
     } else if (action === "volume" && typeof command.value === "number") {
-      const nextVolume = Math.max(0, Math.min(1, command.value / 100));
-      setVolume(nextVolume);
-      if (audioRef.current) audioRef.current.volume = volCurve(nextVolume);
+      setPlaybackVolume(command.value / 100);
     } else if (action === "queueJump" && command.videoId) {
       const selected = (h.queue || []).find((item) => item.videoId === command.videoId);
       if (selected) h.setTrack(selected);
     }
   };
-  const remoteNpRef = useRef({});
-  remoteNpRef.current = {
-    track,
-    isPlaying,
-    progress,
-    duration,
-    shuffle,
-    repeat,
-    volume,
-    isLiked,
-    queue,
-  };
-  useEffect(() => {
-    if (!remoteEnabled) return;
-    // One combined request per tick (push state + receive pending commands) instead of two
-    // separate polling loops — keeps background activity (and its GC churn) low.
-    const queueThumb = (url) => {
-      if (!url) return "";
-      if (url.includes("googleusercontent.com") || url.includes("ggpht.com")) {
-        if (/=[ws]\d+/.test(url)) return url.replace(/=[ws]\d+[^/]*$/, "=w120-h120-l90-rj");
-        return `${url}=w120-h120-l90-rj`;
-      }
-      return url;
-    };
-    const sync = () => {
-      const {
-        track: t,
-        isPlaying: p,
-        progress: pos,
-        duration: dur,
-        shuffle: sh,
-        repeat: rp,
-        volume: vol,
-        isLiked: liked,
-        queue: queueItems,
-      } = remoteNpRef.current;
-      const artists = Array.isArray(t?.artists)
-        ? t.artists
-            .map((a) => (a && a.name) || a)
-            .filter(Boolean)
-            .join(", ")
-        : t?.artists || "";
-      const currentIndex = (queueItems || []).findIndex((item) => item.videoId === t?.videoId);
-      const upNext = currentIndex >= 0 ? queueItems.slice(currentIndex + 1) : queueItems || [];
-      const remoteQueue = upNext.slice(0, 100).map((item) => ({
-        videoId: item.videoId,
-        title: item.title || "",
-        artists: Array.isArray(item.artists)
-          ? item.artists
-              .map((artist) => artist?.name || artist)
-              .filter(Boolean)
-              .join(", ")
-          : item.artists || "",
-        thumbnail: queueThumb(item.thumbnail),
-      }));
-      fetch(`${API}/remote/_sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          state: {
-            title: t?.title || "",
-            artists,
-            thumbnail: hiResThumb(t?.thumbnail) || "",
-            isPlaying: !!p,
-            position: Math.floor(pos || 0),
-            duration: Math.floor(dur || 0),
-            hasTrack: !!t,
-            shuffle: !!sh,
-            repeat: rp || "none",
-            volume: Math.round((vol ?? 1) * 100),
-            isLiked: !!liked,
-            queue: remoteQueue,
-          },
-        }),
-      })
-        .then((r) => r.json())
-        .then((d) => (d.commands || []).forEach(runPlaybackAction))
-        .catch(() => {});
-    };
-    sync();
-    const iv = setInterval(sync, 1000);
-    return () => {
-      clearInterval(iv);
-    };
-  }, [remoteEnabled]);
-
   // Big Picture bridge: expose playback commands (re-registered each render so they close over
   // current state) + push a formatted now-playing snapshot to the in-process store.
   useEffect(() => {
     bpRegisterCommands({
       action: runPlaybackAction,
-      seek: (sec) => {
-        const a = audioRef.current;
-        if (a) a.currentTime = Math.max(0, sec);
-      },
+      seek: seekTo,
     });
     bpRegisterAudio(audioRef.current); // hand the IpcAudio clock to Big Picture's lyrics view
   });
@@ -914,9 +682,9 @@ export function Player({
         setNextBouncing,
         setPrevBouncing,
         setSeekDrag,
-        setShuffle,
+        seekTo,
+        setPlaybackVolume,
         setSleepTimerEnd,
-        setVolume,
         showLyrics,
         showLyricsTranslation,
         shuffle,
@@ -925,8 +693,8 @@ export function Player({
         t,
         toggleLike,
         togglePlay,
+        toggleShuffle,
         track,
-        volCurve,
         volume,
       }}
     />
