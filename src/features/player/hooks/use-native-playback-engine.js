@@ -6,6 +6,7 @@ import {
   listenForNativeTrackChanges,
   playNative,
   replaceNativeQueue,
+  restartNative,
   setNativeCurrentTrack,
   setNativeUiVisible,
   setNativeVolume,
@@ -36,7 +37,7 @@ export function useNativePlaybackEngine({
   setVolume,
 }) {
   const [nativeAvailable, setNativeAvailable] = useState(null);
-  const syncedTrackIdRef = useRef(null);
+  const syncedTrackRef = useRef(null);
   const initialTrackRef = useRef(track?.videoId || null);
   const preferencesSyncedRef = useRef(false);
 
@@ -59,8 +60,7 @@ export function useNativePlaybackEngine({
           setRepeat(snapshot.repeat);
         }
         if (Number.isFinite(snapshot.volume)) {
-          setVolume(snapshot.volume);
-          localStorage.setItem("kiyoshi-volume", snapshot.volume);
+          setVolume(Math.round(snapshot.volume * 1000) / 1000);
         }
       }
     },
@@ -97,22 +97,27 @@ export function useNativePlaybackEngine({
 
   useEffect(() => {
     if (!nativeAvailable) return;
+    replaceNativeQueue(queue);
+  }, [nativeAvailable, queue]);
+
+  useEffect(() => {
+    if (!nativeAvailable || syncedTrackRef.current === track) return;
     let cancelled = false;
     const syncSelection = async () => {
-      await replaceNativeQueue(queue);
-      if (cancelled) return;
-
       const videoId = track?.videoId || null;
-      if (syncedTrackIdRef.current === videoId) return;
-      syncedTrackIdRef.current = videoId;
-
+      const isReselection =
+        !!videoId && syncedTrackRef.current?.videoId === videoId;
+      const queueSnapshot = await replaceNativeQueue(queue);
+      if (cancelled || !queueSnapshot) return;
       const snapshot = await setNativeCurrentTrack(track);
-      if (cancelled || !snapshot || !videoId) return;
+      if (cancelled || !snapshot) return;
+      syncedTrackRef.current = track;
+      if (!videoId) return;
       const isRestoredSelection =
         initialTrackRef.current === videoId && restoredTrackId === videoId;
       initialTrackRef.current = null;
       if (!isRestoredSelection) {
-        await playNative();
+        await (isReselection ? restartNative() : playNative());
       }
     };
     syncSelection();
@@ -148,7 +153,11 @@ export function useNativePlaybackEngine({
         queueRef.current.find((item) => item.videoId === nativeTrack.videoId) ||
         (trackRef.current?.videoId === nativeTrack.videoId ? trackRef.current : nativeTrack);
 
-      syncedTrackIdRef.current = nativeTrack.videoId;
+      if (trackRef.current?.videoId === nativeTrack.videoId) {
+        syncedTrackRef.current = trackRef.current;
+        return;
+      }
+      syncedTrackRef.current = nextTrack;
       trackRef.current = nextTrack;
       setProgress(0);
       setTrack(nextTrack);

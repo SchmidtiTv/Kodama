@@ -45,11 +45,18 @@ function transitionOverrides(overrides, queue) {
 }
 
 async function invokeEngine(command, args) {
+  if (!globalThis.__TAURI_INTERNALS__) return null;
+  let invoke;
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke(command, args);
+    ({ invoke } = await import("@tauri-apps/api/core"));
   } catch {
     // Browser E2E and the HTML-audio fallback do not expose the native engine.
+    return null;
+  }
+  try {
+    return await invoke(command, args);
+  } catch (error) {
+    console.warn(`[PlaybackEngine] ${command} failed:`, error);
     return null;
   }
 }
@@ -106,6 +113,10 @@ export function setNativeLiked(liked) {
 
 export function playNative() {
   return invokeEngine("player_play");
+}
+
+export function restartNative() {
+  return invokeEngine("player_restart");
 }
 
 export function pauseNative() {

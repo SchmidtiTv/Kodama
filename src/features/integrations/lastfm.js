@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { API } from "@/shared/api/client.js";
@@ -10,6 +10,7 @@ import { API } from "@/shared/api/client.js";
  */
 export function useLastfmClient() {
   const connectedRef = useRef(false);
+  const [connected, setConnected] = useState(false);
 
   const post = useCallback((path, body) => {
     if (!connectedRef.current) return;
@@ -25,8 +26,12 @@ export function useLastfmClient() {
       .then((response) => response.json())
       .then((data) => {
         connectedRef.current = !!data.connected;
+        setConnected(!!data.connected);
       })
-      .catch(() => {});
+      .catch(() => {
+        connectedRef.current = false;
+        setConnected(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -39,7 +44,7 @@ export function useLastfmClient() {
     };
   }, [refresh]);
 
-  return useMemo(() => ({ connectedRef, post }), [post]);
+  return useMemo(() => ({ connected, connectedRef, post }), [connected, post]);
 }
 
 function metadata(track) {

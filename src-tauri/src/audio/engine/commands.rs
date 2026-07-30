@@ -63,12 +63,9 @@ pub fn player_play(
             sender
                 .send(AudioCmd::Resume)
                 .map_err(|error| error.to_string())?;
-            let snapshot = engine.update_transport(TransportUpdate {
-                status: Some(PlaybackStatus::Playing),
-                ..TransportUpdate::default()
-            })?;
-            emit_snapshot(&app, &snapshot);
-            Ok(snapshot)
+            // Only the audio thread knows whether a live sink can be resumed. It emits the
+            // resulting Playing/Loading snapshot, or restarts the selected track when needed.
+            engine.snapshot()
         }
         PlaybackStatus::Loading | PlaybackStatus::Stopped => {
             let request = engine
@@ -85,6 +82,27 @@ pub fn player_play(
             Ok(snapshot)
         }
     }
+}
+
+#[tauri::command]
+pub fn player_restart(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, PlaybackEngine>,
+    audio: tauri::State<'_, AudioPlayer>,
+) -> Result<PlaybackSnapshot, String> {
+    let request = engine
+        .restart_current()?
+        .ok_or_else(|| "cannot restart without a current track".to_string())?;
+    audio
+        .sender()?
+        .send(AudioCmd::PlayResolved {
+            request: request.clone(),
+        })
+        .map_err(|error| error.to_string())?;
+    emit_track_changed(&app, &request.track, "restart");
+    let snapshot = engine.snapshot()?;
+    emit_snapshot(&app, &snapshot);
+    Ok(snapshot)
 }
 
 #[tauri::command]

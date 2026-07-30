@@ -28,7 +28,7 @@ impl PlaybackMilestones {
     ) {
         let elapsed = self.elapsed_since_last_tick();
         if self.playback_changed(snapshot) {
-            self.begin_playback(client, snapshot);
+            self.begin_playback(client, snapshot, settings);
         }
         if snapshot.status == PlaybackStatus::Playing {
             self.played_seconds += elapsed;
@@ -53,7 +53,12 @@ impl PlaybackMilestones {
                     .map(|track| track.video_id.as_str())
     }
 
-    fn begin_playback(&mut self, client: &Client, snapshot: &PlaybackSnapshot) {
+    fn begin_playback(
+        &mut self,
+        client: &Client,
+        snapshot: &PlaybackSnapshot,
+        settings: &PlaybackIntegrationSettings,
+    ) {
         self.playback_instance = snapshot.playback_instance;
         self.video_id = snapshot
             .current_track
@@ -63,8 +68,10 @@ impl PlaybackMilestones {
         self.started_at = unix_timestamp();
         self.scrobbled = false;
         self.history_sent = false;
-        if let Some(track) = snapshot.current_track.as_ref() {
-            post_lastfm(client, "now-playing", track, self.started_at);
+        if settings.lastfm_connected && snapshot.status != PlaybackStatus::Stopped {
+            if let Some(track) = snapshot.current_track.as_ref() {
+                post_lastfm(client, "now-playing", track, self.started_at);
+            }
         }
     }
 
@@ -81,7 +88,7 @@ impl PlaybackMilestones {
         if duration < 30.0 || self.played_seconds < (duration / 2.0).min(240.0) {
             return;
         }
-        if !self.scrobbled {
+        if settings.lastfm_connected && !self.scrobbled {
             self.scrobbled = true;
             post_lastfm(client, "scrobble", track, self.started_at);
         }

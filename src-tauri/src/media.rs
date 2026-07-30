@@ -77,13 +77,13 @@ fn handle_control_event(
 ) -> Result<(), String> {
     match event {
         MediaControlEvent::Play => play(engine, audio_tx, app)?,
-        MediaControlEvent::Pause => set_status(engine, audio_tx, app, PlaybackStatus::Paused)?,
+        MediaControlEvent::Pause => pause(engine, audio_tx, app)?,
         MediaControlEvent::Toggle => {
             if matches!(
                 engine.snapshot()?.status,
                 PlaybackStatus::Playing | PlaybackStatus::Loading
             ) {
-                set_status(engine, audio_tx, app, PlaybackStatus::Paused)?;
+                pause(engine, audio_tx, app)?;
             } else {
                 play(engine, audio_tx, app)?;
             }
@@ -167,28 +167,22 @@ fn play(
     if current.status == PlaybackStatus::Stopped {
         return play_selected(engine.restart_current()?, "play", audio_tx, app, engine);
     }
-    let snapshot = engine.update_transport(TransportUpdate {
-        status: Some(PlaybackStatus::Playing),
-        ..TransportUpdate::default()
-    })?;
     audio_tx
         .send(AudioCmd::Resume)
         .map_err(|error| error.to_string())?;
-    emit_snapshot(app, &snapshot);
     Ok(())
 }
 
-fn set_status(
+fn pause(
     engine: &PlaybackEngine,
     audio_tx: &std::sync::mpsc::SyncSender<AudioCmd>,
     app: &AppHandle,
-    status: PlaybackStatus,
 ) -> Result<(), String> {
     if engine.snapshot()?.status == PlaybackStatus::Stopped {
         return Ok(());
     }
     let snapshot = engine.update_transport(TransportUpdate {
-        status: Some(status),
+        status: Some(PlaybackStatus::Paused),
         ..TransportUpdate::default()
     })?;
     audio_tx
@@ -296,26 +290,4 @@ pub fn update_from_snapshot(app: &AppHandle, snapshot: &crate::audio::engine::Pl
     let _ = app.run_on_main_thread(move || {
         apply(title, artist, album, thumbnail, duration, playing, elapsed);
     });
-}
-
-// ── Tauri commands (called from the frontend; marshal onto the main thread) ──
-#[tauri::command]
-pub fn media_update(
-    app: AppHandle,
-    title: String,
-    artist: String,
-    album: String,
-    thumbnail: String,
-    duration: f64,
-    elapsed: f64,
-    paused: bool,
-) {
-    let _ = app.run_on_main_thread(move || {
-        apply(title, artist, album, thumbnail, duration, !paused, elapsed);
-    });
-}
-
-#[tauri::command]
-pub fn media_clear(app: AppHandle) {
-    let _ = app.run_on_main_thread(clear);
 }

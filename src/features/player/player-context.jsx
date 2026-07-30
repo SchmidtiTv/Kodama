@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 
 // Player context: split into narrow state contexts plus one actions context, so a
 // consumer that only needs (say) the playing track for row highlighting does not re-render on
@@ -54,10 +54,22 @@ export function PlayerProvider({ controller, children }) {
     () => ({ autoplay, crossfade, crossfadeOverrides, playbackProgressive }),
     [autoplay, crossfade, crossfadeOverrides, playbackProgressive]
   );
+  const selectTrack = useCallback(
+    (nextTrack) => {
+      setCurrentTrack((current) => {
+        const resolved = typeof nextTrack === "function" ? nextTrack(current) : nextTrack;
+        if (resolved?.videoId && resolved.videoId === current?.videoId) {
+          return { ...resolved };
+        }
+        return resolved;
+      });
+    },
+    [setCurrentTrack]
+  );
   // Transport, queue, and configuration actions in one stable object.
   const actions = useMemo(
     () => ({
-      setTrack: setCurrentTrack,
+      setTrack: selectTrack,
       setIsPlaying,
       setQueue,
       handlePlay,
@@ -70,7 +82,7 @@ export function PlayerProvider({ controller, children }) {
       removeCrossfadeOverride,
     }),
     [
-      setCurrentTrack,
+      selectTrack,
       setIsPlaying,
       setQueue,
       handlePlay,

@@ -411,11 +411,18 @@ export default function App() {
     playerIntegrationRef.current = {
       discordRpc,
       discordStatusDisplay,
+      lastfmConnected: lastfm.connected,
       youtubeHistoryEnabled: ytmusicHistorySync,
       remoteEnabled: playerIntegrationRef.current.remoteEnabled,
     };
     refreshNativeIntegrations();
-  }, [discordRpc, discordStatusDisplay, ytmusicHistorySync, refreshNativeIntegrations]);
+  }, [
+    discordRpc,
+    discordStatusDisplay,
+    lastfm.connected,
+    ytmusicHistorySync,
+    refreshNativeIntegrations,
+  ]);
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   const [showLyricsTranslation, setShowLyricsTranslation] = useState(

@@ -18,6 +18,7 @@ export function usePlayerNativeBridges({
           settings: {
             discordEnabled: !!settings.discordRpc,
             discordStatusDisplay: settings.discordStatusDisplay || "song",
+            lastfmConnected: !!settings.lastfmConnected,
             youtubeHistoryEnabled: !!settings.youtubeHistoryEnabled,
             overlayUpdatesEnabled: true,
             remoteEnabled: !!settings.remoteEnabled,

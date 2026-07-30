@@ -50,10 +50,6 @@ fn toggle_playback(
             send_audio(audio_tx, AudioCmd::Pause)?;
         }
         PlaybackStatus::Paused => {
-            engine.update_transport(TransportUpdate {
-                status: Some(PlaybackStatus::Playing),
-                ..TransportUpdate::default()
-            })?;
             send_audio(audio_tx, AudioCmd::Resume)?;
         }
         PlaybackStatus::Stopped => {
@@ -161,7 +157,9 @@ fn toggle_like(client: &Client, app: &AppHandle, engine: &PlaybackEngine) -> Res
     if response.status().is_success() {
         engine.set_current_track_liked(liked)?;
         let lastfm_action = if liked { "love" } else { "unlove" };
-        post_lastfm(client, lastfm_action, track, unix_timestamp());
+        if engine.integration_settings()?.lastfm_connected {
+            post_lastfm(client, lastfm_action, track, unix_timestamp());
+        }
         let _ = app.emit(
             "playback-liked-changed",
             json!({ "videoId": track.video_id, "liked": liked }),

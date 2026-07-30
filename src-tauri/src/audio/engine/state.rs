@@ -189,7 +189,9 @@ impl PlaybackEngine {
 
             if let Some(current) = track {
                 ensure_current_is_queued(state, current)?;
-                state.snapshot.status = PlaybackStatus::Loading;
+                // Selecting a track does not start source loading. Keeping this Stopped makes a
+                // restored session ready to play without claiming that transport work is active.
+                state.snapshot.status = PlaybackStatus::Stopped;
             } else {
                 state.snapshot.status = PlaybackStatus::Stopped;
             }

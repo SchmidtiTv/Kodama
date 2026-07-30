@@ -72,6 +72,15 @@ fn setting_same_current_track_preserves_live_transport() {
 }
 
 #[test]
+fn selecting_a_track_without_starting_transport_is_stopped() {
+    let engine = PlaybackEngine::new();
+    let snapshot = engine.set_current_track(Some(track("restored"))).unwrap();
+
+    assert_eq!(snapshot.status, PlaybackStatus::Stopped);
+    assert_eq!(snapshot.current_track.unwrap().video_id, "restored");
+}
+
+#[test]
 fn crossfade_is_prepared_once_inside_its_window() {
     let engine = engine_with_queue();
     engine
@@ -217,6 +226,7 @@ fn integration_preferences_are_shared_and_validated() {
         .update_integration_settings(PlaybackIntegrationSettings {
             discord_enabled: true,
             discord_status_display: "artist".to_string(),
+            lastfm_connected: true,
             youtube_history_enabled: true,
             overlay_updates_enabled: true,
             remote_enabled: true,

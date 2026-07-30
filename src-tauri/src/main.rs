@@ -13,16 +13,16 @@ use tauri::Manager;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use audio::{
-    audio_crossfade, audio_pause, audio_play, audio_resume, audio_seek,
-    audio_set_analysis_enabled, audio_set_volume, audio_stop,
-    player_get_snapshot, player_next, player_pause, player_play, player_previous, player_seek,
-    player_set_liked, player_set_queue, player_set_repeat, player_set_shuffle,
+    audio_pause, audio_play, audio_resume, audio_seek, audio_set_analysis_enabled,
+    audio_set_volume, audio_stop,
+    player_get_snapshot, player_next, player_pause, player_play, player_previous, player_restart,
+    player_seek, player_set_liked, player_set_queue, player_set_repeat, player_set_shuffle,
     player_set_ui_visible, player_set_volume, player_update_integrations,
     playback_engine_replace_queue, playback_engine_set_current_track, playback_engine_snapshot,
     playback_engine_update_transition_policy, playback_engine_update_transport, start_audio_thread,
     start_integration_worker, AudioPlayer, PlaybackEngine,
 };
-use discord::{DiscordRpc, disconnect_rpc, update_discord_rpc, clear_discord_rpc};
+use discord::{DiscordRpc, clear_discord_rpc, disconnect_rpc};
 use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window, open_composer_window, remove_window_border_for, ensure_session_keeper, rotate_session_cookies, stop_session_keeper};
 use server::{ServerProcess, stop_server};
 #[cfg(windows)]
@@ -323,12 +323,11 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             set_fullscreen, open_login_window, close_login_window, open_composer_window,
             remove_window_border_for,
-            update_discord_rpc, clear_discord_rpc,
-            media::media_update, media::media_clear,
+            clear_discord_rpc,
             appicon::set_app_icon,
-            audio_play, audio_crossfade, audio_pause, audio_resume,
+            audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_analysis_enabled, audio_set_volume,
-            player_set_queue, player_play, player_pause, player_next, player_previous,
+            player_set_queue, player_play, player_restart, player_pause, player_next, player_previous,
             player_seek, player_set_volume, player_set_shuffle, player_set_repeat,
             player_get_snapshot, player_set_ui_visible, player_set_liked,
             player_update_integrations,

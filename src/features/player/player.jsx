@@ -296,7 +296,7 @@ export function Player({
   );
 
   useVideoAudioSync({
-    enabled: nativeAvailable === false,
+    enabled: nativeAvailable !== null,
     audioRef,
     trackRef,
     fetchUrl,
@@ -518,10 +518,13 @@ export function Player({
 
   const setPlaybackVolume = (nextVolume) => {
     const normalized = Math.max(0, Math.min(1, nextVolume));
+    setVolume(normalized);
+    volumeRef.current = normalized;
+    if (normalized > 0) prevVolumeRef.current = normalized;
+    localStorage.setItem("kiyoshi-volume", String(normalized));
     if (nativeAvailable) {
       setNativeVolume(normalized);
     } else {
-      setVolume(normalized);
       if (audioRef.current) audioRef.current.volume = volCurve(normalized);
     }
   };

@@ -45,35 +45,6 @@ impl DiscordRpc {
     }
 }
 
-#[tauri::command]
-pub fn update_discord_rpc(
-    state: tauri::State<'_, DiscordRpc>,
-    title: String,
-    artist: String,
-    album: String,
-    thumbnail: String,
-    duration: f64,
-    elapsed: f64,
-    video_id: String,
-    paused: bool,
-    // Which field drives the compact member-list status line, mirroring PreMiD's "Pick Status
-    // Display": "song" → details (song title), "artist" → state (artist), "app" → name (app name).
-    status_display: String,
-) -> Result<(), String> {
-    update(
-        &state.0,
-        title,
-        artist,
-        album,
-        thumbnail,
-        duration,
-        elapsed,
-        video_id,
-        paused,
-        status_display,
-    )
-}
-
 #[allow(clippy::too_many_arguments)]
 fn update(
     client_state: &Mutex<Option<DiscordIpcClient>>,

@@ -117,6 +117,8 @@ pub struct PlaybackIntegrationSettings {
     #[serde(default = "default_discord_status_display")]
     pub discord_status_display: String,
     #[serde(default)]
+    pub lastfm_connected: bool,
+    #[serde(default)]
     pub youtube_history_enabled: bool,
     #[serde(default)]
     pub overlay_updates_enabled: bool,
@@ -129,6 +131,7 @@ impl Default for PlaybackIntegrationSettings {
         Self {
             discord_enabled: false,
             discord_status_display: default_discord_status_display(),
+            lastfm_connected: false,
             youtube_history_enabled: false,
             overlay_updates_enabled: false,
             remote_enabled: false,

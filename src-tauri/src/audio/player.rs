@@ -25,12 +25,6 @@ pub enum AudioCmd {
     Seek(f64),
     SetVolume(f32),
     SetAnalysisEnabled(bool),
-    // Start `url` on a second sink and crossfade from the current track over `duration` secs.
-    Crossfade {
-        url: String,
-        seek_to: f64,
-        duration: f64,
-    },
 }
 
 pub struct AudioPlayer(Mutex<Option<std::sync::mpsc::SyncSender<AudioCmd>>>);
@@ -145,8 +139,8 @@ pub fn start_audio_thread(
 
         let mut sink: Option<rodio::Sink> = None;
         let mut audio_data: Option<Vec<u8>> = None;
-        // For progressive (HTTP-streamed) playback: the proxy URL to re-stream from on seek.
-        let mut progressive_url: Option<String> = None;
+        // Resolvable source identity used to rebuild automatic sources on seek.
+        let mut source_url: Option<String> = None;
         let mut duration: f64 = 0.0;
         let mut volume: f32 = 0.16f32;
         let mut seek_offset: f64 = 0.0;
@@ -159,7 +153,7 @@ pub fn start_audio_thread(
         // ── Crossfade: a second sink for the incoming track + a linear volume ramp ──
         let mut sink2: Option<rodio::Sink> = None;
         let mut duration2: f64 = 0.0;
-        let mut prog_url2: Option<String> = None;
+        let mut source_url2: Option<String> = None;
         let mut xfade_start: Option<std::time::Instant> = None;
         let mut xfade_dur: f64 = 0.0;
         let (xsource_tx, xsource_rx) = std::sync::mpsc::channel::<CrossfadeSourceMessage>();
@@ -232,7 +226,7 @@ pub fn start_audio_thread(
             }
 
             // Progressive (HTTP-streamed) sources, already probed off-thread.
-            while let Ok((mut source, gen, start_paused, source_url)) = source_rx.try_recv() {
+            while let Ok((mut source, gen, start_paused, loaded_url)) = source_rx.try_recv() {
                 if gen != play_gen {
                     eprintln!("[Audio] Ignoring stale stream source (gen {gen} != {play_gen})");
                     continue;
@@ -245,7 +239,7 @@ pub fn start_audio_thread(
                     .total_duration()
                     .map(|d| d.as_secs_f64())
                     .unwrap_or(0.0);
-                progressive_url = source_url.contains("/audio-stream/").then_some(source_url);
+                source_url = Some(loaded_url);
                 let start_paused = start_paused
                     || engine
                         .snapshot()
@@ -296,11 +290,7 @@ pub fn start_audio_thread(
                     .total_duration()
                     .map(|d| d.as_secs_f64())
                     .unwrap_or(0.0);
-                prog_url2 = if url.contains("/audio-stream/") {
-                    Some(url)
-                } else {
-                    None
-                };
+                source_url2 = Some(url);
                 match rodio::Sink::try_new(&handle) {
                     Ok(s2) => {
                         let committed_track = if automatic {
@@ -360,18 +350,18 @@ pub fn start_audio_thread(
                             s.stop();
                         }
                         xfade_start = None;
-                        prog_url2 = None;
+                        source_url2 = None;
                         duration = 0.0;
                         seek_offset = 0.0;
                         audio_data = None;
-                        progressive_url = None;
+                        source_url = None;
                         play_gen += 1;
                         let gen = play_gen;
 
                         // Progressive: the /audio-stream proxy streams with byte-range support →
                         // build the streaming source off-thread and play as soon as it's probed.
                         if url.contains("/audio-stream/") {
-                            progressive_url = Some(url.clone());
+                            source_url = Some(url.clone());
                             seek_offset = seek_to; // source decodes from seek_to; report offset
                             let stx = source_tx.clone();
                             let dl_app = app.clone();
@@ -451,11 +441,11 @@ pub fn start_audio_thread(
                             s.stop();
                         }
                         xfade_start = None;
-                        prog_url2 = None;
+                        source_url2 = None;
                         duration = 0.0;
                         seek_offset = 0.0;
                         audio_data = None;
-                        progressive_url = None;
+                        source_url = None;
                         play_gen = play_gen.wrapping_add(1);
                         spawn_automatic_source(
                             request,
@@ -478,16 +468,35 @@ pub fn start_audio_thread(
                         });
                     }
                     AudioCmd::Resume => {
-                        if let Some(s) = &sink {
-                            s.play();
+                        if sink.is_some() || sink2.is_some() {
+                            if let Some(s) = &sink {
+                                s.play();
+                            }
+                            if let Some(s) = &sink2 {
+                                s.play();
+                            }
+                            let _ = engine.update_transport(TransportUpdate {
+                                status: Some(PlaybackStatus::Playing),
+                                ..TransportUpdate::default()
+                            });
+                        } else if let Ok(Some(request)) = engine.restart_current() {
+                            play_gen = play_gen.wrapping_add(1);
+                            let track = request.track.clone();
+                            spawn_automatic_source(
+                                request,
+                                play_gen,
+                                source_tx.clone(),
+                                app.clone(),
+                                engine.clone(),
+                            );
+                            let _ = app.emit(
+                                "playback-track-changed",
+                                serde_json::json!({ "track": track, "reason": "resumeRestart" }),
+                            );
                         }
-                        if let Some(s) = &sink2 {
-                            s.play();
+                        if let Ok(snapshot) = engine.snapshot() {
+                            let _ = app.emit("playback-state-changed", snapshot);
                         }
-                        let _ = engine.update_transport(TransportUpdate {
-                            status: Some(PlaybackStatus::Playing),
-                            ..TransportUpdate::default()
-                        });
                     }
                     AudioCmd::Stop => {
                         let _ = engine.cancel_crossfade();
@@ -498,10 +507,10 @@ pub fn start_audio_thread(
                             s.stop();
                         }
                         xfade_start = None;
-                        prog_url2 = None;
+                        source_url2 = None;
                         duration = 0.0;
                         audio_data = None;
-                        progressive_url = None;
+                        source_url = None;
                         let _ = engine.update_transport(TransportUpdate {
                             status: Some(PlaybackStatus::Stopped),
                             position_seconds: Some(0.0),
@@ -510,13 +519,29 @@ pub fn start_audio_thread(
                         });
                     }
                     AudioCmd::Seek(t) => {
+                        // The engine commits the incoming track when a crossfade starts. Promote
+                        // that matching sink before seeking so the old source cannot replace it.
+                        if xfade_start.is_some() {
+                            if let Some(s) = sink.take() {
+                                s.stop();
+                            }
+                            sink = sink2.take();
+                            if let Some(s) = &sink {
+                                s.set_volume(volume);
+                            }
+                            duration = duration2;
+                            seek_offset = 0.0;
+                            audio_data = None;
+                            source_url = source_url2.take();
+                            xfade_start = None;
+                            let _ = app.emit("audio-crossfade-done", ());
+                        }
                         let _ = engine.update_transport(TransportUpdate {
                             position_seconds: Some(t),
                             ..TransportUpdate::default()
                         });
                         let was_paused = sink.as_ref().map(|s| s.is_paused()).unwrap_or(false);
-                        if let Some(url) = progressive_url.clone() {
-                            // Progressive: re-open the ranged HTTP stream at the seek position.
+                        if let Some(url) = source_url.clone() {
                             if let Some(s) = sink.take() {
                                 s.stop();
                             }
@@ -526,14 +551,7 @@ pub fn start_audio_thread(
                             let stx = source_tx.clone();
                             std::thread::spawn(move || {
                                 let source_url = url.clone();
-                                let built = super::http_source::HttpStream::new(url)
-                                    .map_err(|e| e.to_string())
-                                    .and_then(|hs| {
-                                        super::decoder::StreamingSource::new_streaming(
-                                            Box::new(hs),
-                                            t,
-                                        )
-                                    });
+                                let built = build_streaming_source(&url, t);
                                 if let Ok(source) = built {
                                     let _ = stx.send((source, gen, was_paused, source_url));
                                 }
@@ -581,29 +599,6 @@ pub fn start_audio_thread(
                     AudioCmd::SetAnalysisEnabled(enabled) => {
                         analysis_enabled_for_player.store(enabled, Ordering::Relaxed);
                     }
-                    AudioCmd::Crossfade {
-                        url,
-                        seek_to,
-                        duration,
-                    } => {
-                        // Only meaningful if something is currently playing to fade from.
-                        if sink.is_some() && xfade_start.is_none() {
-                            let gen = play_gen;
-                            let xtx = xsource_tx.clone();
-                            let dl_app = app.clone();
-                            std::thread::spawn(move || {
-                                match build_streaming_source(&url, seek_to) {
-                                    Ok(source) => {
-                                        let _ = xtx.send((source, url, duration, gen, false));
-                                    }
-                                    Err(e) => {
-                                        eprintln!("[Audio] Crossfade build error: {e}");
-                                        let _ = dl_app.emit("audio-crossfade-failed", ());
-                                    }
-                                }
-                            });
-                        }
-                    }
                 }
             }
 
@@ -647,7 +642,7 @@ pub fn start_audio_thread(
                     duration = duration2;
                     seek_offset = 0.0;
                     audio_data = None;
-                    progressive_url = prog_url2.take();
+                    source_url = source_url2.take();
                     xfade_start = None;
                     let _ = app.emit("audio-crossfade-done", ());
                     eprintln!("[Audio] Crossfade promoted incoming track");
@@ -698,7 +693,7 @@ pub fn start_audio_thread(
                     duration = 0.0;
                     seek_offset = 0.0;
                     audio_data = None;
-                    progressive_url = None;
+                    source_url = None;
                     play_gen = play_gen.wrapping_add(1);
                     match engine.advance_after_end() {
                         Ok(Some(request)) => {
@@ -757,32 +752,6 @@ pub fn audio_play(
         return Err("audio_play: rejected non-local URL".into());
     }
     send_audio(&state, AudioCmd::Play { url, seek_to })
-}
-
-#[tauri::command]
-pub fn audio_crossfade(
-    state: tauri::State<AudioPlayer>,
-    url: String,
-    seek_to: f64,
-    duration: f64,
-) -> Result<(), String> {
-    let is_local = url.starts_with("file://") || {
-        let p = std::path::Path::new(&url);
-        p.is_absolute() && url.contains("kiyoshi-audio")
-    };
-    let is_local_http =
-        url.starts_with("http://localhost:") || url.starts_with("http://127.0.0.1:");
-    if !is_local && !is_local_http {
-        return Err("audio_crossfade: rejected non-local URL".into());
-    }
-    send_audio(
-        &state,
-        AudioCmd::Crossfade {
-            url,
-            seek_to,
-            duration,
-        },
-    )
 }
 
 #[tauri::command]

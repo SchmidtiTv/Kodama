@@ -131,7 +131,9 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
   }, []);
 
   const handlePlay = useCallback((track, trackList) => {
-    setCurrentTrack(track);
+    setCurrentTrack((current) =>
+      current?.videoId && current.videoId === track?.videoId ? { ...track } : track
+    );
     resetLyricsSessionRef.current?.();
     if (trackList) {
       setQueue(dedupeTracks(trackList));
