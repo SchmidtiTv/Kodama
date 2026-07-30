@@ -591,9 +591,14 @@ export function HomeView({
   })();
 
   return (
-    <div data-testid="view-home" style={{ padding: "0 0 40px 0" }}>
+    <div data-testid="view-home" className="home-view" style={{ padding: "0 0 40px 0" }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
+        .home-view{container-type:inline-size}
+        .home-top-row--split{grid-template-columns:minmax(0,1fr) minmax(0,460px)}
+        @container (max-width:760px){
+          .home-top-row--split{grid-template-columns:minmax(0,1fr)}
+        }
         .carousel::-webkit-scrollbar{height:8px}
         .carousel::-webkit-scrollbar-track{background:transparent}
         .carousel::-webkit-scrollbar-thumb{background-color:transparent;border-radius:4px;border:2.5px solid transparent;background-clip:content-box;transition:background-color 0.2s}
@@ -677,11 +682,12 @@ export function HomeView({
 
           return (
             <div
+              className={hasLeft && hasSpeedDial ? "home-top-row--split" : undefined}
               style={{
                 display: "grid",
                 gridTemplateColumns:
                   hasLeft && hasSpeedDial
-                    ? "1fr minmax(0, 460px)"
+                    ? undefined
                     : hasSpeedDial
                       ? "minmax(0, 460px)"
                       : "1fr",
@@ -731,6 +737,8 @@ export function HomeView({
                     backdropFilter: "blur(16px)",
                     WebkitBackdropFilter: "blur(16px)",
                     border: "none",
+                    minWidth: 0,
+                    width: "100%",
                   }}
                 >
                   <div
