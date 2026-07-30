@@ -136,13 +136,10 @@
       document.getElementById("actions").style.display = "block";
       sub.textContent = "Choose where to open this song:";
 
-      // Best-effort auto-open in Kodama (silent — fails harmlessly if not installed).
-      try {
-        var f = document.createElement("iframe");
-        f.style.display = "none";
-        f.src = kodamaUrl;
-        document.body.appendChild(f);
-      } catch (e) {}
+      // Ask before handing the song off to the desktop app.
+      if (window.confirm("Try opening this song in Kodama?")) {
+        window.location.href = kodamaUrl;
+      }
     })();
   </script>
 </body>
