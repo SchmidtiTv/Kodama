@@ -5,6 +5,7 @@ import "@kodama/e2e-bridge";
 import ReactDOM from "react-dom/client";
 import App from "@/app/App.jsx";
 import OverlayEditorApp from "@/features/overlay/OverlayEditorApp.jsx";
+import MiniPlayerApp from "@/features/player/miniplayer/MiniPlayerApp.jsx";
 // Big Picture mode is reachable via F10 or Settings > Experimental. The old
 // gamepad spike remains intentionally unmounted.
 import { BigPicture } from "@/features/big-picture/BigPicture.jsx";
@@ -24,13 +25,21 @@ console.log(
   "[boot] main.jsx executing at +" + (Date.now() - (window.__bootStart || Date.now())) + "ms"
 );
 
-const isOverlayEditor = new URLSearchParams(window.location.search).get("overlayEditor") === "1";
+const params = new URLSearchParams(window.location.search);
+const isOverlayEditor = params.get("overlayEditor") === "1";
+// The mini player is its own small window and shares nothing with the main tree — render it
+// alone, without App or Big Picture (a second App would start a second audio pipeline).
+const isMiniPlayer = params.get("miniPlayer") === "1";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <>
-    {isOverlayEditor ? <OverlayEditorApp /> : <App />}
-    <BigPicture />
-  </>
+  isMiniPlayer ? (
+    <MiniPlayerApp />
+  ) : (
+    <>
+      {isOverlayEditor ? <OverlayEditorApp /> : <App />}
+      <BigPicture />
+    </>
+  )
 );
 
 // Fade out the HTML boot splash now that React has taken over.

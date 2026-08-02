@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@heroui/react";
 import { thumb } from "@/shared/api/thumbnails.js";
@@ -14,6 +14,7 @@ import {
   ArrowClockwise,
   ArrowLeft,
   CheckCircle,
+  Clock,
   ClockCounterClockwise,
   Crown,
   DownloadSimple,
@@ -22,6 +23,9 @@ import {
   Pause,
   Play,
   Shuffle,
+  Sort,
+  SortDown,
+  SortUp,
   Trash,
 } from "@/shared/icons/icons.jsx";
 
@@ -250,21 +254,69 @@ export function PlaylistLayout({
   const [trackSearch, setTrackSearch] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
   const searchInputRef = useRef(null);
+  const [sort, setSort] = useState({ key: null, dir: "asc" });
 
   useEffect(() => {
     if (searchVisible) searchInputRef.current?.focus();
   }, [searchVisible]);
 
-  const visibleTracks = tracks.filter((tr) => {
-    if (hideExplicit && tr.isExplicit) return false;
-    if (trackSearch.trim()) {
-      const q = trackSearch.toLowerCase();
-      return (
-        (tr.title || "").toLowerCase().includes(q) || (tr.artists || "").toLowerCase().includes(q)
-      );
+  useEffect(() => setSort({ key: null, dir: "asc" }), [title]);
+
+  const collator = useMemo(() => {
+    try {
+      return new Intl.Collator(localStorage.getItem("kiyoshi-lang") || undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+    } catch {
+      return new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
     }
-    return true;
-  });
+  }, []);
+
+  const visibleTracks = useMemo(() => {
+    const query = trackSearch.trim().toLowerCase();
+    const filtered = tracks.filter((track) => {
+      if (hideExplicit && track.isExplicit) return false;
+      return !query || (track.title || "").toLowerCase().includes(query) || (track.artists || "").toLowerCase().includes(query);
+    });
+    if (!sort.key) return filtered;
+
+    const direction = sort.dir === "asc" ? 1 : -1;
+    const valueFor = (track) => {
+      const value = track[sort.key];
+      return Array.isArray(value)
+        ? value.map((artist) => artist?.name || artist).filter(Boolean).join(", ")
+        : String(value || "");
+    };
+    return [...filtered].sort((left, right) => {
+      if (sort.key === "duration") {
+        return (
+          ((parseDurationToSeconds(left.duration) || 0) -
+            (parseDurationToSeconds(right.duration) || 0)) *
+          direction
+        );
+      }
+      return collator.compare(valueFor(left), valueFor(right)) * direction;
+    });
+  }, [collator, hideExplicit, sort, trackSearch, tracks]);
+
+  const sortableHead = (key, label, align = "left", tooltip = null) => {
+    const active = sort.key === key;
+    const header = (
+      <div
+        className="group flex items-center gap-1.5 cursor-default select-none transition-colors"
+        style={{
+          justifyContent: align === "right" ? "flex-end" : align === "center" ? "center" : "flex-start",
+          color: active ? "var(--accent)" : undefined,
+        }}
+        onClick={() => setSort((current) => current.key !== key ? { key, dir: "asc" } : current.dir === "asc" ? { key, dir: "desc" } : { key: null, dir: "asc" })}
+      >
+        <span className="flex items-center">{label}</span>
+        {active ? sort.dir === "asc" ? <SortUp size={11} /> : <SortDown size={11} /> : <Sort size={11} className="opacity-0 group-hover:opacity-100 transition-opacity" />}
+      </div>
+    );
+    return tooltip ? <Tooltip text={tooltip}>{header}</Tooltip> : header;
+  };
 
   const totalDuration = formatTotalDuration(tracks);
   const skeletonCount = total ? Math.max(0, total - tracks.length) : 0;
@@ -895,11 +947,11 @@ export function PlaylistLayout({
               </div>
             );
           })()}
-        <div>{t("colTitle")}</div>
-        <div>{t("colArtist")}</div>
-        {!isAlbum && <div>{t("colAlbum")}</div>}
+        {sortableHead("title", t("colTitle"))}
+        {sortableHead("artists", t("colArtist"))}
+        {!isAlbum && sortableHead("album", t("colAlbum"))}
         <div></div>
-        <div style={{ textAlign: "right" }}>{t("colDuration")}</div>
+        {sortableHead("duration", <Clock size={13} />, "right", t("colDuration"))}
       </div>
 
       {/* Track list (virtualized — only on-screen rows are mounted) */}

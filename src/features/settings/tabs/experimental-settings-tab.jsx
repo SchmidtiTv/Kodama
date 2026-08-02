@@ -1,6 +1,7 @@
 import { Button, ToggleButton, ToggleButtonGroupRoot } from "@heroui/react";
-import { ClapperboardPlay, Columns, Gamepad, Sliders } from "@/shared/icons/icons.jsx";
+import { ClapperboardPlay, Columns, Gamepad, MiniPlayerEnter, Sliders } from "@/shared/icons/icons.jsx";
 import { SettingRow, SettingsSectionDesc, Toggle } from "@/shared/ui/settings-controls.jsx";
+import { openMiniPlayer } from "@/features/player/miniplayer/bridge.js";
 export function ExperimentalSettingsTab({
   onToggleVideoSync,
   onVideoLyricsStyleChange,
@@ -30,6 +31,15 @@ export function ExperimentalSettingsTab({
           onPress={() => window.dispatchEvent(new Event("kodama-open-bigpicture"))}
         >
           {t("bigPictureLaunch")}
+        </Button>
+      </SettingRow>
+      <SettingRow
+        label={t("miniPlayerTooltip")}
+        description={t("miniPlayerOpenMain")}
+        icon={<MiniPlayerEnter />}
+      >
+        <Button variant="secondary" size="sm" onPress={() => openMiniPlayer().catch(() => {})}>
+          {t("miniPlayerTooltip")}
         </Button>
       </SettingRow>
       <SettingRow

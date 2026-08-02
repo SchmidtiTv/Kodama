@@ -267,7 +267,6 @@
   "appIconPride": "Pride",
   "share": "Teilen",
   "copyShareLink": "Link kopieren",
-  "copyKodamaLink": "Kodama-Link kopieren",
   "copyYtMusicLink": "YouTube Music-Link kopieren",
   "copyYoutubeLink": "YouTube-Link kopieren",
   "linkCopied": "Link kopiert",
@@ -946,5 +945,13 @@
   "translatedBy": "Übersetzt von",
   "totalCacheUsage": "Gesamter Cache-Verbrauch",
   "cacheStatsError": "Cache-Statistik-Fehler",
-  "hideDebugMenu": "Debug-Menü ausblenden"
+  "hideDebugMenu": "Debug-Menü ausblenden",
+  "miniPlayerTooltip": "Mini-Player",
+  "miniPlayerIdle": "Nichts in Wiedergabe",
+  "miniPlayerOpenMain": "Hauptfenster öffnen",
+  "miniPlayerClose": "Mini-Player schließen",
+  "miniPlayerPrev": "Vorheriger Titel",
+  "miniPlayerPlayPause": "Wiedergabe / Pause",
+  "miniPlayerNext": "Nächster Titel",
+  "rowMoreActions": "Weitere Aktionen"
 }

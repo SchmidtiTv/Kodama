@@ -10,6 +10,7 @@ import {
   registerPlayerCommands as bpRegisterCommands,
   setNowPlaying as bpSetNowPlaying,
 } from "@/features/player/player-bridge.js";
+import { emitNowPlaying, EV_HELLO, EV_SHOW_MAIN } from "./miniplayer/bridge.js";
 import { PlayerControls } from "./player-controls.jsx";
 import { useSleepTimer } from "./hooks/use-sleep-timer.js";
 import { useTrackMetadata } from "./hooks/use-track-metadata.js";
@@ -105,6 +106,8 @@ export function Player({
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState("none");
   const t = useLang();
+  const latestNowPlayingRef = useRef(null);
+  const runPlaybackActionRef = useRef(null);
 
   // LRU cache: videoId -> url (max 50 entries, Map preserves insertion order)
   const URL_CACHE_MAX = 50;
@@ -532,9 +535,9 @@ export function Player({
   const runPlaybackAction = (command) => {
     const h = mediaCtlRef.current;
     const action = typeof command === "string" ? command : command?.action;
-    if (action === "playpause") h.togglePlay();
+    if (action === "playpause" || action === "toggle") h.togglePlay();
     else if (action === "next") h.goAdjacent("next");
-    else if (action === "prev") h.goAdjacent("prev");
+    else if (action === "prev" || action === "previous") h.goAdjacent("prev");
     else if (action === "shuffle") toggleShuffle();
     else if (action === "repeat") cycleRepeat();
     else if (action === "like") h.toggleLike?.();
@@ -547,6 +550,43 @@ export function Player({
       if (selected) h.setTrack(selected);
     }
   };
+  runPlaybackActionRef.current = runPlaybackAction;
+
+  // The mini player lives in a separate webview, so it cannot use Big Picture's in-process
+  // bridge. It receives a timestamped snapshot and uses the existing media-control channel
+  // for commands, keeping this window the sole owner of the playback engine.
+  useEffect(() => {
+    let unlistenMedia = () => {};
+    let unlistenHello = () => {};
+    let unlistenShowMain = () => {};
+    let cancelled = false;
+
+    import("@tauri-apps/api/event")
+      .then(async ({ listen }) => {
+        const cleanups = await Promise.all([
+          listen("media-control", ({ payload }) => runPlaybackActionRef.current?.(payload)),
+          listen(EV_HELLO, () => {
+            if (latestNowPlayingRef.current) emitNowPlaying(latestNowPlayingRef.current);
+          }),
+          listen(EV_SHOW_MAIN, async () => {
+            const { getCurrentWindow } = await import("@tauri-apps/api/window");
+            const window = getCurrentWindow();
+            await window.show();
+            await window.setFocus();
+          }),
+        ]);
+        if (cancelled) cleanups.forEach((cleanup) => cleanup());
+        else [unlistenMedia, unlistenHello, unlistenShowMain] = cleanups;
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unlistenMedia();
+      unlistenHello();
+      unlistenShowMain();
+    };
+  }, []);
   // Big Picture bridge: expose playback commands (re-registered each render so they close over
   // current state) + push a formatted now-playing snapshot to the in-process store.
   useEffect(() => {
@@ -564,7 +604,7 @@ export function Player({
           .filter(Boolean)
           .join(", ")
       : tr?.artists || "";
-    bpSetNowPlaying({
+    const snapshot = {
       title: tr?.title || "",
       artists,
       thumbnail: tr?.thumbnail || "",
@@ -575,7 +615,11 @@ export function Player({
       shuffle: !!shuffle,
       repeat: repeat || "none",
       track: tr || null, // raw track object so Big Picture's lyrics view can fetch for it
-    });
+      at: Date.now(),
+    };
+    latestNowPlayingRef.current = snapshot;
+    bpSetNowPlaying(snapshot);
+    emitNowPlaying(snapshot);
   }, [track, isPlaying, progress, duration, shuffle, repeat]);
 
   // Seek drag state for the HeroUI seek slider (seconds while dragging, else null).

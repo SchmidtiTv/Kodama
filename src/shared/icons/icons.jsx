@@ -83,6 +83,8 @@ export const Queue = fa("list");
 export const ChatText = fa("message-lines");
 export const ArrowsIn = fa("compress");
 export const ArrowsOut = fa("expand");
+export const MiniPlayerEnter = fa("down-left-and-up-right-to-center", true);
+export const MiniPlayerExit = fa("up-right-and-down-left-from-center", true);
 
 // ── Settings & tools ─────────────────────────────────────────────────────────
 export const Gear = fa("gear");
@@ -134,6 +136,9 @@ export const Link = fa("link");
 export const PushPin = fa("thumbtack");
 export const ClockCounterClockwise = fa("clock-rotate-left");
 export const Clock = fa("clock");
+export const Sort = fa("sort", true);
+export const SortUp = fa("sort-up", true);
+export const SortDown = fa("sort-down", true);
 
 // ── Lists & layout ───────────────────────────────────────────────────────────
 export const DotsSixVertical = fa("grip-vertical");

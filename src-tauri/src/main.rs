@@ -23,7 +23,7 @@ use audio::{
     start_integration_worker, AudioPlayer, PlaybackEngine,
 };
 use discord::{DiscordRpc, clear_discord_rpc, disconnect_rpc};
-use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window, open_composer_window, remove_window_border_for, ensure_session_keeper, rotate_session_cookies, stop_session_keeper};
+use window::{WasMaximized, set_fullscreen, open_login_window, close_login_window, open_composer_window, remove_window_border_for, lock_square_for, ensure_session_keeper, rotate_session_cookies, stop_session_keeper};
 use server::{ServerProcess, stop_server};
 #[cfg(windows)]
 use obs::start_audio_session_tagger;
@@ -323,6 +323,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             set_fullscreen, open_login_window, close_login_window, open_composer_window,
             remove_window_border_for,
+            lock_square_for,
             clear_discord_rpc,
             appicon::set_app_icon,
             audio_play, audio_pause, audio_resume,

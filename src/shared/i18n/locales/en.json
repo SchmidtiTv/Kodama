@@ -267,7 +267,6 @@
   "appIconPride": "Pride",
   "share": "Share",
   "copyShareLink": "Copy link",
-  "copyKodamaLink": "Copy Kodama link",
   "copyYtMusicLink": "Copy YouTube Music link",
   "copyYoutubeLink": "Copy YouTube link",
   "linkCopied": "Link copied",
@@ -970,5 +969,13 @@
   "translatedBy": "Translated by",
   "totalCacheUsage": "Total Cache Usage",
   "cacheStatsError": "Cache stats error",
-  "hideDebugMenu": "Hide Debug Menu"
+  "hideDebugMenu": "Hide Debug Menu",
+  "miniPlayerTooltip": "Mini player",
+  "miniPlayerIdle": "Nothing playing",
+  "miniPlayerOpenMain": "Open main window",
+  "miniPlayerClose": "Close mini player",
+  "miniPlayerPrev": "Previous track",
+  "miniPlayerPlayPause": "Play / Pause",
+  "miniPlayerNext": "Next track",
+  "rowMoreActions": "More actions"
 }
