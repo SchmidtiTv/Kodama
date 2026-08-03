@@ -18,7 +18,10 @@ class RootMusicRouteTests(RouteTestCase):
         shelf_song = next(result for result in all_results if result.get("videoId") == "shelf")
         self.assertEqual(shelf_song["artists"], "")
         self.assertEqual(shelf_song["artistLinks"], [])
-        self.assertEqual(self.client.get("/search/suggestions?q=song").json, {"suggestions": ["Song"]})
+        self.assertEqual(
+            self.client.get("/search/suggestions?q=song").json,
+            {"suggestions": ["Song", "Artist", "Album", "Playlist", "Shelf Song"]},
+        )
         self.assertEqual(self.client.get("/search/suggestions?q=x").json, {"suggestions": []})
         self.assertEqual(self.client.get("/home").json["sections"][0]["items"][0]["videoId"], "vid")
         self.assertEqual(self.client.get("/artist_albums?channelId=UCartist&params=abc").json["albums"][0]["title"], "Album")
