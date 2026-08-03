@@ -228,14 +228,15 @@ export function SkeletonRow() {
         display: "flex",
         alignItems: "center",
         gap: 12,
-        padding: "8px 16px",
+        height: "100%",
+        padding: "0 16px",
         borderRadius: "var(--radius)",
       }}
     >
       <div
         style={{
-          width: 44,
-          height: 44,
+          width: 40,
+          height: 40,
           borderRadius: "var(--r-md)",
           background: "var(--bg-elevated)",
           flexShrink: 0,

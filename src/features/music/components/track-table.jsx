@@ -46,6 +46,16 @@ function formatTotalDuration(tracks) {
   return `${s} s`;
 }
 
+function findScrollParent(element) {
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+    const overflowY = getComputedStyle(parent).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && parent.scrollHeight > parent.clientHeight) {
+      return parent;
+    }
+  }
+  return null;
+}
+
 export function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizontal }) {
   const btn = (
     <Button
@@ -353,7 +363,7 @@ export function PlaylistLayout({
   // ── List virtualization ─────────────────────────────────────────────────────
   // Only the visible rows are mounted (constant DOM regardless of list length).
   // The whole page scrolls (the list is NOT the scroll container), so we virtualize
-  // against the nearest `.scrollable` ancestor and offset by the list's position in it.
+  // against the nearest scrolling ancestor and offset by the list's position in it.
   const listInnerRef = useRef(null);
   const [scrollEl, setScrollEl] = useState(null);
   const [listScrollMargin, setListScrollMargin] = useState(0);
@@ -370,7 +380,7 @@ export function PlaylistLayout({
   useLayoutEffect(() => {
     const inner = listInnerRef.current;
     if (!inner) return;
-    const sc = inner.closest(".scrollable");
+    const sc = scrollEl?.isConnected && scrollEl.contains(inner) ? scrollEl : findScrollParent(inner);
     if (sc !== scrollEl) setScrollEl(sc);
     if (!sc) return;
     const top = Math.max(
@@ -996,12 +1006,12 @@ export function PlaylistLayout({
               <div
                 key={vi.key}
                 data-index={i}
-                ref={rowVirtualizer.measureElement}
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   width: "100%",
+                  height: 52,
                   transform: `translateY(${vi.start - listScrollMargin}px)`,
                 }}
               >
