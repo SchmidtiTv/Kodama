@@ -2,6 +2,7 @@ import { CardRoot } from "@heroui/react";
 
 import { Microphone, MusicNote, Play } from "@/shared/icons/icons.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 
 // Reusable media tile matching the Home-page card behavior (hover image-scale,
 // play overlay, CardRoot). shape: "square" | "circle" | "video".
@@ -41,7 +42,7 @@ export function MediaTile({
       >
         <div style={{ width: w, height: h, background: "var(--bg-elevated)" }}>
           {thumbnail ? (
-            <img
+            <RetryingImage
               className="home-card-img"
               src={thumb(thumbnail)}
               alt=""

@@ -2,6 +2,7 @@ import { Button, Spinner, ProgressBar, ProgressBarTrack, ProgressBarFill } from 
 
 import { CheckCircle, CaretUp, CaretDown, X } from "@/shared/icons/icons.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
 
 // Floating download-progress card: overall progress header (with minimize toggle) plus a
@@ -61,7 +62,7 @@ export function DownloadQueueCard({
           return (
             <div key={batch.id} className="flex items-center gap-3">
               {batch.thumbnail ? (
-                <img
+                <RetryingImage
                   src={thumb(batch.thumbnail)}
                   alt=""
                   className="w-11 h-11 rounded-lg object-cover shrink-0"

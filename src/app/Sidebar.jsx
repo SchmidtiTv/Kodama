@@ -18,6 +18,7 @@ import {
 } from "@heroui/react";
 import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { IS_MAC } from "@/shared/lib/platform.js";
 import { SpotlightSearch } from "@/features/music/components/spotlight-search.jsx";
 import {
@@ -247,7 +248,11 @@ export function Sidebar({
             )}
           >
             {pl.thumbnail ? (
-              <img src={thumb(pl.thumbnail)} alt="" className="w-full h-full object-cover" />
+              <RetryingImage
+                src={thumb(pl.thumbnail)}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             ) : pl.type === "album" ? (
               <VinylRecord size={18} className="text-muted" />
             ) : pl.type === "artist" ? (
@@ -605,7 +610,7 @@ export function Sidebar({
                 >
                   <div className="w-7 h-7 shrink-0 rounded-full bg-accent flex items-center justify-center text-t11 font-medium overflow-hidden">
                     {currentProfileData?.avatar ? (
-                      <img
+                      <RetryingImage
                         src={thumb(currentProfileData.avatar)}
                         alt=""
                         className="w-full h-full object-cover"
@@ -679,7 +684,7 @@ export function Sidebar({
                 onMouseLeave={() => setTooltip(null)}
               >
                 {currentProfileData?.avatar ? (
-                  <img
+                  <RetryingImage
                     src={thumb(currentProfileData.avatar)}
                     alt=""
                     className="w-full h-full object-cover"

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { ExplicitBadge } from "@/features/music/components/rows.jsx";
 import { acquireAudioAnalysis, audioLevels } from "@/features/player/audio-levels.js";
 import { hiResThumb } from "./cover-art.js";
@@ -537,7 +538,7 @@ export function CoverView({
           }}
         >
           {hq ? (
-            <img
+            <RetryingImage
               src={thumb(hq)}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}

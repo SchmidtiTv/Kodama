@@ -43,6 +43,7 @@ import {
   X,
 } from "@/shared/icons/icons.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
 import { Tooltip } from "@/shared/ui/tooltip.jsx";
 import { ArtistLinks, ExplicitBadge } from "@/features/music/components/rows.jsx";
@@ -245,7 +246,7 @@ export function PlayerControls(props) {
               }}
             >
               {track?.thumbnail ? (
-                <img
+                <RetryingImage
                   src={thumb(hiResThumb(track.thumbnail))}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}

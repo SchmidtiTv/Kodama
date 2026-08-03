@@ -2,6 +2,7 @@ import React from "react";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useAnimations } from "@/features/settings/display-context.jsx";
 import { MusicNote, Pause, Play, Shuffle } from "@/shared/icons/icons.jsx";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 
 export function ExplicitBadge() {
   return (
@@ -112,7 +113,11 @@ export function TrackRow({ track, isPlaying, onPlay, onOpenArtist, onContextMenu
     >
       <div className="relative w-11 h-11 shrink-0 overflow-hidden rounded-md bg-elevated">
         {track.thumbnail ? (
-          <img src={thumb(track.thumbnail)} alt="" className="w-full h-full object-cover" />
+          <RetryingImage
+            src={thumb(track.thumbnail)}
+            alt=""
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
         )}
@@ -173,7 +178,7 @@ export function GridCard({
     <div data-card-id={cardId} onContextMenu={onContextMenu} className="gcard cursor-default">
       <div className="gcard-thumb aspect-square bg-elevated" onClick={onClick}>
         {thumbnail ? (
-          <img src={thumb(thumbnail)} alt="" className="gcard-img" />
+          <RetryingImage src={thumb(thumbnail)} alt="" className="gcard-img" />
         ) : (
           <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
         )}

@@ -20,6 +20,7 @@ import {
 } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { Tooltip } from "@/shared/ui/tooltip.jsx";
 import { ExplicitBadge } from "@/features/music/components/rows.jsx";
 import { dissolve } from "@/shared/lib/particle-burst.js";
@@ -34,19 +35,14 @@ import {
 } from "./player-context.jsx";
 
 function TrackArtwork({ thumbnail, className }) {
-  const [failed, setFailed] = useState(false);
-
   return (
-    <div
-      className={`relative overflow-hidden bg-[var(--placeholder-gradient)] ${className || ""}`}
-    >
-      {thumbnail && !failed && (
-        <img
+    <div className={`relative overflow-hidden bg-[var(--placeholder-gradient)] ${className || ""}`}>
+      {thumbnail && (
+        <RetryingImage
           src={thumb(thumbnail)}
           alt=""
           decoding="async"
           className="absolute inset-0 w-full h-full object-cover"
-          onError={() => setFailed(true)}
         />
       )}
     </div>

@@ -26,6 +26,7 @@ import {
 } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { Carousel } from "../components/carousel.jsx";
 import { usePlayerActions } from "../../player/player-context.jsx";
@@ -394,7 +395,7 @@ export function HomeView({
         >
           <div style={{ width: size, height: size, background: "var(--bg-elevated)" }}>
             {item.thumbnail ? (
-              <img
+              <RetryingImage
                 className="home-card-img"
                 src={thumb(item.thumbnail)}
                 alt=""
@@ -830,7 +831,7 @@ export function HomeView({
                             }}
                           >
                             {item.thumbnail ? (
-                              <img
+                              <RetryingImage
                                 className="home-card-img"
                                 src={thumb(item.thumbnail)}
                                 alt=""
