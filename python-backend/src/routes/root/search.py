@@ -88,7 +88,7 @@ def search_suggestions() -> RouteResponse:
     if len(query) < 2:
         return jsonify({"suggestions": []})
     try:
-        results = music_session().get_active_client().search(query, filter="songs", limit=6)
+        results = music_session().get_active_client().search(query, filter=None, limit=6)
         suggestions: list[str] = []
         seen: set[str] = set()
         for result in results:
