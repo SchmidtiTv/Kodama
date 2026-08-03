@@ -2,23 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import { API } from "@/shared/api/client.js";
 
-const IPV4_FIRST_ENDPOINTS = ["/operation/network/ipv4-first", "/network/ipv4-first"];
+const IPV4_FIRST_ENDPOINT = "/network/ipv4-first";
 
 async function fetchIpv4FirstSetting(options = {}) {
-  let lastError = null;
-  for (const path of IPV4_FIRST_ENDPOINTS) {
-    try {
-      const res = await fetch(`${API}${path}`, options);
-      if (!res.ok) {
-        lastError = new Error(`HTTP ${res.status}`);
-        continue;
-      }
-      return res.json();
-    } catch (error) {
-      lastError = error;
-    }
+  const res = await fetch(`${API}${IPV4_FIRST_ENDPOINT}`, options);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
   }
-  throw lastError || new Error("IPv4-first setting request failed");
+  return res.json();
 }
 
 export function useIpv4First() {
