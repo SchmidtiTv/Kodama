@@ -28,6 +28,12 @@ Keep these boundaries explicit. Frontend code talks to backend code through
 the existing HTTP API and to native code through Tauri commands; it must not
 reach into backend or Rust internals.
 
+## Composer Restriction
+
+The `composer/` directory is off limits. Do not inspect, modify, test, or
+otherwise include it in task work unless the user explicitly authorizes work
+in that directory for the current request.
+
 ## Clean-Code Rules
 
 - Put behavior in the narrowest domain that owns it. Prefer extending an
@@ -72,4 +78,3 @@ npm run build
 
 Use `npm run e2e:browser` only when the change affects a covered user flow and
 ports 1421 and 9847 are available. Follow the backend guide for Python checks.
-
