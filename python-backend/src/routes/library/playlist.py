@@ -10,11 +10,19 @@ from flask import Response, jsonify, request
 
 from src.lib import YoutubeResponseMapper
 from src.lib.music.audio_versions import iter_preferred_audio_versions, prefer_audio_versions
+from src.lib.music.video_variants import is_video_variant
 
 from . import blueprint
 from ._formatters import format_track
 from ._services import cache_settings, music_session, playlist_cache, profiles
 from src.type_defs import RouteResponse
+
+
+_TRANSFER_CHUNK_SIZE = 200
+# Audio-counterpart searches are the slow part of opening video-heavy playlists.
+# Keep their batch small so the SSE response can expose the first playable tracks
+# while resolution of the rest of the playlist continues.
+_RESOLUTION_BATCH_SIZE = 4
 
 
 @blueprint.route("/playlist/create", methods=["POST"])
@@ -165,8 +173,6 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
 
     def generate() -> Iterator[str]:
         try:
-            CHUNK = 200
-
             # Local profile: serve locally-owned playlists (and Liked Songs) from
             # SQLite. Online playlists opened from Home/Explore (RDCLAK…, PL…,
             # OLAK5…) don't exist in the local DB — in that case fall through to
@@ -195,8 +201,8 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
                                        "album": r[4], "thumbnail": r[5], "duration": r[6]} for r in rows]
                 if tracks is not None:
                     yield f"data: {json.dumps({'type':'header','title':pl_title,'thumbnail':'','total':len(tracks),'cached':True})}\n\n"
-                    for i in range(0, len(tracks), CHUNK):
-                        yield f"data: {json.dumps({'type':'tracks','tracks':tracks[i:i+CHUNK]})}\n\n"
+                    for i in range(0, len(tracks), _TRANSFER_CHUNK_SIZE):
+                        yield f"data: {json.dumps({'type':'tracks','tracks':tracks[i:i+_TRANSFER_CHUNK_SIZE]})}\n\n"
                     yield f"data: {json.dumps({'type':'done'})}\n\n"
                     return
                 # Not a local playlist → fall through to the online fetch below.
@@ -207,14 +213,16 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             def serve_cached(data: dict[str, object]) -> Iterator[str]:
                 tracks = cast(list[object], data["tracks"])
                 yield send({"type": "header", "title": data["title"], "thumbnail": data["thumbnail"], "total": len(tracks), "cached": True})
-                for i in range(0, len(tracks), CHUNK):
-                    yield send({"type": "tracks", "tracks": tracks[i:i+CHUNK]})
+                for i in range(0, len(tracks), _TRANSFER_CHUNK_SIZE):
+                    yield send({"type": "tracks", "tracks": tracks[i:i+_TRANSFER_CHUNK_SIZE]})
                 yield send({"type": "done"})
 
             def needs_audio_resolution(data: dict[str, object]) -> bool:
                 tracks = cast(list[dict[str, object]], data.get("tracks", []))
-                video_types = {"MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_UGC"}
-                return any(track.get("videoType") in video_types for track in tracks)
+                return any(
+                    is_video_variant(track) or bool(track.get("isDetectedVideo"))
+                    for track in tracks
+                )
 
             if not force_refresh and cache_flags["playlists"]:
                 # 1. In-memory cache (fastest) — skip if missing isExplicit field
@@ -241,7 +249,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
                 yield send({"type": "header", "title": "Liked Songs", "thumbnail": "", "total": total})
                 all_tracks: list[dict[str, object]] = []
                 for raw_batch in iter_preferred_audio_versions(
-                    session.get_active_client(), None, raw_tracks, CHUNK
+                    session.get_active_client(), None, raw_tracks, _RESOLUTION_BATCH_SIZE
                 ):
                     formatted_batch = [format_track(track) for track in raw_batch]
                     all_tracks.extend(formatted_batch)
@@ -265,7 +273,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             yield send({"type": "header", "title": playlist.get("title", ""), "thumbnail": thumbnail, "total": total})
             all_tracks: list[dict[str, object]] = []
             for raw_batch in iter_preferred_audio_versions(
-                session.get_active_client(), playlist_id, raw_tracks, CHUNK
+                session.get_active_client(), playlist_id, raw_tracks, _RESOLUTION_BATCH_SIZE
             ):
                 formatted_batch = [format_track(track) for track in raw_batch]
                 all_tracks.extend(formatted_batch)

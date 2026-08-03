@@ -1,33 +1,9 @@
 """Track normalization shared by the playlist fetch and stream endpoints."""
 
+from typing import cast
+
 from src.lib import YoutubeResponseMapper
-from typing import cast
-from typing import cast
-
-
-def has_video_thumbnail(track: dict[str, object]) -> bool:
-    """Return whether a playlist entry has a reliably wide video thumbnail."""
-    thumbnails = cast(list[dict[str, object]], track.get("thumbnails", []))
-    return any(
-        isinstance(thumb.get("width"), int)
-        and isinstance(thumb.get("height"), int)
-        and thumb["width"] > thumb["height"] * 1.15
-        for thumb in thumbnails
-    )
-
-
-def video_evidence(track: dict[str, object]) -> list[str]:
-    """Return the concrete signals that identify a video, excluding raw videoType."""
-    evidence: list[str] = []
-    title = str(track.get("title", "")).casefold()
-    title_markers = ("official video", "official hd video", "music video", "lyric video")
-    if any(marker in title for marker in title_markers):
-        evidence.append("title-marker")
-    if has_video_thumbnail(track):
-        evidence.append("wide-thumbnail")
-    if not track.get("album"):
-        evidence.append("missing-album")
-    return evidence
+from src.lib.music.video_variants import has_video_thumbnail, video_evidence
 
 
 # Old server.py: the `fmt` closure in stream_playlist / the track loop in get_playlist

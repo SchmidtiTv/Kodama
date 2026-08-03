@@ -86,7 +86,7 @@ class AudioVersionTests(unittest.TestCase):
 
         self.assertEqual(resolved[0]["videoId"], "search-audio-id")
 
-    def test_search_fallback_rejects_a_different_duration(self) -> None:
+    def test_search_treats_duration_as_a_ranking_signal(self) -> None:
         video = {
             "videoId": "video-id",
             "title": "Take On Me (Official Video)",
@@ -97,7 +97,220 @@ class AudioVersionTests(unittest.TestCase):
 
         resolved = prefer_audio_versions(SearchFallbackClient(), "playlist-id", [video])
 
+        self.assertEqual(resolved[0]["videoId"], "search-audio-id")
+
+    def test_search_normalizes_video_labels_and_artist_prefixes(self) -> None:
+        cases = [
+            ("DAISIES (Audio)", "DAISIES", "Justin Bieber"),
+            ("Anxiety (Visualizer)", "Anxiety", "Doechii"),
+            ("Jazeek - AKON (Offizielles Musikvideo)", "AKON", "Jazeek"),
+            ("BUNT. - Love Tonight (Lyric Video)", "Love Tonight", "BUNT."),
+        ]
+
+        for video_title, audio_title, artist in cases:
+            with self.subTest(video_title=video_title):
+                class LabelClient(SearchFallbackClient):
+                    def search(self, query, filter="songs", limit=20):
+                        return [{
+                            "videoId": "label-audio-id",
+                            "title": audio_title,
+                            "artists": [{"name": artist}],
+                            "duration_seconds": 180,
+                            "resultType": "song",
+                            "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                        }]
+
+                video = {
+                    "videoId": "video-id",
+                    "title": video_title,
+                    "artists": [{"name": artist}],
+                    "duration_seconds": 240,
+                    "videoType": "MUSIC_VIDEO_TYPE_OMV",
+                }
+
+                resolved = prefer_audio_versions(LabelClient(), None, [video])
+
+                self.assertEqual(resolved[0]["videoId"], "label-audio-id")
+
+    def test_search_tolerates_feature_credit_title_differences(self) -> None:
+        class FeatureCreditClient(SearchFallbackClient):
+            def search(self, query, filter="songs", limit=20):
+                return [{
+                    "videoId": "feature-audio-id",
+                    "title": "Somebody That I Used To Know (feat. Kimbra)",
+                    "artists": [{"name": "Gotye"}],
+                    "duration_seconds": 245,
+                    "resultType": "song",
+                    "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                }]
+
+        video = {
+            "videoId": "video-id",
+            "title": "Somebody That I Used To Know",
+            "artists": [{"name": "Gotye"}],
+            "duration_seconds": 244,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+
+        resolved = prefer_audio_versions(FeatureCreditClient(), None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "feature-audio-id")
+
+    def test_search_prefers_the_closest_artist_credits(self) -> None:
+        class ArtistCreditClient(SearchFallbackClient):
+            def search(self, query, filter="songs", limit=20):
+                return [
+                    {
+                        "videoId": "featured-version-id",
+                        "title": "The One That Got Away (feat. B.o.B)",
+                        "artists": [{"name": "Katy Perry"}],
+                        "duration_seconds": 260,
+                        "resultType": "song",
+                        "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                    },
+                    {
+                        "videoId": "original-id",
+                        "title": "The One That Got Away",
+                        "artists": [{"name": "Katy Perry"}],
+                        "duration_seconds": 228,
+                        "resultType": "song",
+                        "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                    },
+                ]
+
+        video = {
+            "videoId": "video-id",
+            "title": "The One That Got Away (Official Music Video)",
+            "artists": [{"name": "Katy Perry"}],
+            "duration_seconds": 290,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+
+        resolved = prefer_audio_versions(ArtistCreditClient(), None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "original-id")
+
+    def test_search_rejects_a_cover_despite_an_exact_title(self) -> None:
+        class CoverClient(SearchFallbackClient):
+            def search(self, query, filter="songs", limit=20):
+                return [{
+                    "videoId": "cover-id",
+                    "title": "Take On Me",
+                    "artists": [{"name": "Cover Band"}],
+                    "duration_seconds": 223,
+                    "resultType": "song",
+                    "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                }]
+
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 223,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+
+        resolved = prefer_audio_versions(CoverClient(), None, [video])
+
         self.assertEqual(resolved[0]["videoId"], "video-id")
+
+    def test_search_preserves_a_named_remix(self) -> None:
+        class RemixClient(SearchFallbackClient):
+            def search(self, query, filter="songs", limit=20):
+                return [
+                    {
+                        "videoId": "base-id",
+                        "title": "The Days",
+                        "artists": [{"name": "Chrystal"}],
+                        "duration_seconds": 230,
+                        "resultType": "song",
+                        "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                    },
+                    {
+                        "videoId": "remix-id",
+                        "title": "The Days (Remix)",
+                        "artists": [{"name": "Chrystal"}, {"name": "NOTION"}],
+                        "duration_seconds": 233,
+                        "resultType": "song",
+                        "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                    },
+                ]
+
+        video = {
+            "videoId": "video-id",
+            "title": "The Days (Remix)",
+            "artists": [{"name": "Chrystal"}, {"name": "NOTION"}],
+            "duration_seconds": 233,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+
+        resolved = prefer_audio_versions(RemixClient(), None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "remix-id")
+
+    def test_detected_video_without_video_type_is_resolved(self) -> None:
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 223,
+            "album": None,
+            "thumbnails": [{"width": 400, "height": 225}],
+            "videoType": None,
+        }
+
+        resolved = prefer_audio_versions(SearchFallbackClient(), "playlist-id", [video])
+
+        self.assertEqual(resolved[0]["videoId"], "search-audio-id")
+
+    def test_search_accepts_a_matching_non_primary_artist(self) -> None:
+        class FeaturedArtistClient(SearchFallbackClient):
+            def search(self, query, filter="songs", limit=20):
+                return [{
+                    "videoId": "featured-audio-id",
+                    "title": "Take On Me",
+                    "artists": [{"name": "Guest"}, {"name": "a-ha"}],
+                    "duration_seconds": 230,
+                    "resultType": "song",
+                    "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                }]
+
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 215,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+
+        resolved = prefer_audio_versions(FeaturedArtistClient(), None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "featured-audio-id")
+
+    def test_search_retries_without_featured_artists(self) -> None:
+        class QueryFallbackClient(SearchFallbackClient):
+            def __init__(self) -> None:
+                self.queries = []
+
+            def search(self, query, filter="songs", limit=20):
+                self.queries.append(query)
+                if "Guest" in query:
+                    return []
+                return super().search(query, filter=filter, limit=limit)
+
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me",
+            "artists": [{"name": "a-ha"}, {"name": "Guest"}],
+            "duration_seconds": 223,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+        client = QueryFallbackClient()
+
+        resolved = prefer_audio_versions(client, None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "search-audio-id")
+        self.assertEqual(client.queries, ["Take On Me a-ha Guest", "Take On Me a-ha"])
 
     def test_incremental_resolver_yields_batches_in_playlist_order(self) -> None:
         tracks = [

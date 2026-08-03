@@ -101,6 +101,46 @@ class PlaylistRouteTests(RouteTestCase):
         self.assertTrue(cached_events[0]["cached"])
         self.assertEqual(cached_events[-1], {"type": "done"})
 
+    def test_video_heavy_playlist_streams_resolved_tracks_incrementally(self) -> None:
+        tracks = [
+            {
+                "videoId": f"video-{index}",
+                "title": f"Video {index} (Official Video)",
+                "artists": [{"name": "Artist", "id": "UCartist"}],
+                "duration": "3:00",
+                "videoType": "MUSIC_VIDEO_TYPE_OMV",
+                "thumbnails": [],
+            }
+            for index in range(5)
+        ]
+        self.music_session.client.get_playlist = lambda playlist_id, limit=None: {
+            "title": "Video Playlist",
+            "thumbnails": [],
+            "tracks": tracks,
+        }
+        self.music_session.client.get_watch_playlist = lambda **kwargs: {
+            "tracks": [
+                {
+                    **track,
+                    "videoId": f"audio-{index}",
+                    "title": f"Video {index}",
+                    "videoType": "MUSIC_VIDEO_TYPE_ATV",
+                }
+                for index, track in enumerate(tracks)
+            ]
+        }
+
+        events = sse_events(self.client.get("/playlist/video-pl/stream?refresh=1"))
+        track_events = [event for event in events if event["type"] == "tracks"]
+
+        self.assertEqual([len(event["tracks"]) for event in track_events], [4, 1])
+        self.assertEqual(
+            [track["videoId"] for event in track_events for track in event["tracks"]],
+            [f"audio-{index}" for index in range(5)],
+        )
+        self.assertLess(events.index(track_events[0]), len(events) - 1)
+        self.assertEqual(events[-1], {"type": "done"})
+
     def test_in_memory_playlist_cache_is_profile_scoped(self) -> None:
         default_events = sse_events(self.client.get("/playlist/LM/stream"))
         self.assertEqual(default_events[1]["title"], "Liked Songs")
