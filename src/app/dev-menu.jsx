@@ -1,5 +1,4 @@
 import {
-  Button,
   Dropdown,
   DropdownItem,
   DropdownPopover,
@@ -37,17 +36,13 @@ export default function DevMenu({ player, addToast }) {
   return (
     <div className="fixed left-4 bottom-30 z-100000">
       <Dropdown>
-        <DropdownTrigger>
-          <Button
-            data-testid="dev-menu-trigger"
-            size="sm"
-            variant="secondary"
-            className="min-w-0 gap-1.5 rounded-full border border-border bg-elevated/95 px-3 shadow-lg backdrop-blur-xl"
-            aria-label="Open development menu"
-          >
-            <Bug size={13} />
-            <span className="text-t10 font-bold tracking-wider">DEV</span>
-          </Button>
+        <DropdownTrigger
+          data-testid="dev-menu-trigger"
+          className="min-w-0 h-8 gap-1.5 rounded-full border border-border bg-elevated/95 px-3 shadow-lg backdrop-blur-xl text-secondary hover:text-primary hover:bg-hover"
+          aria-label="Open development menu"
+        >
+          <Bug size={13} />
+          <span className="text-t10 font-bold tracking-wider">DEV</span>
         </DropdownTrigger>
         <DropdownPopover
           placement="top start"
