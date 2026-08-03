@@ -236,13 +236,18 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             if playlist_id == "LM":
                 yield send({"type": "loading", "message": "Liked Songs werden abgerufen…", "progress": 0})
                 songs = session.get_active_client().get_liked_songs()
-                all_tracks = [format_track(t) for t in songs.get("tracks", []) if t.get("videoId")]
-                total = len(all_tracks)
+                raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
+                total = len(raw_tracks)
                 yield send({"type": "header", "title": "Liked Songs", "thumbnail": "", "total": total})
-                for i in range(0, total, CHUNK):
-                    pct = min(100, round((i + CHUNK) / total * 100)) if total else 100
+                all_tracks: list[dict[str, object]] = []
+                for raw_batch in iter_preferred_audio_versions(
+                    session.get_active_client(), None, raw_tracks, CHUNK
+                ):
+                    formatted_batch = [format_track(track) for track in raw_batch]
+                    all_tracks.extend(formatted_batch)
+                    pct = min(100, round(len(all_tracks) / total * 100)) if total else 100
                     yield send({"type": "progress", "progress": pct})
-                    yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
+                    yield send({"type": "tracks", "tracks": formatted_batch})
                 data: dict[str, object] = {"title": "Liked Songs", "thumbnail": "", "tracks": all_tracks}
                 if cache_flags["playlists"]:
                     cache.put(playlist_id, profile_name, data)
@@ -314,7 +319,10 @@ def get_playlist(playlist_id: str) -> RouteResponse:
         # "LM" is the special Liked Songs playlist
         if playlist_id == "LM":
             songs = session.get_active_client().get_liked_songs()
-            tracks = [format_track(t) for t in songs.get("tracks", []) if t.get("videoId")]
+            raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
+            tracks = [format_track(track) for track in prefer_audio_versions(
+                session.get_active_client(), None, raw_tracks
+            )]
             return jsonify({"title": "Liked Songs", "thumbnail": "", "tracks": tracks})
 
         playlist = session.get_active_client().get_playlist(playlist_id, limit=None)

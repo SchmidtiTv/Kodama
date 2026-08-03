@@ -3,6 +3,7 @@
 from flask import jsonify, request
 
 from src.lib import YoutubeResponseMapper
+from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
 from ._services import music_session
@@ -12,29 +13,31 @@ from src.type_defs import RouteResponse
 @blueprint.route("/radio/<playlist_id>")
 def get_radio(playlist_id: str) -> RouteResponse:
     try:
+        client = music_session().get_active_client()
         # A song-seeded radio has no playlist ID yet. The frontend uses "_" as the
         # route placeholder and supplies the seed in the query string instead.
         video_id = request.args.get("videoId", "").strip()
         if playlist_id == "_":
             if not video_id:
                 return jsonify({"error": "videoId required"}), 400
-            watch = music_session().get_active_client().get_watch_playlist(
+            watch = client.get_watch_playlist(
                 videoId=video_id,
                 limit=50,
                 radio=True,
             )
         else:
-            watch = music_session().get_active_client().get_watch_playlist(
+            watch = client.get_watch_playlist(
                 playlistId=playlist_id,
                 limit=50,
             )
         raw_tracks = watch.get("tracks") if isinstance(watch, dict) else None
+        resolvable_tracks = [
+            track
+            for track in (raw_tracks if isinstance(raw_tracks, list) else [])
+            if isinstance(track, dict) and track.get("videoId")
+        ]
         tracks: list[dict[str, object]] = []
-        for t in raw_tracks if isinstance(raw_tracks, list) else []:
-            if not isinstance(t, dict):
-                continue
-            if not t.get("videoId"):
-                continue
+        for t in prefer_audio_versions(client, None, resolvable_tracks):
             artist_list = t.get("artists") or []
             artists = ", ".join(
                 name for artist in artist_list if isinstance(artist, dict)

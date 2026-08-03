@@ -3,6 +3,7 @@
 from flask import jsonify, request
 
 from src.lib import BandMemberLookupError, YoutubeResponseMapper
+from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
 from ._services import band_member_finder, music_session
@@ -34,13 +35,17 @@ def _extract_artist_desc_url(browse_id: str) -> str | None:
 @blueprint.route("/artist/<browse_id>")
 def get_artist(browse_id: str) -> RouteResponse:
     try:
-        artist = music_session().get_active_client().get_artist(browse_id)
+        client = music_session().get_active_client()
+        artist = client.get_artist(browse_id)
 
         # Top songs
         tracks = []
-        for t in (artist.get("songs", {}).get("results", []))[:20]:
-            if not t.get("videoId"):
-                continue
+        raw_tracks = [
+            track
+            for track in (artist.get("songs", {}).get("results", []))[:20]
+            if track.get("videoId")
+        ]
+        for t in prefer_audio_versions(client, None, raw_tracks):
             thumbnail = YoutubeResponseMapper.select_thumbnail(t.get("thumbnails", []))
             # duration may be a pre-formatted string ("3:45") or absent;
             # fall back to duration_seconds if available

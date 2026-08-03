@@ -171,7 +171,7 @@ def _resolve_audio_batch(
 
 def iter_preferred_audio_versions(
     client: WatchPlaylistClient,
-    playlist_id: str,
+    playlist_id: str | None,
     tracks: list[dict[str, object]],
     batch_size: int,
 ) -> Iterator[list[dict[str, object]]]:
@@ -185,7 +185,7 @@ def iter_preferred_audio_versions(
             yield tracks[index:index + batch_size]
         return
 
-    candidates = _watch_playlist_candidates(client, playlist_id, len(tracks))
+    candidates = _watch_playlist_candidates(client, playlist_id, len(tracks)) if playlist_id else []
     replacement_count = 0
     for index in range(0, len(tracks), batch_size):
         batch, replacements = _resolve_audio_batch(
@@ -195,25 +195,25 @@ def iter_preferred_audio_versions(
         yield batch
 
     print(
-        f"[playlist] audio counterpart resolution playlist_id={playlist_id} "
+        f"[playlist] audio counterpart resolution playlist_id={playlist_id or 'none'} "
         f"replaced={replacement_count}/{len(tracks)}",
         flush=True,
     )
 
 
 def prefer_audio_versions(
-    client: WatchPlaylistClient, playlist_id: str, tracks: list[dict[str, object]]
+    client: WatchPlaylistClient, playlist_id: str | None, tracks: list[dict[str, object]]
 ) -> list[dict[str, object]]:
     """Replace OMV/UGC playlist entries with their audio versions when available."""
     video_types = {"MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_UGC"}
     if not tracks or not any(track.get("videoType") in video_types for track in tracks):
         return tracks
 
-    candidates = _watch_playlist_candidates(client, playlist_id, len(tracks))
+    candidates = _watch_playlist_candidates(client, playlist_id, len(tracks)) if playlist_id else []
     resolved, replacement_count = _resolve_audio_batch(client, candidates, tracks, 0)
 
     print(
-        f"[playlist] audio counterpart resolution playlist_id={playlist_id} "
+        f"[playlist] audio counterpart resolution playlist_id={playlist_id or 'none'} "
         f"replaced={replacement_count}/{len(tracks)}",
         flush=True,
     )

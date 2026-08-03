@@ -2,6 +2,8 @@
 
 from flask import jsonify, request
 
+from src.lib.music.audio_versions import prefer_audio_versions
+
 from . import blueprint
 from ._formatters import is_signed_out_ytmusic_error, song_result
 from ._services import music_session, profiles
@@ -35,7 +37,9 @@ def liked_songs() -> RouteResponse:
 
         limit = request.args.get("limit", type=int)
         songs = session.get_active_client().get_liked_songs(limit=limit) if limit is not None else session.get_active_client().get_liked_songs()
-        return jsonify({"tracks": [song_result(track) for track in songs.get("tracks", [])]})
+        raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
+        raw_tracks = prefer_audio_versions(session.get_active_client(), None, raw_tracks)
+        return jsonify({"tracks": [song_result(track) for track in raw_tracks]})
     except Exception as error:
         if is_signed_out_ytmusic_error(error):
             return jsonify({"error": "YouTube session expired", "code": "auth_expired"}), 401

@@ -3,6 +3,7 @@
 from flask import jsonify, request
 
 from src.lib import YoutubeResponseMapper
+from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
 from ._services import album_cache, cache_settings, music_session
@@ -20,14 +21,15 @@ def get_album(browse_id: str) -> RouteResponse:
             if cached:
                 return jsonify(cached)
 
-        album = music_session().get_active_client().get_album(browse_id)
+        client = music_session().get_active_client()
+        album = client.get_album(browse_id)
+        raw_tracks = [track for track in album.get("tracks", []) if track.get("videoId")]
+        raw_tracks = prefer_audio_versions(client, None, raw_tracks)
         tracks = []
         album_artists = album.get("artists", [])
         album_artist_name = ", ".join(a["name"] for a in album_artists)
         album_artist_browse_id = album_artists[0].get("id", "") if album_artists else ""
-        for t in album.get("tracks", []):
-            if not t.get("videoId"):
-                continue
+        for t in raw_tracks:
             track_artists = t.get("artists", [])
             artists = ", ".join(a["name"] for a in track_artists) or album_artist_name
             artist_browse_id = track_artists[0].get("id", "") if track_artists else album_artist_browse_id

@@ -39,6 +39,15 @@ class SearchFallbackClient(FakeWatchPlaylistClient):
         ]
 
 
+class SearchOnlyClient(SearchFallbackClient):
+    def __init__(self) -> None:
+        self.watch_playlist_calls = 0
+
+    def get_watch_playlist(self, videoId=None, playlistId=None, limit=25):
+        self.watch_playlist_calls += 1
+        raise AssertionError("non-playlist resolution must not request a watch playlist")
+
+
 class AudioVersionTests(unittest.TestCase):
     def test_video_is_replaced_by_position_matched_audio_counterpart(self) -> None:
         video = {
@@ -109,3 +118,18 @@ class AudioVersionTests(unittest.TestCase):
             [track["videoId"] for batch in batches for track in batch],
             ["search-audio-id", "search-audio-id", "search-audio-id"],
         )
+
+    def test_non_playlist_tracks_use_search_without_a_watch_playlist(self) -> None:
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me (Official Video)",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 223,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+        client = SearchOnlyClient()
+
+        resolved = prefer_audio_versions(client, None, [video])
+
+        self.assertEqual(resolved[0]["videoId"], "search-audio-id")
+        self.assertEqual(client.watch_playlist_calls, 0)
