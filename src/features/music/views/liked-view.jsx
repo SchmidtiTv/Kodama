@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { PlaylistLayout } from "@/features/music/components/track-table.jsx";
+
+const PAGE_SIZE = 50;
 
 export function LikedView({
   onOpenArtist,
@@ -19,26 +21,56 @@ export function LikedView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const t = useLang();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    fetch(`${API}/liked`)
+    setError(null);
+    setErrorCode(null);
+    fetch(`${API}/liked?offset=0&limit=${PAGE_SIZE}`)
       .then((r) => r.json())
       .then((d) => {
+        if (cancelled) return;
         if (d.error) {
           const err = new Error(d.error);
           err.code = d.code;
           throw err;
         }
         setTracks(d.tracks || []);
+        setTotal(d.total ?? (d.tracks || []).length);
+        setHasMore(Boolean(d.hasMore));
       })
       .catch((e) => {
+        if (cancelled) return;
         setError(e.message);
         setErrorCode(e.code || null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetch(`${API}/liked?offset=${tracks.length}&limit=${PAGE_SIZE}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) throw new Error(d.error);
+        setTracks((current) => [...current, ...(d.tracks || [])]);
+        setTotal(d.total ?? tracks.length + (d.tracks || []).length);
+        setHasMore(Boolean(d.hasMore));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [hasMore, loadingMore, tracks.length]);
 
   if (loading)
     return (
@@ -81,7 +113,7 @@ export function LikedView({
         title={t("likedSongs")}
         thumbnail={null}
         tracks={tracks}
-        total={tracks.length}
+        total={total}
         loading={false}
         progress={0}
         cached={false}
@@ -96,6 +128,9 @@ export function LikedView({
         selectedTracks={selectedTracks}
         onToggleSelect={onToggleSelect}
         onSelectAll={onSelectAll}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
       />
     </div>
   );

@@ -261,6 +261,9 @@ export function PlaylistLayout({
   onSelectAll,
   extraActions,
   typeLabel,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }) {
   const { track: currentTrack, isPlaying } = usePlaybackStatus();
   const { handlePlay } = usePlayerActions();
@@ -358,7 +361,7 @@ export function PlaylistLayout({
   };
 
   const totalDuration = formatTotalDuration(tracks);
-  const skeletonCount = total ? Math.max(0, total - tracks.length) : 0;
+  const skeletonCount = hasMore ? 0 : total ? Math.max(0, total - tracks.length) : 0;
 
   // ── List virtualization ─────────────────────────────────────────────────────
   // Only the visible rows are mounted (constant DOM regardless of list length).
@@ -399,6 +402,22 @@ export function PlaylistLayout({
     overscan: 12,
     scrollMargin: listScrollMargin,
   });
+
+  useEffect(() => {
+    if (!scrollEl || !hasMore || loadingMore || !onLoadMore) return;
+    let requested = false;
+    const loadWhenNearEnd = () => {
+      const list = listInnerRef.current;
+      if (!list || requested) return;
+      const distanceToEnd = list.getBoundingClientRect().bottom - scrollEl.getBoundingClientRect().bottom;
+      if (distanceToEnd > 400) return;
+      requested = true;
+      onLoadMore();
+    };
+    scrollEl.addEventListener("scroll", loadWhenNearEnd, { passive: true });
+    loadWhenNearEnd();
+    return () => scrollEl.removeEventListener("scroll", loadWhenNearEnd);
+  }, [hasMore, loadingMore, onLoadMore, scrollEl, tracks.length]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
