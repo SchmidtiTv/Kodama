@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: master
+          ref: main
 
       - name: Validate tag format
         run: |
@@ -101,4 +101,4 @@ jobs:
           git add updates/latest.json
           git diff --cached --quiet && echo "No changes to commit" || \
             git commit -m "chore: update latest.json for $TAG [skip ci]"
-          git push origin master
+          git push origin main

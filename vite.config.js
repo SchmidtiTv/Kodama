@@ -7,9 +7,11 @@ import { fileURLToPath } from "node:url";
 // Single source of truth for the app version: src-tauri/tauri.conf.json (the file tauri-action
 // reads when building a release). Injected at build time so the in-app version can never drift
 // from the actually-shipped version — no more hardcoded APP_VERSION to forget on bump.
-const appVersion = JSON.parse(
+const tauriConfig = JSON.parse(
   readFileSync(new URL("./src-tauri/tauri.conf.json", import.meta.url), "utf-8")
-).version;
+);
+const appVersion = tauriConfig.version;
+const updateManifestUrl = tauriConfig.plugins.updater.endpoints[0];
 const e2eNetworkGuard =
   process.env.VITE_E2E === "true" || process.env.VITE_E2E_NETWORK_GUARD === "true";
 const e2eBrowserMode = process.env.VITE_E2E_BROWSER === "true";
@@ -54,7 +56,10 @@ export default defineConfig({
         : {}),
     },
   },
-  define: { __APP_VERSION__: JSON.stringify(appVersion) },
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+    __UPDATE_MANIFEST_URL__: JSON.stringify(updateManifestUrl),
+  },
   clearScreen: false,
   server: {
     port: 1421,
