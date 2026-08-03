@@ -2,6 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import { API } from "@/shared/api/client.js";
 import { translate } from "@/shared/i18n/i18n.js";
+import {
+  EXPORT_DIRECTORY_KEY,
+  buildExportFilename,
+  joinExportPath,
+  shouldRememberExportDirectory,
+  storedFilenamePattern,
+} from "@/shared/lib/export-preferences.js";
 
 const MAX_CONCURRENT_DOWNLOADS = 5;
 
@@ -229,15 +236,11 @@ export function useDownloadManager({ addToast, language }) {
           }
         }
         const { save } = await import("@tauri-apps/plugin-dialog");
-        const artistStr = Array.isArray(track.artists)
-          ? track.artists.map((a) => (typeof a === "string" ? a : a.name)).join(", ")
-          : track.artists || "Unknown";
-        const ext = format === "mp3" ? "mp3" : "opus";
-        const defaultName = `${artistStr} - ${track.title || "Song"}.${ext}`;
-        const defaultDir = localStorage.getItem("kiyoshi-mp3-dir") || undefined;
+        const defaultName = buildExportFilename(track, format, storedFilenamePattern(localStorage));
+        const defaultDir = localStorage.getItem(EXPORT_DIRECTORY_KEY) || undefined;
         const filePath = await save({
           title: translate(language, format === "mp3" ? "saveAsMp3" : "saveAsOpus"),
-          defaultPath: defaultDir ? `${defaultDir}\\${defaultName}` : defaultName,
+          defaultPath: joinExportPath(defaultDir, defaultName),
           filters:
             format === "mp3"
               ? [{ name: "MP3", extensions: ["mp3"] }]
@@ -245,7 +248,9 @@ export function useDownloadManager({ addToast, language }) {
         });
         if (!filePath) return;
         const dir = filePath.replace(/[\\/][^\\/]+$/, "");
-        if (dir) localStorage.setItem("kiyoshi-mp3-dir", dir);
+        if (dir && shouldRememberExportDirectory(localStorage)) {
+          localStorage.setItem(EXPORT_DIRECTORY_KEY, dir);
+        }
         const artistStr2 = Array.isArray(track.artists)
           ? track.artists.map((a) => (typeof a === "string" ? a : a.name)).join(", ")
           : track.artists || "";
