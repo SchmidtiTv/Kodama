@@ -2,9 +2,15 @@ import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@heroui/react";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { useAnimations, useTrackNumbers } from "@/features/settings/display-context.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { useAccentColor } from "@/features/music/hooks/use-accent-color.js";
+import {
+  collectTrackVersions,
+  isLikelyVideo,
+  videoEvidenceForTrack,
+} from "@/features/music/track-deduplication.js";
 import { Tooltip } from "@/shared/ui/tooltip.jsx";
 import { ExplicitBadge, ArtistLinks, SkeletonRow } from "@/features/music/components/rows.jsx";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
@@ -135,7 +141,11 @@ export function TableRow({
         )}
         <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded-md bg-elevated">
           {track.thumbnail ? (
-            <img src={thumb(track.thumbnail)} alt="" className="w-full h-full object-cover" />
+            <RetryingImage
+              src={thumb(track.thumbnail)}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full bg-[var(--placeholder-gradient)]" />
           )}
@@ -254,7 +264,26 @@ export function PlaylistLayout({
   const [trackSearch, setTrackSearch] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
   const searchInputRef = useRef(null);
+  const loggedVideoIdsRef = useRef(new Set());
   const [sort, setSort] = useState({ key: null, dir: "asc" });
+  const collectedTracks = useMemo(() => collectTrackVersions(tracks), [tracks]);
+
+  useEffect(() => {
+    tracks.filter(isLikelyVideo).forEach((track) => {
+      const logKey = track.videoId || `${track.title}:${track.artists}`;
+      if (loggedVideoIdsRef.current.has(logKey)) return;
+      loggedVideoIdsRef.current.add(logKey);
+      console.warn("[Kodama] Video variant detected", {
+        videoId: track.videoId,
+        title: track.title,
+        artists: track.artists,
+        album: track.album,
+        evidence: videoEvidenceForTrack(track),
+        rawVideoType: track.videoType || "missing",
+        thumbnailDimensions: track.thumbnailDimensions || ["unknown"],
+      });
+    });
+  }, [tracks]);
 
   useEffect(() => {
     if (searchVisible) searchInputRef.current?.focus();
@@ -275,7 +304,7 @@ export function PlaylistLayout({
 
   const visibleTracks = useMemo(() => {
     const query = trackSearch.trim().toLowerCase();
-    const filtered = tracks.filter((track) => {
+    const filtered = collectedTracks.filter((track) => {
       if (hideExplicit && track.isExplicit) return false;
       return !query || (track.title || "").toLowerCase().includes(query) || (track.artists || "").toLowerCase().includes(query);
     });
@@ -298,7 +327,7 @@ export function PlaylistLayout({
       }
       return collator.compare(valueFor(left), valueFor(right)) * direction;
     });
-  }, [collator, hideExplicit, sort, trackSearch, tracks]);
+  }, [collectedTracks, collator, hideExplicit, sort, trackSearch]);
 
   const sortableHead = (key, label, align = "left", tooltip = null) => {
     const active = sort.key === key;
@@ -415,7 +444,7 @@ export function PlaylistLayout({
             }}
           >
             {thumbnail ? (
-              <img
+              <RetryingImage
                 src={thumb(thumbnail)}
                 alt=""
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}

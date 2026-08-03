@@ -9,6 +9,7 @@ from typing import cast
 from flask import Response, jsonify, request
 
 from src.lib import YoutubeResponseMapper
+from src.lib.music.audio_versions import iter_preferred_audio_versions, prefer_audio_versions
 
 from . import blueprint
 from ._formatters import format_track
@@ -210,19 +211,24 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
                     yield send({"type": "tracks", "tracks": tracks[i:i+CHUNK]})
                 yield send({"type": "done"})
 
+            def needs_audio_resolution(data: dict[str, object]) -> bool:
+                tracks = cast(list[dict[str, object]], data.get("tracks", []))
+                video_types = {"MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_UGC"}
+                return any(track.get("videoType") in video_types for track in tracks)
+
             if not force_refresh and cache_flags["playlists"]:
                 # 1. In-memory cache (fastest) — skip if missing isExplicit field
                 mem = cache.get_memory(playlist_id, profile_name)
                 if mem is not None:
                     mem_tracks = cast(list[dict[str, object]], mem.get("tracks", []))
-                    if mem_tracks and "isExplicit" not in mem_tracks[0]:
+                    if (mem_tracks and "isExplicit" not in mem_tracks[0]) or needs_audio_resolution(mem):
                         cache.discard_memory(playlist_id, profile_name)
                     else:
                         yield from serve_cached(mem)
                         return
                 # 2. Disk cache
                 disk = cache.load_playlist_disk(playlist_id, profile_name)
-                if disk:
+                if disk and not needs_audio_resolution(disk):
                     cache.put(playlist_id, profile_name, disk)  # warm in-memory cache too
                     yield from serve_cached(disk)
                     return
@@ -248,14 +254,19 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             playlist = session.get_active_client().get_playlist(playlist_id, limit=None)
             thumbs = playlist.get("thumbnails") or []
             thumbnail = YoutubeResponseMapper.select_thumbnail(thumbs)
-            all_tracks = [format_track(t) for t in playlist.get("tracks", []) if t.get("videoId")]
-            total = len(all_tracks)
+            raw_tracks = [t for t in playlist.get("tracks", []) if t.get("videoId")]
+            total = len(raw_tracks)
 
             yield send({"type": "header", "title": playlist.get("title", ""), "thumbnail": thumbnail, "total": total})
-            for i in range(0, total, CHUNK):
-                pct = min(100, round((i + CHUNK) / total * 100)) if total else 100
+            all_tracks: list[dict[str, object]] = []
+            for raw_batch in iter_preferred_audio_versions(
+                session.get_active_client(), playlist_id, raw_tracks, CHUNK
+            ):
+                formatted_batch = [format_track(track) for track in raw_batch]
+                all_tracks.extend(formatted_batch)
+                pct = min(100, round(len(all_tracks) / total * 100)) if total else 100
                 yield send({"type": "progress", "progress": pct})
-                yield send({"type": "tracks", "tracks": all_tracks[i:i+CHUNK]})
+                yield send({"type": "tracks", "tracks": formatted_batch})
             data: dict[str, object] = {"title": playlist.get("title", ""), "thumbnail": thumbnail, "tracks": all_tracks}
             if cache_flags["playlists"]:
                 cache.put(playlist_id, profile_name, data)
@@ -307,7 +318,9 @@ def get_playlist(playlist_id: str) -> RouteResponse:
             return jsonify({"title": "Liked Songs", "thumbnail": "", "tracks": tracks})
 
         playlist = session.get_active_client().get_playlist(playlist_id, limit=None)
-        tracks = [format_track(t) for t in playlist.get("tracks", []) if t.get("videoId")]
+        raw_tracks = [t for t in playlist.get("tracks", []) if t.get("videoId")]
+        raw_tracks = prefer_audio_versions(session.get_active_client(), playlist_id, raw_tracks)
+        tracks = [format_track(t) for t in raw_tracks]
         return jsonify({
             "title": playlist.get("title", ""),
             "thumbnail": (playlist.get("thumbnails") or [{}])[-1].get("url", ""),

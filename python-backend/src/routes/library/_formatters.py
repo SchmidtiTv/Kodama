@@ -5,6 +5,31 @@ from typing import cast
 from typing import cast
 
 
+def has_video_thumbnail(track: dict[str, object]) -> bool:
+    """Return whether a playlist entry has a reliably wide video thumbnail."""
+    thumbnails = cast(list[dict[str, object]], track.get("thumbnails", []))
+    return any(
+        isinstance(thumb.get("width"), int)
+        and isinstance(thumb.get("height"), int)
+        and thumb["width"] > thumb["height"] * 1.15
+        for thumb in thumbnails
+    )
+
+
+def video_evidence(track: dict[str, object]) -> list[str]:
+    """Return the concrete signals that identify a video, excluding raw videoType."""
+    evidence: list[str] = []
+    title = str(track.get("title", "")).casefold()
+    title_markers = ("official video", "official hd video", "music video", "lyric video")
+    if any(marker in title for marker in title_markers):
+        evidence.append("title-marker")
+    if has_video_thumbnail(track):
+        evidence.append("wide-thumbnail")
+    if not track.get("album"):
+        evidence.append("missing-album")
+    return evidence
+
+
 # Old server.py: the `fmt` closure in stream_playlist / the track loop in get_playlist
 def format_track(track: dict[str, object]) -> dict[str, object]:
     """Full track object as returned by /playlist/<id> and /playlist/<id>/stream."""
@@ -12,6 +37,25 @@ def format_track(track: dict[str, object]) -> dict[str, object]:
     artists = ", ".join(a["name"] for a in artist_list)
     artist_browse_id = (artist_list[0].get("id") or "") if artist_list else ""
     album = cast(dict[str, str], track.get("album") or {})
+    thumbnails = cast(
+        list[dict[str, object]], track.get("thumbnails") or track.get("thumbnail") or []
+    )
+    normalized_track = {**track, "thumbnails": thumbnails}
+    evidence = video_evidence(normalized_track)
+    video_type = str(track.get("videoType", ""))
+    thumbnail_dimensions = [
+        f"{thumb.get('width')}x{thumb.get('height')}"
+        for thumb in thumbnails
+        if isinstance(thumb.get("width"), int) and isinstance(thumb.get("height"), int)
+    ]
+    if evidence:
+        print(
+            "[playlist] video variant detected "
+            f"video_id={track.get('videoId', '')} title={track.get('title', '')!r} "
+            f"evidence={','.join(evidence)} raw_video_type={video_type or 'missing'} "
+            f"thumbnail_dimensions={thumbnail_dimensions or ['unknown']}",
+            flush=True,
+        )
     return {
         "videoId": track.get("videoId", ""),
         "setVideoId": track.get("setVideoId", ""),
@@ -21,7 +65,12 @@ def format_track(track: dict[str, object]) -> dict[str, object]:
         "artistLinks": YoutubeResponseMapper.build_artist_links(artist_list),
         "album": album.get("name", ""),
         "albumBrowseId": (album.get("id") or ""),
-        "duration": track.get("duration", ""),
-        "thumbnail": YoutubeResponseMapper.select_thumbnail(cast(list[dict[str, object]], track.get("thumbnails", []))),
+        "duration": track.get("duration") or track.get("length", ""),
+        "thumbnail": YoutubeResponseMapper.select_thumbnail(thumbnails),
+        "hasVideoThumbnail": has_video_thumbnail(normalized_track),
+        "isDetectedVideo": bool(evidence),
+        "videoEvidence": evidence,
+        "videoType": video_type,
+        "thumbnailDimensions": thumbnail_dimensions,
         "isExplicit": bool(track.get("isExplicit", False)),
     }
