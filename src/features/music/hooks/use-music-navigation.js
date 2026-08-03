@@ -91,7 +91,9 @@ export function useMusicNavigation({ setSearchQuery }) {
 
       // Animate progress bar while waiting (fake progress up to 85%)
       let fakeProgress = 0;
+      let receivedRealProgress = false;
       const interval = setInterval(() => {
+        if (receivedRealProgress) return;
         fakeProgress = Math.min(85, fakeProgress + Math.random() * 4);
         setCollection((c) => (c?.loading ? { ...c, progress: Math.round(fakeProgress) } : c));
       }, 400);
@@ -114,6 +116,9 @@ export function useMusicNavigation({ setSearchQuery }) {
           );
         } else if (msg.type === "tracks") {
           setCollection((c) => (c ? { ...c, tracks: [...c.tracks, ...msg.tracks] } : c));
+        } else if (msg.type === "progress") {
+          receivedRealProgress = true;
+          setCollection((c) => (c ? { ...c, progress: msg.progress } : c));
         } else if (msg.type === "done" || msg.type === "error") {
           clearInterval(interval);
           setCollection((c) => (c ? { ...c, progress: 100 } : c));
