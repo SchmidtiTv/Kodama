@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct SampleRing {
     buf: Vec<std::sync::atomic::AtomicU32>,
@@ -7,6 +7,10 @@ pub struct SampleRing {
     read_pos: AtomicUsize,
     done: AtomicBool,
     cancelled: AtomicBool,
+    producer_waiting: AtomicBool,
+    consumer_waiting: AtomicBool,
+    producer_thread: Mutex<Option<std::thread::Thread>>,
+    consumer_thread: Mutex<Option<std::thread::Thread>>,
 }
 
 impl SampleRing {
@@ -21,6 +25,34 @@ impl SampleRing {
             read_pos: AtomicUsize::new(0),
             done: AtomicBool::new(false),
             cancelled: AtomicBool::new(false),
+            producer_waiting: AtomicBool::new(false),
+            consumer_waiting: AtomicBool::new(false),
+            producer_thread: Mutex::new(None),
+            consumer_thread: Mutex::new(None),
+        }
+    }
+
+    fn register_producer(&self) {
+        *self.producer_thread.lock().unwrap() = Some(std::thread::current());
+    }
+
+    fn register_consumer(&self) {
+        *self.consumer_thread.lock().unwrap() = Some(std::thread::current());
+    }
+
+    fn wake_producer(&self) {
+        if self.producer_waiting.load(Ordering::Acquire) {
+            if let Some(thread) = self.producer_thread.lock().unwrap().as_ref() {
+                thread.unpark();
+            }
+        }
+    }
+
+    fn wake_consumer(&self) {
+        if self.consumer_waiting.load(Ordering::Acquire) {
+            if let Some(thread) = self.consumer_thread.lock().unwrap().as_ref() {
+                thread.unpark();
+            }
         }
     }
 
@@ -37,6 +69,7 @@ impl SampleRing {
         }
         self.buf[wp % self.buf.len()].store(sample.to_bits(), Ordering::Relaxed);
         self.write_pos.store(wp + 1, Ordering::Release);
+        self.wake_consumer();
         true
     }
 
@@ -48,7 +81,19 @@ impl SampleRing {
             if self.push(sample) {
                 return true;
             }
-            std::thread::sleep(std::time::Duration::from_micros(100));
+            // A full prebuffer is normal while the output is paused or briefly falls behind.
+            // Park instead of waking thousands of times per second until CoreAudio consumes data.
+            self.producer_waiting.store(true, Ordering::Release);
+            if self.push(sample) {
+                self.producer_waiting.store(false, Ordering::Release);
+                return true;
+            }
+            if self.is_cancelled() {
+                self.producer_waiting.store(false, Ordering::Release);
+                return false;
+            }
+            std::thread::park();
+            self.producer_waiting.store(false, Ordering::Release);
         }
     }
 
@@ -60,17 +105,46 @@ impl SampleRing {
         }
         let val = f32::from_bits(self.buf[rp % self.buf.len()].load(Ordering::Relaxed));
         self.read_pos.store(rp + 1, Ordering::Release);
+        self.wake_producer();
         Some(val)
+    }
+
+    fn pop_until_available(&self) -> Option<f32> {
+        loop {
+            if let Some(sample) = self.pop() {
+                return Some(sample);
+            }
+            if self.is_done() || self.is_cancelled() {
+                return self.pop();
+            }
+
+            // `unpark` stores a token when it wins the race with `park`, so a producer cannot
+            // leave the CoreAudio consumer asleep after adding a sample.
+            self.consumer_waiting.store(true, Ordering::Release);
+            if let Some(sample) = self.pop() {
+                self.consumer_waiting.store(false, Ordering::Release);
+                return Some(sample);
+            }
+            if self.is_done() || self.is_cancelled() {
+                self.consumer_waiting.store(false, Ordering::Release);
+                return self.pop();
+            }
+            std::thread::park();
+            self.consumer_waiting.store(false, Ordering::Release);
+        }
     }
 
     pub fn set_done(&self) {
         self.done.store(true, Ordering::Release);
+        self.wake_consumer();
     }
     pub fn is_done(&self) -> bool {
         self.done.load(Ordering::Acquire)
     }
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
+        self.wake_producer();
+        self.wake_consumer();
     }
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
@@ -87,6 +161,7 @@ pub struct StreamingSource {
     total_duration: Option<std::time::Duration>,
     analysis: Option<Arc<super::analyzer::AnalysisBuffer>>,
     tap_pos: u64,
+    consumer_registered: bool,
 }
 
 pub struct ProbeResult {
@@ -142,6 +217,7 @@ pub fn probe_audio(data: &[u8]) -> Result<ProbeResult, String> {
 
 pub fn spawn_decoder(data: Vec<u8>, track_id: u32, ring: Arc<SampleRing>, seek_to_secs: f64) {
     std::thread::spawn(move || {
+        ring.register_producer();
         use symphonia::core::codecs::DecoderOptions;
         use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
         use symphonia::core::io::MediaSourceStream;
@@ -254,6 +330,7 @@ pub fn spawn_decoder_streaming(
     info_tx: std::sync::mpsc::SyncSender<Result<ProbeResult, String>>,
 ) {
     std::thread::spawn(move || {
+        ring.register_producer();
         use symphonia::core::codecs::DecoderOptions;
         use symphonia::core::formats::{FormatOptions, SeekMode, SeekTo};
         use symphonia::core::io::MediaSourceStream;
@@ -410,6 +487,7 @@ impl StreamingSource {
             total_duration: info.total_duration,
             analysis: None,
             tap_pos: 0,
+            consumer_registered: false,
         })
     }
 
@@ -441,6 +519,7 @@ impl StreamingSource {
             total_duration: info.total_duration,
             analysis: None,
             tap_pos: 0,
+            consumer_registered: false,
         })
     }
 
@@ -468,22 +547,19 @@ impl Drop for StreamingSource {
 impl Iterator for StreamingSource {
     type Item = f32;
     fn next(&mut self) -> Option<f32> {
-        loop {
-            if let Some(s) = self.ring.pop() {
-                if let Some(a) = &self.analysis {
-                    // Tap left channel only → mono stream at sample_rate.
-                    if self.channels <= 1 || self.tap_pos % self.channels as u64 == 0 {
-                        a.push(s);
-                    }
-                    self.tap_pos = self.tap_pos.wrapping_add(1);
-                }
-                return Some(s);
-            }
-            if self.ring.is_done() {
-                return self.ring.pop();
-            }
-            std::thread::sleep(std::time::Duration::from_micros(50));
+        if !self.consumer_registered {
+            self.ring.register_consumer();
+            self.consumer_registered = true;
         }
+        let sample = self.ring.pop_until_available()?;
+        if let Some(a) = &self.analysis {
+            // Tap left channel only → mono stream at sample_rate.
+            if self.channels <= 1 || self.tap_pos % self.channels as u64 == 0 {
+                a.push(sample);
+            }
+            self.tap_pos = self.tap_pos.wrapping_add(1);
+        }
+        Some(sample)
     }
 }
 
@@ -514,12 +590,30 @@ mod tests {
         assert!(ring.push(1.0));
 
         let producer_ring = Arc::clone(&ring);
-        let producer = std::thread::spawn(move || producer_ring.push_until_available(2.0));
+        let producer = std::thread::spawn(move || {
+            producer_ring.register_producer();
+            producer_ring.push_until_available(2.0)
+        });
 
         std::thread::sleep(Duration::from_millis(10));
         ring.cancel();
 
         assert!(!producer.join().expect("producer should exit"));
+    }
+
+    #[test]
+    fn producer_wakes_a_consumer_waiting_for_audio() {
+        let ring = Arc::new(SampleRing::new(1));
+        let consumer_ring = Arc::clone(&ring);
+        let consumer = std::thread::spawn(move || {
+            consumer_ring.register_consumer();
+            consumer_ring.pop_until_available()
+        });
+
+        std::thread::sleep(Duration::from_millis(10));
+        assert!(ring.push(0.5));
+
+        assert_eq!(consumer.join().expect("consumer should wake"), Some(0.5));
     }
 
     #[test]
@@ -532,6 +626,7 @@ mod tests {
             total_duration: None,
             analysis: None,
             tap_pos: 0,
+            consumer_registered: false,
         };
 
         drop(source);
