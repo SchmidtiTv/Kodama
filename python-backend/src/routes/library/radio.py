@@ -6,7 +6,7 @@ from src.lib import YoutubeResponseMapper
 from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
-from ._services import music_session
+from ._services import metadata_cache, music_session
 from src.type_defs import RouteResponse
 
 
@@ -37,7 +37,7 @@ def get_radio(playlist_id: str) -> RouteResponse:
             if isinstance(track, dict) and track.get("videoId")
         ]
         tracks: list[dict[str, object]] = []
-        for t in prefer_audio_versions(client, None, resolvable_tracks):
+        for t in prefer_audio_versions(client, None, resolvable_tracks, metadata_cache()):
             artist_list = t.get("artists") or []
             artists = ", ".join(
                 name for artist in artist_list if isinstance(artist, dict)

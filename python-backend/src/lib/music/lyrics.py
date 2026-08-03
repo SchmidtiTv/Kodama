@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, TypeVar, cast
 
@@ -14,6 +15,7 @@ import requests
 from src.config import config_dirs, config_lyrics
 from src.lib.integrations.musixmatch import MusixMatch
 from src.lib.runtime.cache import CacheSettings
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 CacheValue = TypeVar("CacheValue")
@@ -32,9 +34,15 @@ class LyricsService:
 
     UNISON_BASE_URL = "https://unison.boidu.dev"
 
-    def __init__(self, cache_settings: CacheSettings, musixmatch: MusixMatch) -> None:
+    def __init__(
+        self,
+        cache_settings: CacheSettings,
+        musixmatch: MusixMatch,
+        metadata_cache: MetadataCache | None = None,
+    ) -> None:
         self._cache_settings = cache_settings
         self._musixmatch = musixmatch
+        self._metadata_cache = metadata_cache or MetadataCache(config_dirs.CACHE_DATABASE)
         self._translation_cache: collections.OrderedDict[str, List[str]] = collections.OrderedDict()
         self._romaji_cache: collections.OrderedDict[str, str] = collections.OrderedDict()
         self._kakasi: KakasiConverter | None = None
@@ -62,11 +70,22 @@ class LyricsService:
     ) -> Dict[str, object]:
         """Look up lyrics in the existing provider priority order."""
         cache_path = self._cache_path(title, artist, source)
+        cache_key = self._cache_key(title, artist, source)
+        if self._lyrics_cache_enabled():
+            try:
+                cached = self._metadata_cache.get("lyrics", cache_key)
+            except (OSError, sqlite3.Error):
+                cached = None
+            if cached is not None:
+                return cached
         if self._lyrics_cache_enabled() and cache_path.exists():
             try:
                 with cache_path.open(encoding="utf-8") as cache_file:
-                    return cast(Dict[str, object], json.load(cache_file))
-            except Exception:
+                    cached = cast(Dict[str, object], json.load(cache_file))
+                self._metadata_cache.put("lyrics", cache_key, cached)
+                cache_path.unlink(missing_ok=True)
+                return cached
+            except (OSError, sqlite3.Error, ValueError, TypeError):
                 pass
 
         result = self._lookup_lrclib(title, artist, source)
@@ -93,9 +112,8 @@ class LyricsService:
 
         if self._lyrics_cache_enabled():
             try:
-                with cache_path.open("w", encoding="utf-8") as cache_file:
-                    json.dump(result, cache_file, ensure_ascii=False)
-            except Exception:
+                self._metadata_cache.put("lyrics", cache_key, result)
+            except (OSError, sqlite3.Error, ValueError, TypeError):
                 pass
         return result
 

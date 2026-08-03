@@ -13,4 +13,5 @@ def cache_settings_route() -> RouteResponse:
     if request.method == "POST":
         settings.update(request.get_json(silent=True) or {})
         return jsonify({"ok": True})
-    return jsonify(settings.enabled)
+    snapshot = getattr(settings, "snapshot", None)
+    return jsonify(snapshot() if callable(snapshot) else settings.enabled)

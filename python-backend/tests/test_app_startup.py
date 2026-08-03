@@ -17,6 +17,7 @@ class AppStartupTests(unittest.TestCase):
             session_class = patches.enter_context(patch("src.YoutubeMusicSession"))
             patches.enter_context(patch("src.LastFM"))
             patches.enter_context(patch("src.CacheSettings"))
+            patches.enter_context(patch("src.MetadataCache"))
             patches.enter_context(patch("src.ComposerBridge"))
             patches.enter_context(patch("src.ComposerSettings"))
             patches.enter_context(patch("src.LyricsService"))

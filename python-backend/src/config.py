@@ -71,6 +71,7 @@ class Config:
     PLAYLIST_CACHE_TTL = 24 * 3600
     ALBUM_CACHE_TTL = 7 * 24 * 3600
     BAND_MEMBER_CACHE_TTL = 24 * 3600
+    AUDIO_COUNTERPART_CACHE_TTL = 30 * 24 * 3600
     CACHE_DEFAULTS = {"playlists": True, "albums": True, "images": True, "songs": True, "lyrics": True}
 
 
@@ -88,6 +89,7 @@ class ConfigDirs:
         self.LYRICS_CACHE_DIR = self.BASE_DIR / "lyrics_cache"
         self.CUSTOM_LYRICS_DIR = self.BASE_DIR / "custom_lyrics"
         self.VIDEO_SYNC_CACHE_DIR = self.BASE_DIR / "video_sync_cache"
+        self.CACHE_DATABASE = self.BASE_DIR / "cache.sqlite3"
         self.YTDLP_UPDATE_DIR = self.BASE_DIR / "ytdlp"
         self.BIN_DIR = self.BASE_DIR / "bin"
 

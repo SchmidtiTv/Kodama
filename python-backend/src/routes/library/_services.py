@@ -11,6 +11,7 @@ from src.lib.music.playlist import Playlist
 from src.lib.music.youtube_music import YoutubeMusicSession
 from src.lib.profiles.profile import Profile
 from src.lib.runtime.cache import CacheSettings
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 def music_session() -> YoutubeMusicSession:
@@ -23,6 +24,10 @@ def profiles() -> Profile:
 
 def cache_settings() -> CacheSettings:
     return cast(CacheSettings, current_app.extensions["cache_settings"])
+
+
+def metadata_cache() -> MetadataCache:
+    return cast(MetadataCache, current_app.extensions["metadata_cache"])
 
 
 def playlist_cache() -> Playlist:

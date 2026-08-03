@@ -3,6 +3,7 @@
 from typing import cast
 from flask import current_app
 from src.lib.runtime.cache import CacheSettings
+from src.lib.runtime.metadata_cache import MetadataCache
 from src.lib.music.youtube_music import YoutubeMusicSession
 from src.lib.music.playlist import Playlist
 from src.lib.music.download import DownloadService
@@ -10,6 +11,11 @@ from src.lib.music.download import DownloadService
 
 def cache_settings() -> CacheSettings:
     return cast(CacheSettings, current_app.extensions["cache_settings"])
+
+
+def metadata_cache() -> MetadataCache | None:
+    """Return the structured cache store when available (older test apps omit it)."""
+    return cast(MetadataCache | None, current_app.extensions.get("metadata_cache"))
 
 
 def music_session() -> YoutubeMusicSession:

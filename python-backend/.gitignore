@@ -13,6 +13,7 @@ song_cache/
 custom_lyrics/
 ytdlp/
 band_member_cache/
+cache.sqlite3*
 
 # Locally provisioned secrets
 feedback_config.json

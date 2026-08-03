@@ -14,7 +14,7 @@ from src.lib.music.video_variants import is_video_variant
 
 from . import blueprint
 from ._formatters import format_track
-from ._services import cache_settings, music_session, playlist_cache, profiles
+from ._services import cache_settings, metadata_cache, music_session, playlist_cache, profiles
 from src.type_defs import RouteResponse
 
 
@@ -168,6 +168,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
     profile_repo = profiles()
     profile_name = session.state.current_profile
     cache = playlist_cache()
+    counterpart_cache = metadata_cache()
     cache_flags = cache_settings().enabled
     force_refresh = request.args.get("refresh", "0") == "1"
 
@@ -249,7 +250,11 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
                 yield send({"type": "header", "title": "Liked Songs", "thumbnail": "", "total": total})
                 all_tracks: list[dict[str, object]] = []
                 for raw_batch in iter_preferred_audio_versions(
-                    session.get_active_client(), None, raw_tracks, _RESOLUTION_BATCH_SIZE
+                    session.get_active_client(),
+                    None,
+                    raw_tracks,
+                    _RESOLUTION_BATCH_SIZE,
+                    counterpart_cache,
                 ):
                     formatted_batch = [format_track(track) for track in raw_batch]
                     all_tracks.extend(formatted_batch)
@@ -273,7 +278,11 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             yield send({"type": "header", "title": playlist.get("title", ""), "thumbnail": thumbnail, "total": total})
             all_tracks: list[dict[str, object]] = []
             for raw_batch in iter_preferred_audio_versions(
-                session.get_active_client(), playlist_id, raw_tracks, _RESOLUTION_BATCH_SIZE
+                session.get_active_client(),
+                playlist_id,
+                raw_tracks,
+                _RESOLUTION_BATCH_SIZE,
+                counterpart_cache,
             ):
                 formatted_batch = [format_track(track) for track in raw_batch]
                 all_tracks.extend(formatted_batch)
@@ -329,13 +338,15 @@ def get_playlist(playlist_id: str) -> RouteResponse:
             songs = session.get_active_client().get_liked_songs()
             raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
             tracks = [format_track(track) for track in prefer_audio_versions(
-                session.get_active_client(), None, raw_tracks
+                session.get_active_client(), None, raw_tracks, metadata_cache()
             )]
             return jsonify({"title": "Liked Songs", "thumbnail": "", "tracks": tracks})
 
         playlist = session.get_active_client().get_playlist(playlist_id, limit=None)
         raw_tracks = [t for t in playlist.get("tracks", []) if t.get("videoId")]
-        raw_tracks = prefer_audio_versions(session.get_active_client(), playlist_id, raw_tracks)
+        raw_tracks = prefer_audio_versions(
+            session.get_active_client(), playlist_id, raw_tracks, metadata_cache()
+        )
         tracks = [format_track(t) for t in raw_tracks]
         return jsonify({
             "title": playlist.get("title", ""),

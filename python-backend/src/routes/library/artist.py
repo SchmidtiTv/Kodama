@@ -6,7 +6,7 @@ from src.lib import BandMemberLookupError, YoutubeResponseMapper
 from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
-from ._services import band_member_finder, music_session
+from ._services import band_member_finder, metadata_cache, music_session
 from src.type_defs import RouteResponse
 
 
@@ -45,7 +45,7 @@ def get_artist(browse_id: str) -> RouteResponse:
             for track in (artist.get("songs", {}).get("results", []))[:20]
             if track.get("videoId")
         ]
-        for t in prefer_audio_versions(client, None, raw_tracks):
+        for t in prefer_audio_versions(client, None, raw_tracks, metadata_cache()):
             thumbnail = YoutubeResponseMapper.select_thumbnail(t.get("thumbnails", []))
             # duration may be a pre-formatted string ("3:45") or absent;
             # fall back to duration_seconds if available

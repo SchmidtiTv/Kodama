@@ -21,6 +21,7 @@ from .music.youtube_music import YoutubeMusicSession, YoutubeMusicSessionState
 from .profiles.auth_headers import ProfileAuthHeaders
 from .profiles.profile import Profile
 from .runtime.cache import CacheSettings
+from .runtime.metadata_cache import MetadataCache
 from .runtime.debug import setup_debug
 from .runtime.logging import setup_log_tee, setup_logger
 from .runtime.launcher import run_server
@@ -36,6 +37,7 @@ __all__ = [
     "DelayedCleanup",
     "DirectoryInspector",
     "CacheSettings",
+    "MetadataCache",
     "ComposerBridge",
     "ComposerBridgeError",
     "ComposerSettings",

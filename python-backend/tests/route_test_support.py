@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from flask import Flask, Response
 
+from src.lib.runtime.metadata_cache import MetadataCache
 from src.routes import register_blueprints
 
 
@@ -175,6 +176,7 @@ class FakeYoutubeClient:
         self.unsubscribed_artists = []
         self.watch_playlist_calls = []
         self.history_items = []
+        self.liked_songs_limits = []
 
     def search(self, query: object, filter: object="songs", limit: object=20) -> object:
         if filter is None:
@@ -268,6 +270,7 @@ class FakeYoutubeClient:
         return [{"browseId": "MPREb", "title": "Album", "year": "2026", "type": "Album", "thumbnails": cast(list[object], [])}]
 
     def get_liked_songs(self, limit: object=None) -> object:
+        self.liked_songs_limits.append(limit)
         return {"tracks": self.search("liked")}
 
     def rate_song(self, video_id: object, rating: object) -> object:
@@ -982,6 +985,7 @@ class RouteTestCase(unittest.TestCase):
         self.ytdlp = FakeYTDLP()
         self.overlay_server = FakeOverlayServer()
         self.remote_control = FakeRemoteControl()
+        self.metadata_cache = MetadataCache(self.root / "cache.sqlite3")
         self.app.extensions.update(
             {
                 "profile_repository": self.profile_repository,
@@ -1003,6 +1007,7 @@ class RouteTestCase(unittest.TestCase):
                 "ytdlp": self.ytdlp,
                 "overlay_server": self.overlay_server,
                 "remote_control": self.remote_control,
+                "metadata_cache": self.metadata_cache,
                 "server_start_time": 1000.0,
                 "feedback_webhook_url": "",
             }

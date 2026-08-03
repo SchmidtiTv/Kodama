@@ -1,12 +1,15 @@
 """Resolve video-heavy YouTube Music playlists to their audio counterparts."""
 
 import re
+import sqlite3
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 from typing import Protocol
 
+from src.config import Config
 from src.lib.music.video_variants import is_video_variant
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 class WatchPlaylistClient(Protocol):
@@ -243,11 +246,43 @@ def _watch_playlist_candidates(
     return candidates if isinstance(candidates, list) else []
 
 
+def _cached_counterpart(
+    cache: MetadataCache | None, video_id: str
+) -> dict[str, object] | None:
+    if cache is None or not video_id:
+        return None
+    try:
+        return cache.get_audio_counterpart(video_id, Config.AUDIO_COUNTERPART_CACHE_TTL)
+    except (OSError, sqlite3.Error, TypeError, ValueError):
+        return None
+
+
+def _store_counterpart(
+    cache: MetadataCache | None, video_id: str, audio: dict[str, object]
+) -> None:
+    if cache is None or not video_id:
+        return
+    try:
+        cache.put_audio_counterpart(video_id, audio)
+    except (OSError, sqlite3.Error, TypeError, ValueError):
+        pass
+
+
+def _delete_counterpart(cache: MetadataCache | None, video_id: str) -> None:
+    if cache is None or not video_id:
+        return
+    try:
+        cache.delete_audio_counterpart(video_id)
+    except (OSError, sqlite3.Error):
+        pass
+
+
 def _resolve_audio_batch(
     client: WatchPlaylistClient,
     candidates: list[object],
     tracks: list[dict[str, object]],
     offset: int,
+    counterpart_cache: MetadataCache | None = None,
 ) -> tuple[list[dict[str, object]], int]:
     """Resolve one ordered playlist batch without delaying other batches."""
     resolved = list(tracks)
@@ -256,10 +291,29 @@ def _resolve_audio_batch(
     for batch_index, video in enumerate(tracks):
         if not is_video_variant(video):
             continue
+        video_id = str(video.get("videoId", ""))
+        cached_audio = _cached_counterpart(counterpart_cache, video_id)
+        if (
+            cached_audio is not None
+            and cached_audio.get("videoType") == "MUSIC_VIDEO_TYPE_ATV"
+            and _same_song(video, cached_audio)
+        ):
+            resolved[batch_index] = cached_audio
+            replacement_count += 1
+            print(
+                "[playlist] resolved audio counterpart "
+                f"video_id={video_id} audio_id={cached_audio.get('videoId', '')} "
+                f"title={cached_audio.get('title', '')!r} source=cache",
+                flush=True,
+            )
+            continue
+        if cached_audio is not None:
+            _delete_counterpart(counterpart_cache, video_id)
         audio = candidates[offset + batch_index] if offset + batch_index < len(candidates) else None
         if isinstance(audio, dict) and audio.get("videoType") == "MUSIC_VIDEO_TYPE_ATV" and _same_song(video, audio):
             resolved[batch_index] = audio
             replacement_count += 1
+            _store_counterpart(counterpart_cache, video_id, audio)
             print(
                 "[playlist] resolved audio counterpart "
                 f"video_id={video.get('videoId', '')} audio_id={audio.get('videoId', '')} "
@@ -290,6 +344,8 @@ def _resolve_audio_batch(
                 continue
             resolved[batch_index] = audio
             replacement_count += 1
+            video_id = str(video.get("videoId", ""))
+            _store_counterpart(counterpart_cache, video_id, audio)
             print(
                 "[playlist] resolved audio counterpart "
                 f"video_id={video.get('videoId', '')} audio_id={audio.get('videoId', '')} "
@@ -305,6 +361,7 @@ def iter_preferred_audio_versions(
     playlist_id: str | None,
     tracks: list[dict[str, object]],
     batch_size: int,
+    counterpart_cache: MetadataCache | None = None,
 ) -> Iterator[list[dict[str, object]]]:
     """Yield ordered, audio-preferred track batches for an SSE playlist response."""
     if not tracks:
@@ -320,7 +377,11 @@ def iter_preferred_audio_versions(
     replacement_count = 0
     for index in range(0, len(tracks), batch_size):
         batch, replacements = _resolve_audio_batch(
-            client, candidates, tracks[index:index + batch_size], index
+            client,
+            candidates,
+            tracks[index:index + batch_size],
+            index,
+            counterpart_cache,
         )
         replacement_count += replacements
         yield batch
@@ -334,7 +395,10 @@ def iter_preferred_audio_versions(
 
 
 def prefer_audio_versions(
-    client: WatchPlaylistClient, playlist_id: str | None, tracks: list[dict[str, object]]
+    client: WatchPlaylistClient,
+    playlist_id: str | None,
+    tracks: list[dict[str, object]],
+    counterpart_cache: MetadataCache | None = None,
 ) -> list[dict[str, object]]:
     """Replace OMV/UGC playlist entries with their audio versions when available."""
     if not tracks or not any(is_video_variant(track) for track in tracks):
@@ -342,7 +406,9 @@ def prefer_audio_versions(
 
     candidate_count = sum(1 for track in tracks if is_video_variant(track))
     candidates = _watch_playlist_candidates(client, playlist_id, len(tracks)) if playlist_id else []
-    resolved, replacement_count = _resolve_audio_batch(client, candidates, tracks, 0)
+    resolved, replacement_count = _resolve_audio_batch(
+        client, candidates, tracks, 0, counterpart_cache
+    )
 
     print(
         f"[playlist] audio counterpart resolution playlist_id={playlist_id or 'none'} "

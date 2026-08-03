@@ -1,26 +1,29 @@
-"""In-memory and on-disk playlist cache.
+"""In-memory and SQLite-backed playlist cache.
 
-The in-memory layer is an LRU keyed by playlist id; the on-disk layer is a JSON
-file per (profile, playlist) pair so different profiles never collide.
+The in-memory layer is an LRU keyed by playlist id; the persistent layer is
+profile-scoped so account-relative playlist ids never collide.
 """
 
 import collections
 import json
 import os
+import sqlite3
 import time
 from typing import cast
 
 from src.config import Config, config_dirs, config_ytmusic
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 class Playlist:
     # Old server.py: _playlist_cache
-    def __init__(self) -> None:
+    def __init__(self, metadata_cache: MetadataCache | None = None) -> None:
         # Keyed by (profile, playlist_id): account-relative ids such as "LM"
         # (Liked Songs) are shared across Google accounts but hold different
         # content, so the in-memory layer must be profile-scoped just like the
         # on-disk layer. LRU eviction is over the whole map.
         self.playlist_cache: collections.OrderedDict[tuple[str, str], dict[str, object]] = collections.OrderedDict()
+        self._metadata_cache = metadata_cache or MetadataCache(config_dirs.CACHE_DATABASE)
 
     @staticmethod
     def _memory_key(playlist_id: str, profile: str | None) -> tuple[str, str]:
@@ -32,8 +35,22 @@ class Playlist:
         safe = playlist_id.replace("/", "_").replace("\\", "_")
         return os.path.join(config_dirs.PLAYLIST_CACHE_DIR, f"{prefix}_{safe}.json")
 
+    @staticmethod
+    def _disk_key(playlist_id: str, profile: str | None) -> str:
+        return f"{profile or 'default'}:{playlist_id}"
+
     # Old server.py: _load_playlist_disk
     def load_playlist_disk(self, playlist_id: str, profile: str | None, ttl: int = Config.PLAYLIST_CACHE_TTL) -> dict[str, object] | None:
+        key = self._disk_key(playlist_id, profile)
+        try:
+            data = self._metadata_cache.get("playlists", key, ttl)
+        except (OSError, sqlite3.Error):
+            data = None
+        if data is not None:
+            tracks = cast(list[dict[str, object]], data.get("tracks", []))
+            return None if tracks and "isExplicit" not in tracks[0] else data
+
+        # Import pre-SQLite caches lazily, preserving existing installations.
         path = self.playlist_disk_path(playlist_id, profile)
         if not os.path.exists(path):
             return None
@@ -46,22 +63,29 @@ class Playlist:
             tracks = cast(list[dict[str, object]], data.get("tracks", []))
             if tracks and "isExplicit" not in tracks[0]:
                 return None
+            self._metadata_cache.put("playlists", key, data)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
             return data
-        except Exception:
+        except (OSError, ValueError, TypeError):
             return None
 
     # Old server.py: _save_playlist_disk
     def save_playlist_disk(self, playlist_id: str, profile: str | None, data: dict[str, object]) -> None:
-        path = self.playlist_disk_path(playlist_id, profile)
         try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False)
-        except Exception:
+            self._metadata_cache.put("playlists", self._disk_key(playlist_id, profile), data)
+        except (OSError, sqlite3.Error, TypeError, ValueError):
             pass
 
     # Old server.py: _purge_playlist_cache
     def purge_playlist_cache(self, playlist_id: str, profile: str | None) -> None:
         self.discard_memory(playlist_id, profile)
+        try:
+            self._metadata_cache.delete("playlists", self._disk_key(playlist_id, profile))
+        except (OSError, sqlite3.Error):
+            pass
         path = self.playlist_disk_path(playlist_id, profile)
         if os.path.exists(path):
             os.remove(path)

@@ -3,7 +3,7 @@ import time
 from flask import Flask
 from flask_cors import CORS
 
-from src.config import Config
+from src.config import Config, config_dirs
 from src.lib import (
     Album,
     BandMemberFinder,
@@ -15,6 +15,7 @@ from src.lib import (
     ExportService,
     FFmpeg,
     LyricsService,
+    MetadataCache,
     MusixMatch,
     NetworkSettings,
     OverlayServer,
@@ -60,7 +61,9 @@ def create_app() -> Flask:
 
         profile_repository = Profile()
         app.extensions["profile_repository"] = profile_repository
-        playlist_cache = Playlist()
+        metadata_cache = MetadataCache(config_dirs.CACHE_DATABASE)
+        app.extensions["metadata_cache"] = metadata_cache
+        playlist_cache = Playlist(metadata_cache=metadata_cache)
         app.extensions["playlist_cache"] = playlist_cache
         music_session = YoutubeMusicSession(
             profiles=profile_repository,
@@ -70,7 +73,7 @@ def create_app() -> Flask:
         music_session.start_cookie_refresh_loop()
         app.extensions["youtube_music_session"] = music_session
         app.extensions["lastfm_client"] = LastFM()
-        app.extensions["cache_settings"] = CacheSettings()
+        app.extensions["cache_settings"] = CacheSettings(metadata_cache=metadata_cache)
         app.extensions["composer_bridge"] = ComposerBridge(
             settings=ComposerSettings(),
             cache_settings=app.extensions["cache_settings"],
@@ -79,8 +82,9 @@ def create_app() -> Flask:
         app.extensions["lyrics_service"] = LyricsService(
             cache_settings=app.extensions["cache_settings"],
             musixmatch=MusixMatch(),
+            metadata_cache=metadata_cache,
         )
-        app.extensions["album_cache"] = Album()
+        app.extensions["album_cache"] = Album(metadata_cache=metadata_cache)
         app.extensions["band_member_finder"] = BandMemberFinder()
 
         ytdlp = YTDLP(

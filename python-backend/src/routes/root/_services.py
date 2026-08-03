@@ -3,12 +3,17 @@
 from typing import cast
 from flask import current_app
 from src.lib.runtime.cache import CacheSettings
+from src.lib.runtime.metadata_cache import MetadataCache
 from src.lib.music.youtube_music import YoutubeMusicSession
 from src.lib.profiles.profile import Profile
 
 
 def cache_settings() -> CacheSettings:
     return cast(CacheSettings, current_app.extensions["cache_settings"])
+
+
+def metadata_cache() -> MetadataCache:
+    return cast(MetadataCache, current_app.extensions["metadata_cache"])
 
 
 def music_session() -> YoutubeMusicSession:

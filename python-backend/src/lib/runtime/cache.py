@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from src.config import Config, ConfigDirs
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 class CacheSettings:
@@ -11,15 +12,37 @@ class CacheSettings:
 
     CATEGORIES = ("playlists", "albums", "images", "songs", "lyrics")
 
-    def __init__(self, defaults: Mapping[str, bool] | None = None) -> None:
+    def __init__(
+        self,
+        defaults: Mapping[str, bool] | None = None,
+        metadata_cache: MetadataCache | None = None,
+    ) -> None:
         # Old server.py: _cache_enabled
         self.enabled: dict[str, bool] = dict(defaults or Config.CACHE_DEFAULTS)
+        self.max_cache_mb = 0
+        self._metadata_cache = metadata_cache
+        if metadata_cache is not None:
+            saved = metadata_cache.get("settings", "cache") or {}
+            for category in self.CATEGORIES:
+                if isinstance(saved.get(category), bool):
+                    self.enabled[category] = bool(saved[category])
+            saved_limit = saved.get("maxCacheMb")
+            if isinstance(saved_limit, int) and saved_limit >= 0:
+                self.max_cache_mb = saved_limit
 
     def update(self, values: Mapping[str, object]) -> None:
         """Apply only recognized cache flags and keep their values boolean."""
         for category in self.CATEGORIES:
-            if category in values:
+            if isinstance(values.get(category), bool):
                 self.enabled[category] = bool(values[category])
+        limit = values.get("maxCacheMb")
+        if isinstance(limit, int) and limit >= 0:
+            self.max_cache_mb = limit
+        if self._metadata_cache is not None:
+            self._metadata_cache.put("settings", "cache", self.snapshot())
+
+    def snapshot(self) -> dict[str, object]:
+        return {**self.enabled, "maxCacheMb": self.max_cache_mb}
 
     @staticmethod
     def category_directories(config_dirs: ConfigDirs) -> dict[str, Path]:

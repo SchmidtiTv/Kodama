@@ -1,6 +1,9 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from src.lib.music.audio_versions import iter_preferred_audio_versions, prefer_audio_versions
+from src.lib.runtime.metadata_cache import MetadataCache
 
 
 class FakeWatchPlaylistClient:
@@ -346,3 +349,49 @@ class AudioVersionTests(unittest.TestCase):
 
         self.assertEqual(resolved[0]["videoId"], "search-audio-id")
         self.assertEqual(client.watch_playlist_calls, 0)
+
+    def test_resolved_counterpart_is_reused_without_another_search(self) -> None:
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me (Official Video)",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 223,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MetadataCache(Path(directory) / "cache.sqlite3")
+            first = prefer_audio_versions(SearchOnlyClient(), None, [video], cache)
+
+            class NoNetworkClient(SearchOnlyClient):
+                def search(self, query, filter="songs", limit=20):
+                    raise AssertionError("cached counterpart should avoid search")
+
+            second = prefer_audio_versions(NoNetworkClient(), None, [video], cache)
+
+        self.assertEqual(first[0]["videoId"], "search-audio-id")
+        self.assertEqual(second[0]["videoId"], "search-audio-id")
+
+    def test_mismatched_cached_counterpart_is_replaced(self) -> None:
+        video = {
+            "videoId": "video-id",
+            "title": "Take On Me (Official Video)",
+            "artists": [{"name": "a-ha"}],
+            "duration_seconds": 223,
+            "videoType": "MUSIC_VIDEO_TYPE_OMV",
+        }
+        stale = {
+            "videoId": "wrong-audio-id",
+            "title": "Different Song",
+            "artists": [{"name": "a-ha"}],
+            "videoType": "MUSIC_VIDEO_TYPE_ATV",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MetadataCache(Path(directory) / "cache.sqlite3")
+            cache.put_audio_counterpart("video-id", stale)
+
+            resolved = prefer_audio_versions(SearchOnlyClient(), None, [video], cache)
+
+            self.assertEqual(resolved[0]["videoId"], "search-audio-id")
+            self.assertEqual(
+                cache.get_audio_counterpart("video-id")["videoId"], "search-audio-id"
+            )

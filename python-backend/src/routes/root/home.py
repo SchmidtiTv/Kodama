@@ -7,7 +7,7 @@ from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
 from ._formatters import is_podcast_section, song_result
-from ._services import music_session
+from ._services import metadata_cache, music_session
 from src.type_defs import RouteResponse
 
 
@@ -26,7 +26,9 @@ def get_home() -> RouteResponse:
                 for item in section.get("contents", [])
                 if item.get("videoId") and not is_podcast
             ]
-            resolved_songs = iter(prefer_audio_versions(client, None, raw_songs))
+            resolved_songs = iter(
+                prefer_audio_versions(client, None, raw_songs, metadata_cache())
+            )
             for item in section.get("contents", []):
                 if item.get("videoId") and not is_podcast:
                     items.append(song_result(next(resolved_songs)))

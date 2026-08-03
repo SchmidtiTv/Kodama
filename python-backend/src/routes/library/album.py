@@ -6,7 +6,7 @@ from src.lib import YoutubeResponseMapper
 from src.lib.music.audio_versions import prefer_audio_versions
 
 from . import blueprint
-from ._services import album_cache, cache_settings, music_session
+from ._services import album_cache, cache_settings, metadata_cache, music_session
 from src.type_defs import RouteResponse
 
 
@@ -24,7 +24,7 @@ def get_album(browse_id: str) -> RouteResponse:
         client = music_session().get_active_client()
         album = client.get_album(browse_id)
         raw_tracks = [track for track in album.get("tracks", []) if track.get("videoId")]
-        raw_tracks = prefer_audio_versions(client, None, raw_tracks)
+        raw_tracks = prefer_audio_versions(client, None, raw_tracks, metadata_cache())
         tracks = []
         album_artists = album.get("artists", [])
         album_artist_name = ", ".join(a["name"] for a in album_artists)
