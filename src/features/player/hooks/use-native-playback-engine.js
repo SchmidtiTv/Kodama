@@ -4,7 +4,6 @@ import {
   listenForNativeProgress,
   listenForNativeStateChanges,
   listenForNativeTrackChanges,
-  playNative,
   replaceNativeQueue,
   restartNative,
   setNativeCurrentTrack,
@@ -105,8 +104,7 @@ export function useNativePlaybackEngine({
     let cancelled = false;
     const syncSelection = async () => {
       const videoId = track?.videoId || null;
-      const isReselection =
-        !!videoId && syncedTrackRef.current?.videoId === videoId;
+      if (videoId) setProgress(0);
       const queueSnapshot = await replaceNativeQueue(queue);
       if (cancelled || !queueSnapshot) return;
       const snapshot = await setNativeCurrentTrack(track);
@@ -117,14 +115,18 @@ export function useNativePlaybackEngine({
         initialTrackRef.current === videoId && restoredTrackId === videoId;
       initialTrackRef.current = null;
       if (!isRestoredSelection) {
-        await (isReselection ? restartNative() : playNative());
+        // A previous source can still report Playing between set_current_track (which marks the
+        // selection Stopped) and the next command. player_play would then keep that old source,
+        // making a deliberate selection appear to require a second click. Restart always builds
+        // the selected track's source, whether this is a new track or a re-selection.
+        await restartNative();
       }
     };
     syncSelection();
     return () => {
       cancelled = true;
     };
-  }, [nativeAvailable, queue, restoredTrackId, track]);
+  }, [nativeAvailable, queue, restoredTrackId, setProgress, track]);
 
   useEffect(() => {
     if (!nativeAvailable) return;
