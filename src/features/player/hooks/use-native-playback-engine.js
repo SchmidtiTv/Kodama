@@ -147,8 +147,12 @@ export function useNativePlaybackEngine({
   useEffect(() => {
     let unlisten = () => {};
     let cancelled = false;
-    listenForNativeTrackChanges(({ track: nativeTrack } = {}) => {
+    listenForNativeTrackChanges(({ track: nativeTrack, reason } = {}) => {
       if (!nativeTrack?.videoId) return;
+      // Local selection has already updated React state before it asks Rust to play/restart.
+      // A delayed echo for the previously playing track must not roll that choice back; native
+      // navigation and external controls use distinct reasons and continue through below.
+      if (reason === "play" || reason === "restart") return;
       const nextTrack =
         queueRef.current.find((item) => item.videoId === nativeTrack.videoId) ||
         (trackRef.current?.videoId === nativeTrack.videoId ? trackRef.current : nativeTrack);
