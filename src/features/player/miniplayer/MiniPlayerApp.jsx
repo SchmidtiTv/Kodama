@@ -11,6 +11,7 @@ import { Button, SliderRoot, SliderTrack, SliderFill, SliderThumb } from "@herou
 import { Play, Pause, SkipBack, SkipForward, MiniPlayerExit, X } from "@/shared/icons/icons.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
 import { thumbHi } from "@/shared/api/thumbnails.js";
+import { native } from "@/shared/api/tauri.js";
 import { EV_NOW_PLAYING, MINI_SIZE_KEY, sayHello, sendToMain, requestShowMain } from "./bridge.js";
 
 const fmt = (s) => {
@@ -18,7 +19,16 @@ const fmt = (s) => {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 };
 
-const EMPTY = { title: "", artists: "", thumbnail: "", isPlaying: false, position: 0, duration: 0, at: 0, hasTrack: false };
+const EMPTY = {
+  title: "",
+  artists: "",
+  thumbnail: "",
+  isPlaying: false,
+  position: 0,
+  duration: 0,
+  at: 0,
+  hasTrack: false,
+};
 
 export default function MiniPlayerApp() {
   const [np, setNp] = useState(EMPTY);
@@ -33,7 +43,10 @@ export default function MiniPlayerApp() {
   useEffect(() => {
     const accent = localStorage.getItem("kiyoshi-accent");
     if (accent) document.documentElement.style.setProperty("--accent", accent);
-    document.documentElement.setAttribute("data-theme", localStorage.getItem("kiyoshi-theme") || "dark");
+    document.documentElement.setAttribute(
+      "data-theme",
+      localStorage.getItem("kiyoshi-theme") || "dark"
+    );
     if (localStorage.getItem("kiyoshi-high-contrast") === "true") {
       document.documentElement.setAttribute("data-highcontrast", "true");
     }
@@ -45,10 +58,8 @@ export default function MiniPlayerApp() {
   // subclass on Windows, NSWindow's own aspect ratio on macOS), and strip the Windows 11
   // accent border that borderless windows get — same call the overlay editor makes.
   useEffect(() => {
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke("lock_square_for", { label: "mini-player" }).catch(() => {});
-      invoke("remove_window_border_for", { label: "mini-player" }).catch(() => {});
-    }).catch(() => {});
+    native.lockSquareFor("mini-player").catch(() => {});
+    native.removeWindowBorderFor("mini-player").catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -56,10 +67,14 @@ export default function MiniPlayerApp() {
     import("@tauri-apps/api/event").then(({ listen }) => {
       listen(EV_NOW_PLAYING, (e) => {
         if (e.payload) setNp({ ...EMPTY, ...e.payload });
-      }).then((fn) => { unlisten = fn; });
+      }).then((fn) => {
+        unlisten = fn;
+      });
     });
     sayHello(); // the main window only broadcasts on change — ask for the current state
-    return () => { unlisten && unlisten(); };
+    return () => {
+      unlisten && unlisten();
+    };
   }, []);
 
   // Local clock between updates, so the bar moves smoothly without a message per frame.
@@ -74,13 +89,20 @@ export default function MiniPlayerApp() {
   // a fallback for platforms without the native lock above (Linux): where that lock works,
   // the incoming size is already square and this returns before touching anything.
   useEffect(() => {
-    let unlisten, cancelled = false;
-    let scale = 1, prev = null, correcting = false;
+    let unlisten,
+      cancelled = false;
+    let scale = 1,
+      prev = null,
+      correcting = false;
     (async () => {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
       const { LogicalSize } = await import("@tauri-apps/api/dpi");
       const w = getCurrentWindow();
-      try { scale = await w.scaleFactor(); } catch { /* Use logical pixels as a fallback. */ }
+      try {
+        scale = await w.scaleFactor();
+      } catch {
+        /* Use logical pixels as a fallback. */
+      }
       if (cancelled) return;
       unlisten = await w.onResized(async ({ payload }) => {
         if (correcting) return;
@@ -88,14 +110,27 @@ export default function MiniPlayerApp() {
         const target = prev && Math.abs(ph - prev.h) > Math.abs(pw - prev.w) ? ph : pw;
         prev = { w: target, h: target };
         const logical = Math.round(target / scale);
-        try { localStorage.setItem(MINI_SIZE_KEY, String(logical)); } catch { /* Persistence is optional. */ }
+        try {
+          localStorage.setItem(MINI_SIZE_KEY, String(logical));
+        } catch {
+          /* Persistence is optional. */
+        }
         if (pw === ph) return;
         correcting = true;
-        try { await w.setSize(new LogicalSize(logical, logical)); } catch { /* Native locks handle supported platforms. */ }
-        setTimeout(() => { correcting = false; }, 60);
+        try {
+          await w.setSize(new LogicalSize(logical, logical));
+        } catch {
+          /* Native locks handle supported platforms. */
+        }
+        setTimeout(() => {
+          correcting = false;
+        }, 60);
       });
     })();
-    return () => { cancelled = true; unlisten && unlisten(); };
+    return () => {
+      cancelled = true;
+      unlisten && unlisten();
+    };
   }, []);
 
   const closeSelf = async () => {
@@ -124,17 +159,25 @@ export default function MiniPlayerApp() {
       className="relative w-screen h-screen overflow-hidden select-none"
       style={{ background: np.thumbnail ? "#000" : "var(--placeholder-gradient)" }}
       onPointerEnter={() => setHover(true)}
-      onPointerLeave={() => { setHover(false); setSeekDrag(null); }}
+      onPointerLeave={() => {
+        setHover(false);
+        setSeekDrag(null);
+      }}
     >
       {/* Cover fills the window. The broadcast carries the raw thumbnail — the small list
           variant — so it gets upgraded here: the window is square and can be scaled by DPI,
           which made the shipped size visibly soft. Same path Big Picture's cover uses. */}
       {np.thumbnail && (
         <img
-          src={thumbHi(np.thumbnail, 800)} alt="" draggable={false}
+          src={thumbHi(np.thumbnail, 800)}
+          alt=""
+          draggable={false}
           data-tauri-drag-region
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ transform: hover ? "scale(1.04)" : "scale(1)", transition: "transform 0.35s cubic-bezier(0.4,0,0.2,1)" }}
+          style={{
+            transform: hover ? "scale(1.04)" : "scale(1)",
+            transition: "transform 0.35s cubic-bezier(0.4,0,0.2,1)",
+          }}
         />
       )}
 
@@ -143,7 +186,8 @@ export default function MiniPlayerApp() {
         data-tauri-drag-region
         className="absolute inset-0 flex flex-col justify-between p-3"
         style={{
-          background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 35%, rgba(0,0,0,0.78) 100%)",
+          background:
+            "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 35%, rgba(0,0,0,0.78) 100%)",
           opacity: hover ? 1 : 0,
           pointerEvents: hover ? "auto" : "none",
           transition: "opacity 0.22s ease",
@@ -153,14 +197,21 @@ export default function MiniPlayerApp() {
             they sit on cover art, where the app's secondary text colour has no contrast. */}
         <div data-tauri-drag-region className="flex items-center justify-end gap-0.5">
           <Button
-            variant="ghost" isIconOnly aria-label={t("miniPlayerOpenMain")}
-            onPress={async () => { await requestShowMain(); await closeSelf(); }}
+            variant="ghost"
+            isIconOnly
+            aria-label={t("miniPlayerOpenMain")}
+            onPress={async () => {
+              await requestShowMain();
+              await closeSelf();
+            }}
             className="rounded-full text-white/70 hover:text-white"
           >
             <MiniPlayerExit size={14} />
           </Button>
           <Button
-            variant="ghost" isIconOnly aria-label={t("miniPlayerClose")}
+            variant="ghost"
+            isIconOnly
+            aria-label={t("miniPlayerClose")}
             onPress={closeSelf}
             className="rounded-full text-white/70 hover:text-white"
           >
@@ -173,7 +224,9 @@ export default function MiniPlayerApp() {
             back a little for the smaller surface. */}
         <div data-tauri-drag-region className="flex items-center justify-center gap-1">
           <Button
-            variant="ghost" isIconOnly isDisabled={!np.hasTrack}
+            variant="ghost"
+            isIconOnly
+            isDisabled={!np.hasTrack}
             onPress={() => sendToMain("previous")}
             aria-label={t("miniPlayerPrev")}
             className="rounded-xl text-accent shrink-0"
@@ -181,7 +234,8 @@ export default function MiniPlayerApp() {
             <SkipBack size={20} />
           </Button>
           <Button
-            variant="primary" isDisabled={!np.hasTrack}
+            variant="primary"
+            isDisabled={!np.hasTrack}
             onPress={() => sendToMain("toggle")}
             aria-label={t("miniPlayerPlayPause")}
             className="w-14 h-9 rounded-full shrink-0"
@@ -189,7 +243,9 @@ export default function MiniPlayerApp() {
             {np.isPlaying ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
           </Button>
           <Button
-            variant="ghost" isIconOnly isDisabled={!np.hasTrack}
+            variant="ghost"
+            isIconOnly
+            isDisabled={!np.hasTrack}
             onPress={() => sendToMain("next")}
             aria-label={t("miniPlayerNext")}
             className="rounded-xl text-accent shrink-0"
@@ -204,13 +260,21 @@ export default function MiniPlayerApp() {
             <div className="text-t12 font-medium text-white truncate" title={np.title}>
               {np.hasTrack ? np.title : t("miniPlayerIdle")}
             </div>
-            <div className="text-t10 text-white/60 truncate" title={np.artists}>{np.artists}</div>
+            <div className="text-t10 text-white/60 truncate" title={np.artists}>
+              {np.artists}
+            </div>
           </div>
           {/* Seek — the player bar's slider, class for class (see .player-seek in index.css),
               so both windows share the 8px track, the interpolated fill and the hover
               gradient. The seek-band wrapper is what that gradient keys its hover off. */}
           <div data-tauri-drag-region className="flex items-center gap-1.5">
-            <span data-tauri-drag-region className="text-t10 text-white/50 tabular-nums shrink-0" style={{ minWidth: 26 }}>{fmt(shown)}</span>
+            <span
+              data-tauri-drag-region
+              className="text-t10 text-white/50 tabular-nums shrink-0"
+              style={{ minWidth: 26 }}
+            >
+              {fmt(shown)}
+            </span>
             <div className="seek-band flex-1 flex items-center" style={{ height: 10 }}>
               <SliderRoot
                 aria-label="Seek"
@@ -229,7 +293,13 @@ export default function MiniPlayerApp() {
                 </SliderTrack>
               </SliderRoot>
             </div>
-            <span data-tauri-drag-region className="text-t10 text-white/50 tabular-nums shrink-0" style={{ minWidth: 26, textAlign: "right" }}>{fmt(np.duration)}</span>
+            <span
+              data-tauri-drag-region
+              className="text-t10 text-white/50 tabular-nums shrink-0"
+              style={{ minWidth: 26, textAlign: "right" }}
+            >
+              {fmt(np.duration)}
+            </span>
           </div>
         </div>
       </div>

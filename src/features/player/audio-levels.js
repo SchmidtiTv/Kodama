@@ -1,6 +1,7 @@
 // Shared real-time audio levels streamed from the Rust audio thread (`audio-levels`
 // event, ~30fps). One listener feeds a mutable singleton; visualizer components read
 // `audioLevels.bands` / `.level` inside their own rAF loop (no React re-renders).
+import { native } from "@/shared/api/tauri.js";
 const analysisStore =
   globalThis.__kodamaAudioAnalysis ||
   (globalThis.__kodamaAudioAnalysis = {
@@ -30,9 +31,7 @@ export function startAudioLevels() {
 }
 
 function setNativeAnalysisEnabled(enabled) {
-  import("@tauri-apps/api/core")
-    .then(({ invoke }) => invoke("audio_set_analysis_enabled", { enabled }))
-    .catch(() => {});
+  native.setAudioAnalysisEnabled(enabled).catch(() => {});
 }
 
 // Visualizer surfaces acquire analysis only while they are actually drawing. This keeps sample

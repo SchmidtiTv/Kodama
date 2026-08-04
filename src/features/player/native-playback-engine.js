@@ -1,4 +1,5 @@
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
+import { native } from "@/shared/api/tauri.js";
 
 function artistNames(artists) {
   if (Array.isArray(artists)) {
@@ -44,46 +45,37 @@ function transitionOverrides(overrides, queue) {
   });
 }
 
-async function invokeEngine(command, args) {
+async function invokeEngine(command) {
   if (!globalThis.__TAURI_INTERNALS__) return null;
-  let invoke;
   try {
-    ({ invoke } = await import("@tauri-apps/api/core"));
-  } catch {
-    // Browser E2E and the HTML-audio fallback do not expose the native engine.
-    return null;
-  }
-  try {
-    return await invoke(command, args);
+    return await command();
   } catch (error) {
-    console.warn(`[PlaybackEngine] ${command} failed:`, error);
+    console.warn("[PlaybackEngine] command failed:", error);
     return null;
   }
 }
 
 export function getNativeSnapshot() {
-  return invokeEngine("player_get_snapshot");
+  return invokeEngine(native.getPlayerSnapshot);
 }
 
 export function replaceNativeQueue(queue) {
   const tracks = (queue || []).map(toNativePlaybackTrack).filter(Boolean);
-  return invokeEngine("playback_engine_replace_queue", { queue: tracks });
+  return invokeEngine(() => native.replacePlaybackQueue(tracks));
 }
 
 export function setNativeCurrentTrack(track) {
-  return invokeEngine("playback_engine_set_current_track", {
-    track: toNativePlaybackTrack(track),
-  });
+  return invokeEngine(() => native.setPlaybackCurrentTrack(toNativePlaybackTrack(track)));
 }
 
 export function updateNativeTransport({ shuffle, repeat, volume }) {
-  return invokeEngine("playback_engine_update_transport", {
-    update: {
+  return invokeEngine(() =>
+    native.updatePlaybackTransport({
       shuffle: !!shuffle,
       repeat: repeat || "none",
       volume: Number.isFinite(volume) ? volume : undefined,
-    },
-  });
+    })
+  );
 }
 
 export function updateNativeTransitionPolicy({
@@ -93,60 +85,58 @@ export function updateNativeTransitionPolicy({
   playbackProgressive,
   automaticCrossfade,
 }) {
-  return invokeEngine("playback_engine_update_transition_policy", {
-    update: {
+  return invokeEngine(() =>
+    native.updatePlaybackTransitionPolicy({
       crossfadeSeconds: Number(crossfade) || 0,
       crossfadeOverrides: transitionOverrides(crossfadeOverrides, queue),
       progressive: !!playbackProgressive,
       automaticCrossfade: !!automaticCrossfade,
-    },
-  });
+    })
+  );
 }
 
 export function setNativeUiVisible(visible) {
-  return invokeEngine("player_set_ui_visible", { visible: !!visible });
+  return invokeEngine(() => native.setPlayerUiVisible(!!visible));
 }
 
 export function setNativeLiked(liked) {
-  return invokeEngine("player_set_liked", { liked: !!liked });
+  return invokeEngine(() => native.setPlayerLiked(!!liked));
 }
 
 export function playNative() {
-  return invokeEngine("player_play");
+  return invokeEngine(native.playerPlay);
 }
 
 export function restartNative() {
-  return invokeEngine("player_restart");
+  return invokeEngine(native.playerRestart);
 }
 
 export function pauseNative() {
-  return invokeEngine("player_pause");
+  return invokeEngine(native.playerPause);
 }
 
 export function nextNative() {
-  return invokeEngine("player_next");
+  return invokeEngine(native.playerNext);
 }
 
 export function previousNative() {
-  return invokeEngine("player_previous");
+  return invokeEngine(native.playerPrevious);
 }
 
 export function seekNative(position) {
-  return invokeEngine("player_seek", { position: Math.max(0, Number(position) || 0) });
+  return invokeEngine(() => native.playerSeek(Math.max(0, Number(position) || 0)));
 }
 
 export function setNativeVolume(volume) {
-  return invokeEngine("player_set_volume", {
-    volume: Math.max(0, Math.min(1, Number(volume) || 0)),
-  });
+  return invokeEngine(() => native.setPlayerVolume(Math.max(0, Math.min(1, Number(volume) || 0))));
 }
 
 export function setNativeShuffle(shuffle) {
-  return invokeEngine("player_set_shuffle", { shuffle: !!shuffle });
+  return invokeEngine(() => native.setPlayerShuffle(!!shuffle));
 }
 
 export function setNativeRepeat(repeat) {
-  return invokeEngine("player_set_repeat", { repeat: repeat || "none" });
+  return invokeEngine(() => native.setPlayerRepeat(repeat || "none"));
 }
 
 export async function listenForNativeTrackChanges(handler) {

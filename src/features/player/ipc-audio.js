@@ -1,3 +1,5 @@
+import { native, nativeCommand } from "@/shared/api/tauri.js";
+
 export class IpcAudio {
   constructor() {
     this._src = "";
@@ -8,25 +10,19 @@ export class IpcAudio {
     this._paused = true;
     this._volume = 0.16; // same default as Rust thread (0.4² quadratic)
     this._listeners = {};
-    this._invoke = null; // resolved lazily on first use
-
     // Fallback: if Rust commands don't exist (binary not recompiled),
     // _fallback is set to a plain HTMLAudioElement and all calls route there.
     this._fallback = null; // null = not decided, false = Rust works, Audio = fallback
     this._probePromise = null; // dedup the one-time probe
     this._e2eMedia = globalThis.__kodamaE2e?.media;
 
-    // Resolve Tauri invoke/listen modules asynchronously on construction.
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      this._invoke = invoke;
-      if (this._e2eMedia) {
-        this._fallback = false;
-        this._probePromise = Promise.resolve();
-        return;
-      }
-      // Probe immediately: try a harmless command to see if Rust audio exists.
-      this._probe(invoke);
-    });
+    // Probe immediately to determine whether the native audio commands exist.
+    if (!this._e2eMedia) {
+      this._probe();
+    } else {
+      this._fallback = false;
+      this._probePromise = Promise.resolve();
+    }
     import("@tauri-apps/api/event").then(({ listen }) => {
       listen("audio-progress", ({ payload }) => {
         if (this._fallback) return; // ignore Rust events when in fallback mode
@@ -57,16 +53,17 @@ export class IpcAudio {
   // ── Fallback probe ──────────────────────────────────────────────────────────
   // Calls audio_set_volume (side-effect-free) to check if the Rust command
   // exists.  If it fails with "unknown command", switch to HTML5 Audio.
-  _probe(invoke) {
+  _probe() {
     if (this._probePromise) return this._probePromise;
     // Use audio_pause as a harmless no-op probe — it does nothing when no song
     // is playing, and importantly does NOT touch volume state.
-    this._probePromise = invoke("audio_pause")
+    this._probePromise = native
+      .audioPause()
       .then(() => {
         this._fallback = false;
         console.log("[IpcAudio] Rust audio commands available ✓");
         // Now sync the stored volume to Rust so it's ready for first play
-        invoke("audio_set_volume", { volume: this._volume });
+        native.setAudioVolume(this._volume);
       })
       .catch(() => {
         console.warn("[IpcAudio] Rust audio commands not found — falling back to HTML5 Audio");
@@ -94,23 +91,19 @@ export class IpcAudio {
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
-  _cmd(name, args) {
+  _cmd(command) {
     if (this._e2eMedia) {
-      this._e2eMedia.record(name, args || {});
+      // Browser E2E owns its own media command recorder.
+      this._e2eMedia.record(command.name, command.args || {});
       return Promise.resolve();
     }
     if (this._fallback) return Promise.resolve(); // Rust path disabled
-    console.log("[IpcAudio] →", name, args?.url ? args.url.substring(0, 80) + "…" : "");
-    const go = (invoke) =>
-      invoke(name, args || {}).catch((e) => console.error("[IpcAudio] ERROR", name, e));
-    if (this._invoke) {
-      go(this._invoke);
-    } else {
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        this._invoke = invoke;
-        go(invoke);
-      });
-    }
+    console.log(
+      "[IpcAudio] →",
+      command.name,
+      command.args?.url ? command.args.url.substring(0, 80) + "…" : ""
+    );
+    command.call().catch((e) => console.error("[IpcAudio] ERROR", command.name, e));
     return Promise.resolve();
   }
 
@@ -165,7 +158,11 @@ export class IpcAudio {
     if (this._srcDirty) {
       this._pendingSeekTo = t;
     } else {
-      this._cmd("audio_seek", { position: t });
+      this._cmd({
+        name: nativeCommand.audioSeek,
+        args: { position: t },
+        call: () => native.audioSeek(t),
+      });
     }
   }
 
@@ -186,7 +183,11 @@ export class IpcAudio {
       this._fire("volumechange");
       return;
     }
-    this._cmd("audio_set_volume", { volume: v });
+    this._cmd({
+      name: nativeCommand.setAudioVolume,
+      args: { volume: v },
+      call: () => native.setAudioVolume(v),
+    });
     this._fire("volumechange");
   }
 
@@ -202,11 +203,15 @@ export class IpcAudio {
       this._pendingSeekTo = 0;
       this._paused = false;
       console.log("[IpcAudio] play() → audio_play (new src)");
-      this._cmd("audio_play", { url: this._src, seekTo });
+      this._cmd({
+        name: nativeCommand.audioPlay,
+        args: { url: this._src, seekTo },
+        call: () => native.audioPlay(this._src, seekTo),
+      });
     } else {
       this._paused = false;
       console.log("[IpcAudio] play() → audio_resume");
-      this._cmd("audio_resume");
+      this._cmd({ name: nativeCommand.audioResume, call: native.audioResume });
     }
     return Promise.resolve();
   }
@@ -217,7 +222,7 @@ export class IpcAudio {
       return;
     }
     this._paused = true;
-    this._cmd("audio_pause");
+    this._cmd({ name: nativeCommand.audioPause, call: native.audioPause });
   }
 
   addEventListener(type, handler) {
