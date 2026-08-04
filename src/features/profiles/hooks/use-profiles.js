@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "@heroui/react";
 
 import { API } from "@/shared/api/client.js";
+import { native } from "@/shared/api/tauri.js";
 import { translate } from "@/shared/i18n/i18n.js";
 
 /**
@@ -116,20 +117,13 @@ export function useProfiles({
       firstTimer = null,
       cancelled = false;
     (async () => {
-      let invoke;
       try {
-        ({ invoke } = await import("@tauri-apps/api/core"));
-      } catch {
-        return;
-      }
-      try {
-        await invoke("ensure_session_keeper", { profileName: currentProfile });
+        await native.ensureSessionKeeper(currentProfile);
       } catch {
         return;
       }
       if (cancelled) return;
-      const rotate = () =>
-        invoke("rotate_session_cookies", { profileName: currentProfile }).catch(() => {});
+      const rotate = () => native.rotateSessionCookies(currentProfile).catch(() => {});
       const alreadyLoggedOut = Boolean(
         profilesRef.current.find((profile) => profile.name === currentProfile)?.loggedOut
       );
@@ -150,9 +144,7 @@ export function useProfiles({
       cancelled = true;
       if (interval) clearInterval(interval);
       if (firstTimer) clearTimeout(firstTimer);
-      import("@tauri-apps/api/core")
-        .then(({ invoke }) => invoke("stop_session_keeper"))
-        .catch(() => {});
+      native.stopSessionKeeper().catch(() => {});
     };
   }, [currentProfile]);
 

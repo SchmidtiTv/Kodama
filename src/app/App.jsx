@@ -10,6 +10,7 @@ import {
 } from "react";
 import { toast, ToastProvider } from "@heroui/react";
 import { API } from "@/shared/api/client.js";
+import { native } from "@/shared/api/tauri.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { AppShell } from "./AppShell.jsx";
 import { GLOBAL_KEYFRAMES } from "./global-keyframes.js";
@@ -404,9 +405,7 @@ export default function App() {
     () => localStorage.getItem("kiyoshi-close-tray") !== "false"
   );
   useEffect(() => {
-    import("@tauri-apps/api/core").then(({ invoke }) =>
-      invoke("set_close_to_tray", { enabled: closeTray }).catch(() => {})
-    );
+    native.setCloseToTray(closeTray).catch(() => {});
   }, [closeTray]);
 
   const { obsEnabled, obsPort, obsPortInput, setObsPortInput, toggleObs, saveObsPort } =
@@ -647,8 +646,7 @@ export default function App() {
   );
   const applyAppIcon = useCallback(async (file) => {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("set_app_icon", { file });
+      await native.setAppIcon(file);
     } catch (e) {
       console.error("[AppIcon] set failed:", e);
     }
@@ -714,22 +712,16 @@ export default function App() {
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
     localStorage.setItem("kiyoshi-lang", lang);
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke("update_tray_labels", {
-        showLabel: translate(lang, "trayShow"),
-        quitLabel: translate(lang, "trayQuit"),
-      }).catch(() => {});
-    });
+    native
+      .updateTrayLabels(translate(lang, "trayShow"), translate(lang, "trayQuit"))
+      .catch(() => {});
   };
 
   useEffect(() => {
     const lang = getInitialLang();
-    import("@tauri-apps/api/core").then(({ invoke }) => {
-      invoke("update_tray_labels", {
-        showLabel: translate(lang, "trayShow"),
-        quitLabel: translate(lang, "trayQuit"),
-      }).catch(() => {});
-    });
+    native
+      .updateTrayLabels(translate(lang, "trayShow"), translate(lang, "trayQuit"))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -962,18 +954,13 @@ export default function App() {
       onCloseTrayChange: (v) => {
         setCloseTray(v);
         localStorage.setItem("kiyoshi-close-tray", String(v));
-        import("@tauri-apps/api/core").then(({ invoke }) =>
-          invoke("set_close_to_tray", { enabled: v }).catch(() => {})
-        );
+        native.setCloseToTray(v).catch(() => {});
       },
       discordRpc,
       onDiscordRpcChange: (v) => {
         setDiscordRpc(v);
         localStorage.setItem("kiyoshi-discord-rpc", v);
-        if (!v)
-          import("@tauri-apps/api/core").then(({ invoke }) =>
-            invoke("clear_discord_rpc").catch(() => {})
-          );
+        if (!v) native.clearDiscordRpc().catch(() => {});
       },
       discordStatusDisplay,
       onDiscordStatusDisplayChange: (v) => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, CardRoot, InputRoot, Spinner, TextFieldRoot } from "@heroui/react";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { API } from "@/shared/api/client.js";
+import { native } from "@/shared/api/tauri.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { CheckCircle, X } from "@/shared/icons/icons.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
@@ -114,8 +115,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
     const name = forcedProfileName || "account_" + Date.now();
     setLoginError("");
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("open_login_window", {
+      await native.openLoginWindow({
         profileName: name,
         confirmLabel: t("loginUseThisAccount"),
         switchHint: t("loginSwitchAccountHint"),
@@ -128,8 +128,7 @@ function LoginScreen({ onSuccess, onCancel, forcedProfileName }) {
 
   const cancelLogin = async () => {
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("close_login_window");
+      await native.closeLoginWindow();
     } catch {
       /* intentionally ignored */
     }

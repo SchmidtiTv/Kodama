@@ -7,15 +7,14 @@ import { useState, useEffect } from "react";
 import { IconContext } from "@/shared/icons/icons.jsx";
 import { translate } from "@/shared/i18n/i18n.js";
 import OverlayEditor from "@/features/overlay/OverlayEditor.jsx";
+import { native } from "@/shared/api/tauri.js";
 
 const API = "http://localhost:9847";
 
 export default function OverlayEditorApp() {
   // Strip the Windows 11 accent border from this borderless (decorations:false) window.
   useEffect(() => {
-    import("@tauri-apps/api/core")
-      .then(({ invoke }) => invoke("remove_window_border_for", { label: "overlay-editor" }))
-      .catch(() => {});
+    native.removeWindowBorderFor("overlay-editor").catch(() => {});
   }, []);
 
   const [language] = useState(() => localStorage.getItem("kiyoshi-lang") || "de");

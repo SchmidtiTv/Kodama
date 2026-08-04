@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { matchesShortcut, serializeShortcut } from "@/shared/lib/shortcuts.js";
 import { IS_MAC } from "@/shared/lib/platform.js";
+import { native } from "@/shared/api/tauri.js";
 
 const ZOOM_STEPS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
 
@@ -172,9 +173,7 @@ export function useAppShortcuts({
       } else if (matchesShortcut(sc.fullscreen, e)) {
         setFullscreen((f) => {
           const next = !f;
-          import("@tauri-apps/api/core").then(({ invoke }) =>
-            invoke("set_fullscreen", { fullscreen: next }).catch(() => {})
-          );
+          native.setFullscreen(next).catch(() => {});
           if (next) setOverlayOpen(true);
           return next;
         });

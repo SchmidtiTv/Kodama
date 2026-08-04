@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { translate } from "@/shared/i18n/i18n.js";
+import { native } from "@/shared/api/tauri.js";
 
 const LEGACY_UPDATE_MANIFEST_URL =
   "https://raw.githubusercontent.com/KiyoshiTheDevil/Kodama/master/updates/latest.json";
@@ -113,11 +114,10 @@ export function useAppUpdate({ addToast, getInitialLang }) {
     if (!updateInfo?._update) return;
     try {
       // Stop the Python backend before the installer runs, otherwise it can hold file locks.
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("stop_server_cmd").catch(() => {});
+      await native.stopServer().catch(() => {});
       await updateInfo._update.install();
       // This command uses app.restart() and does not require plugin-process capabilities.
-      await invoke("relaunch_app");
+      await native.relaunchApp();
     } catch (error) {
       console.error("[Updater] install failed:", error);
       const lang = getInitialLang();

@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar.jsx";
 import { SelectionActionBar } from "@/features/music/components/selection-action-bar.jsx";
 import { AppOverlays } from "./AppOverlays.jsx";
 import { buildShareLink } from "@/features/player/share-link.js";
+import { native } from "@/shared/api/tauri.js";
 import { usePersistedState } from "@/shared/hooks/use-persisted-state.js";
 import {
   QUEUE_DEFAULT,
@@ -309,8 +310,7 @@ export function AppShell({
     let shot;
     try {
       await new Promise((r) => setTimeout(r, 180));
-      const { invoke } = await import("@tauri-apps/api/core");
-      shot = await invoke("capture_screenshot");
+      shot = await native.captureScreenshot();
     } catch {
       shot = null;
     }
@@ -818,10 +818,9 @@ export function AppShell({
                 remoteEnabled={remoteEnabled}
                 fullscreen={fullscreen}
                 onToggleFullscreen={async () => {
-                  const { invoke } = await import("@tauri-apps/api/core");
                   const next = !fullscreen;
                   try {
-                    await invoke("set_fullscreen", { fullscreen: next });
+                    await native.setFullscreen(next);
                   } catch (e) {
                     console.error(e);
                   }

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Button, CardRoot, ProgressBar, ProgressBarFill, ProgressBarTrack } from "@heroui/react";
 import { gsap } from "gsap";
 import { API } from "@/shared/api/client.js";
+import { native } from "@/shared/api/tauri.js";
 import { LANGUAGES, translate } from "@/shared/i18n/i18n.js";
 import { ArrowClockwise, Check, CheckCircle, X } from "@/shared/icons/icons.jsx";
 import { useLang } from "@/shared/i18n/context.jsx";
@@ -223,11 +224,9 @@ export function FfmpegSetupScreen({ onDone }) {
           localStorage.setItem("kiyoshi-ffmpeg-ok", "1");
           // Neustart nach kurzer Pause
           setTimeout(() => {
-            import("@tauri-apps/api/core")
-              .then(({ invoke }) => invoke("relaunch_app"))
-              .catch(() => {
-                onDone();
-              }); // im Dev-Modus kein relaunch → einfach weiter
+            native.relaunchApp().catch(() => {
+              onDone();
+            }); // im Dev-Modus kein relaunch → einfach weiter
           }, 1200);
         } else if (data.status === "error") {
           es.close();

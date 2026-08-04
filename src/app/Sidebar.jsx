@@ -18,6 +18,7 @@ import {
 } from "@heroui/react";
 import { DropdownMenu } from "@/shared/ui/zoomed-heroui.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
+import { native } from "@/shared/api/tauri.js";
 import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { IS_MAC } from "@/shared/lib/platform.js";
 import { SpotlightSearch } from "@/features/music/components/spotlight-search.jsx";
@@ -90,7 +91,7 @@ export function Sidebar({
   const startQuitHold = () => {
     setQuitHolding(true);
     quitHoldTimer.current = setTimeout(() => {
-      import("@tauri-apps/api/core").then(({ invoke }) => invoke("quit_app"));
+      native.quitApp();
     }, 1000);
   };
   const cancelQuitHold = () => {

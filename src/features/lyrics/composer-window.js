@@ -1,7 +1,8 @@
 // Open Boidu's Composer in a dedicated Kodama window, pre-filled with the active track and the
 // current theme. Rust owns window creation and the audio bridge setup.
+import { native } from "@/shared/api/tauri.js";
+
 export async function openComposer(videoId) {
-  const { invoke } = await import("@tauri-apps/api/core");
   try {
     window.dispatchEvent(new Event("kodama-pause-playback"));
   } catch {
@@ -39,5 +40,5 @@ export async function openComposer(videoId) {
   } catch {
     /* intentionally ignored */
   }
-  return invoke("open_composer_window", { videoId: videoId || null, overrides });
+  return native.openComposerWindow(videoId, overrides);
 }
