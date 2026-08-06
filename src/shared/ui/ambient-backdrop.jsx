@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { thumb } from "../api/thumbnails.js";
 
+const RETRY_DELAYS_MS = [250, 500, 1000, 2000];
+
 // Ambient app-wide backdrop: the playing track's heavily-blurred cover. New covers are
 // preloaded, then stacked on top and faded in (crossfade); once a layer has fully faded in
 // the layers beneath it are pruned. Passing thumbnail={null} clears it with no flash.
@@ -19,9 +21,29 @@ export function AmbientBackdrop({ thumbnail }) {
       return;
     }
     const key = ++idRef.current;
-    const img = new Image();
-    img.onload = () => setLayers((prev) => [...prev, { key, url }].slice(-3));
-    img.src = url;
+    let cancelled = false;
+    let retryTimer;
+
+    const preload = (attempt = 0) => {
+      const img = new Image();
+      img.onload = () => {
+        if (!cancelled) setLayers((prev) => [...prev, { key, url }].slice(-3));
+      };
+      img.onerror = () => {
+        const delay = RETRY_DELAYS_MS[attempt];
+        if (cancelled || delay === undefined) return;
+        retryTimer = window.setTimeout(() => preload(attempt + 1), delay);
+      };
+      // The local image proxy can still be starting when the persisted track is
+      // restored. Vary retries so a browser does not reuse the failed startup request.
+      img.src = attempt === 0 ? url : `${url}&ambientRetry=${attempt}`;
+    };
+
+    preload();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(retryTimer);
+    };
   }, [thumbnail]);
 
   if (layers.length === 0) return null;
