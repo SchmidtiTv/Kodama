@@ -97,6 +97,7 @@ export function SettingsSidebarContent({
         { id: "ap-colors", label: t("apColors") },
         { id: "ap-others", label: t("apOthers") },
         { id: "ap-player", label: t("playerBar") },
+        { id: "ap-sidebar", label: t("sidebarSettings") },
       ],
     },
     {

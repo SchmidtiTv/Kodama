@@ -934,6 +934,15 @@ export function AppShell({
           fullscreen={fullscreen}
           sidebarCollapsed={sidebarCollapsed}
           sidebarWidth={sidebarWidth}
+          sidebarControls={{
+            collapsed: sidebarCollapsed,
+            width: sidebarWidth,
+            minWidth: SIDEBAR_MIN,
+            maxWidth: SIDEBAR_MAX,
+            defaultWidth: SIDEBAR_EXPANDED,
+            setCollapsed: setSidebarCollapsed,
+            setWidth: setSidebarWidth,
+          }}
           view={view}
           setView={setView}
           collection={collection}

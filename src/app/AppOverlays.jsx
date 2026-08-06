@@ -413,6 +413,7 @@ export function AppOverlays({
   fullscreen,
   sidebarCollapsed,
   sidebarWidth,
+  sidebarControls,
   view,
   setView,
   collection,
@@ -578,6 +579,13 @@ export function AppOverlays({
               setHideUserHandle(v);
               localStorage.setItem("kiyoshi-hide-handle", String(v));
             }}
+            sidebarCollapsed={sidebarControls.collapsed}
+            sidebarWidth={sidebarControls.width}
+            sidebarMinWidth={sidebarControls.minWidth}
+            sidebarMaxWidth={sidebarControls.maxWidth}
+            sidebarDefaultWidth={sidebarControls.defaultWidth}
+            onSidebarCollapsedChange={sidebarControls.setCollapsed}
+            onSidebarWidthChange={sidebarControls.setWidth}
           />
         </div>
       )}

@@ -31,6 +31,7 @@ import {
 import { AccountTabContent } from "./tabs/account-settings-tab.jsx";
 import { VisualizerSettingsTab } from "./tabs/visualizer-settings-tab.jsx";
 import { AppearanceSettingsTab } from "./tabs/appearance-settings-tab.jsx";
+import { SidebarSettingsTab } from "./tabs/sidebar-settings-tab.jsx";
 import { PlaybackSettingsTab } from "./tabs/playback-settings-tab.jsx";
 import { ConnectionsSettingsTab } from "./tabs/connections-settings-tab.jsx";
 import { LyricsSettingsTab } from "./tabs/lyrics-settings-tab.jsx";
@@ -66,6 +67,13 @@ export function SettingsPanel({
   onToggleHideUserHandle,
   tab,
   setTab,
+  sidebarCollapsed,
+  sidebarWidth,
+  sidebarMinWidth,
+  sidebarMaxWidth,
+  sidebarDefaultWidth,
+  onSidebarCollapsedChange,
+  onSidebarWidthChange,
 }) {
   const anim = useAnimations();
   const t = useLang();
@@ -515,31 +523,43 @@ export function SettingsPanel({
           )}
 
           {tab === "darstellung" && (
-            <AppearanceSettingsTab
-              accent={accent}
-              accentDynamic={accentDynamic}
-              accentLight={accentLight}
-              accentSat={accentSat}
-              anim={anim}
-              animations={animations}
-              appFontScale={appFontScale}
-              appIcon={appIcon}
-              onAccentChange={onAccentChange}
-              onAccentDynamicChange={onAccentDynamicChange}
-              onAccentLightChange={onAccentLightChange}
-              onAccentSatChange={onAccentSatChange}
-              onAnimationsChange={onAnimationsChange}
-              onAppIconChange={onAppIconChange}
-              onFontScaleChange={onFontScaleChange}
-              onPlayerBarControlToggle={onPlayerBarControlToggle}
-              onThemeChange={onThemeChange}
-              onUiZoomChange={onUiZoomChange}
-              playerBarControls={playerBarControls}
-              t={t}
-              theme={theme}
-              uiZoom={uiZoom}
-              vizPreviewTrack={vizPreviewTrack}
-            />
+            <>
+              <AppearanceSettingsTab
+                accent={accent}
+                accentDynamic={accentDynamic}
+                accentLight={accentLight}
+                accentSat={accentSat}
+                anim={anim}
+                animations={animations}
+                appFontScale={appFontScale}
+                appIcon={appIcon}
+                onAccentChange={onAccentChange}
+                onAccentDynamicChange={onAccentDynamicChange}
+                onAccentLightChange={onAccentLightChange}
+                onAccentSatChange={onAccentSatChange}
+                onAnimationsChange={onAnimationsChange}
+                onAppIconChange={onAppIconChange}
+                onFontScaleChange={onFontScaleChange}
+                onPlayerBarControlToggle={onPlayerBarControlToggle}
+                onThemeChange={onThemeChange}
+                onUiZoomChange={onUiZoomChange}
+                playerBarControls={playerBarControls}
+                t={t}
+                theme={theme}
+                uiZoom={uiZoom}
+                vizPreviewTrack={vizPreviewTrack}
+              />
+              <SidebarSettingsTab
+                collapsed={sidebarCollapsed}
+                defaultWidth={sidebarDefaultWidth}
+                maxWidth={sidebarMaxWidth}
+                minWidth={sidebarMinWidth}
+                onCollapsedChange={onSidebarCollapsedChange}
+                onWidthChange={onSidebarWidthChange}
+                t={t}
+                width={sidebarWidth}
+              />
+            </>
           )}
 
           {tab === "wiedergabe" && (
