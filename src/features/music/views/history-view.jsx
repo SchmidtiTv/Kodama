@@ -12,7 +12,6 @@ export function HistoryView({
   onOpenAlbum,
   onTrackContextMenu,
   hideExplicit,
-  onBack,
 }) {
   const t = useLang();
   const anim = useAnimations();
@@ -89,7 +88,7 @@ export function HistoryView({
         loading={false}
         progress={0}
         cached={false}
-        onBack={onBack}
+        onBack={null}
         typeLabel={t("history")}
         isLiked={false}
         onOpenArtist={onOpenArtist}

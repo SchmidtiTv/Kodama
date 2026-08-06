@@ -429,33 +429,32 @@ export function PlaylistLayout({
           position: "relative",
         }}
       >
-        {/* Navigation row */}
+        {/* Keep the shared hero offset even when this top-level view has no back action. */}
         <div style={{ padding: "48px 22px 18px", display: "flex", gap: 8 }}>
-          <button
-            onClick={onBack || undefined}
-            disabled={!onBack}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: "rgba(0,0,0,0.38)",
-              border: "0.5px solid rgba(255,255,255,0.12)",
-              color: onBack ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "default",
-              backdropFilter: "blur(8px)",
-              transition: "background 0.15s",
-              padding: 0,
-            }}
-            onMouseEnter={(e) => {
-              if (onBack) e.currentTarget.style.background = "rgba(0,0,0,0.58)";
-            }}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.38)")}
-          >
-            <ArrowLeft size={16} />
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.38)",
+                border: "0.5px solid rgba(255,255,255,0.12)",
+                color: "rgba(255,255,255,0.9)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "default",
+                backdropFilter: "blur(8px)",
+                transition: "background 0.15s",
+                padding: 0,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.58)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.38)")}
+            >
+              <ArrowLeft size={16} />
+            </button>
+          )}
         </div>
 
         {/* Album / playlist info */}

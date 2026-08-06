@@ -122,7 +122,6 @@ export function MainContent({
               })
             }
             hideExplicit={hideExplicit}
-            onBack={goBack}
           />
         </AnimatedView>
       )}

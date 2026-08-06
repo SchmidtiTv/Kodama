@@ -56,7 +56,7 @@ export function HomeView({
   profileKey = "default",
   refreshKey = 0,
 }) {
-  const { handlePlay } = usePlayerActions();
+  const { handlePlay, setQueue } = usePlayerActions();
   const animations = useAnimations();
   const [sections, setSections] = useState(() => readHomeCache(profileKey)?.sections || []);
   const [loading, setLoading] = useState(() => !readHomeCache(profileKey)?.hasHomeData);
@@ -296,12 +296,23 @@ export function HomeView({
     }
     if (item.type === "playlist") {
       const es = new EventSource(`${API}/playlist/${item.playlistId}/stream`);
+      const tracks = [];
+      let startedTrackId = null;
       es.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data);
           if (msg.type === "tracks" && msg.tracks?.length) {
-            handlePlay(msg.tracks[0], msg.tracks);
-            es.close();
+            tracks.push(...msg.tracks);
+            if (!startedTrackId) {
+              startedTrackId = tracks[0].videoId;
+              handlePlay(tracks[0], tracks);
+            } else {
+              // Playlist streams arrive in 200-track transfer batches. Keep
+              // receiving them so direct play is not silently capped at batch one.
+              setQueue((currentQueue) =>
+                currentQueue[0]?.videoId === startedTrackId ? [...tracks] : currentQueue
+              );
+            }
           } else if (msg.type === "done" || msg.type === "error") es.close();
         } catch {
           es.close();
