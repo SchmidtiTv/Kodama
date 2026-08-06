@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { PlaylistLayout } from "@/features/music/components/track-table.jsx";
 import { GridCard } from "@/features/music/components/rows.jsx";
 import { Microphone, MusicNote, VinylRecord } from "@/shared/icons/icons.jsx";
@@ -196,7 +197,7 @@ export function DownloadsView({
       {tabBar}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 32px" }}>
         {loading ? (
-          <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("loading")}…</div>
+          <LoadingState label={t("loadingDots")} minHeight={140} />
         ) : items.length === 0 ? (
           <div style={{ color: "var(--text-muted)", fontSize: "var(--t13)" }}>{t("noResults")}</div>
         ) : (

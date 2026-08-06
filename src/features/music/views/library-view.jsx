@@ -12,6 +12,7 @@ import {
 } from "@/shared/icons/icons.jsx";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { usePlayerActions } from "@/features/player/player-context.jsx";
 
 export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu }) {
@@ -270,7 +271,7 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
         </div>
       </div>
 
-      {loading && <div style={{ color: "var(--text-secondary)" }}>{t("loadingDots")}</div>}
+      {loading && <LoadingState label={t("loadingDots")} />}
       {error && <div style={{ color: "var(--status-danger)" }}>{error}</div>}
       {!loading && !error && (
         <div

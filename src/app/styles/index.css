@@ -967,6 +967,24 @@ button:not([class]) {
   outline: none;
 }
 
+@keyframes loading-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-state-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* The `to` frame deliberately declares no transform. With animation-fill-mode: both, whatever
    the end frame declares stays applied forever — a translateX(0) would leave every view under
    a permanent identity transform, which (a) neutralises backdrop-filter on all descendants and

@@ -4,6 +4,7 @@ import { GridCard, TrackRow } from "@/features/music/components/rows.jsx";
 import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { usePlaybackStatus, usePlayerActions } from "../../player/player-context.jsx";
 
 export function SearchView({
@@ -248,9 +249,7 @@ export function SearchView({
         </div>
       </div>
 
-      {loading && (
-        <div style={{ padding: "0 16px", color: "var(--text-secondary)" }}>{t("loadingDots")}</div>
-      )}
+      {loading && <LoadingState label={t("loadingDots")} />}
       {error && (
         <div style={{ padding: "0 16px", color: "var(--status-danger)" }}>
           {t("errorLoading")}: {error}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
+import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { PlaylistLayout } from "@/features/music/components/track-table.jsx";
 
 const PAGE_SIZE = 50;
@@ -73,9 +74,7 @@ export function LikedView({
   }, [hasMore, loadingMore, tracks.length]);
 
   if (loading)
-    return (
-      <div style={{ padding: 28, color: "var(--text-secondary)" }}>{t("loadingLikedSongs")}</div>
-    );
+    return <LoadingState label={t("loadingLikedSongs")} minHeight="100%" />;
 
   if (error && errorCode === "auth_expired")
     return (
