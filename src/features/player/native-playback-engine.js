@@ -111,6 +111,10 @@ export function restartNative() {
   return invokeEngine(native.playerRestart);
 }
 
+export function preloadNative() {
+  return invokeEngine(native.playerPreload);
+}
+
 export function pauseNative() {
   return invokeEngine(native.playerPause);
 }

@@ -15,7 +15,7 @@ use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use audio::{
     audio_pause, audio_play, audio_resume, audio_seek, audio_set_analysis_enabled,
     audio_set_volume, audio_stop,
-    player_get_snapshot, player_next, player_pause, player_play, player_previous, player_restart,
+    player_get_snapshot, player_next, player_pause, player_play, player_preload, player_previous, player_restart,
     player_seek, player_set_liked, player_set_queue, player_set_repeat, player_set_shuffle,
     player_set_ui_visible, player_set_volume, player_update_integrations,
     playback_engine_replace_queue, playback_engine_set_current_track, playback_engine_snapshot,
@@ -328,7 +328,7 @@ fn main() {
             appicon::set_app_icon,
             audio_play, audio_pause, audio_resume,
             audio_stop, audio_seek, audio_set_analysis_enabled, audio_set_volume,
-            player_set_queue, player_play, player_restart, player_pause, player_next, player_previous,
+            player_set_queue, player_play, player_restart, player_preload, player_pause, player_next, player_previous,
             player_seek, player_set_volume, player_set_shuffle, player_set_repeat,
             player_get_snapshot, player_set_ui_visible, player_set_liked,
             player_update_integrations,

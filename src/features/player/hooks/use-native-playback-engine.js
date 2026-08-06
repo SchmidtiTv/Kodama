@@ -4,6 +4,7 @@ import {
   listenForNativeProgress,
   listenForNativeStateChanges,
   listenForNativeTrackChanges,
+  preloadNative,
   replaceNativeQueue,
   restartNative,
   setNativeCurrentTrack,
@@ -114,7 +115,9 @@ export function useNativePlaybackEngine({
       const isRestoredSelection =
         initialTrackRef.current === videoId && restoredTrackId === videoId;
       initialTrackRef.current = null;
-      if (!isRestoredSelection) {
+      if (isRestoredSelection) {
+        await preloadNative();
+      } else {
         // A previous source can still report Playing between set_current_track (which marks the
         // selection Stopped) and the next command. player_play would then keep that old source,
         // making a deliberate selection appear to require a second click. Restart always builds

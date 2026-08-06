@@ -67,6 +67,8 @@ export const native = {
   playerPlay: () => invoke("player_play"),
   /** @returns {Promise<object>} Playback snapshot. @example await native.playerRestart() */
   playerRestart: () => invoke("player_restart"),
+  /** @returns {Promise<object>} Playback snapshot. @example await native.playerPreload() */
+  playerPreload: () => invoke("player_preload"),
   /** @returns {Promise<object>} Playback snapshot. @example await native.playerPause() */
   playerPause: () => invoke("player_pause"),
   /** @returns {Promise<object>} Playback snapshot. @example await native.playerNext() */

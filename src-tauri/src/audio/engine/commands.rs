@@ -106,6 +106,30 @@ pub fn player_restart(
 }
 
 #[tauri::command]
+pub fn player_preload(
+    app: tauri::AppHandle,
+    engine: tauri::State<'_, PlaybackEngine>,
+    audio: tauri::State<'_, AudioPlayer>,
+) -> Result<PlaybackSnapshot, String> {
+    // Resolve and construct the selected source while keeping transport paused.
+    // This is used only for the restored startup selection, so reopening the app
+    // makes Play instant without unexpectedly starting audio.
+    let request = engine
+        .restart_current()?
+        .ok_or_else(|| "cannot preload without a current track".to_string())?;
+    let snapshot = engine.update_transport(TransportUpdate {
+        status: Some(PlaybackStatus::Paused),
+        ..TransportUpdate::default()
+    })?;
+    audio
+        .sender()?
+        .send(AudioCmd::PlayResolved { request })
+        .map_err(|error| error.to_string())?;
+    emit_snapshot(&app, &snapshot);
+    Ok(snapshot)
+}
+
+#[tauri::command]
 pub fn player_pause(
     app: tauri::AppHandle,
     engine: tauri::State<'_, PlaybackEngine>,
