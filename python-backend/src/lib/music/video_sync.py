@@ -162,7 +162,7 @@ class VideoSyncService:
 
             result: dict[str, object] = {"available": False}
             try:
-                watch = self._music_session.get_active_client().get_watch_playlist(
+                watch = self._music_session.get_system_client().get_watch_playlist(
                     videoId=video_id, limit=1
                 )
                 tracks = watch.get("tracks") or []

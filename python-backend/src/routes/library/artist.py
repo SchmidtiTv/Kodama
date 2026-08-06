@@ -35,7 +35,8 @@ def _extract_artist_desc_url(browse_id: str) -> str | None:
 @blueprint.route("/artist/<browse_id>")
 def get_artist(browse_id: str) -> RouteResponse:
     try:
-        client = music_session().get_active_client()
+        session = music_session()
+        client = session.get_active_client()
         artist = client.get_artist(browse_id)
 
         # Top songs
@@ -45,7 +46,7 @@ def get_artist(browse_id: str) -> RouteResponse:
             for track in (artist.get("songs", {}).get("results", []))[:20]
             if track.get("videoId")
         ]
-        for t in prefer_audio_versions(client, None, raw_tracks, metadata_cache()):
+        for t in prefer_audio_versions(session.get_system_client(), None, raw_tracks, metadata_cache()):
             thumbnail = YoutubeResponseMapper.select_thumbnail(t.get("thumbnails", []))
             # duration may be a pre-formatted string ("3:45") or absent;
             # fall back to duration_seconds if available

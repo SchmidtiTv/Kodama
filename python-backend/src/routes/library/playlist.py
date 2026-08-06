@@ -167,6 +167,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
     session = music_session()
     profile_repo = profiles()
     profile_name = session.state.current_profile
+    resolver = session.get_system_client()
     cache = playlist_cache()
     counterpart_cache = metadata_cache()
     cache_flags = cache_settings().enabled
@@ -250,7 +251,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
                 yield send({"type": "header", "title": "Liked Songs", "thumbnail": "", "total": total})
                 all_tracks: list[dict[str, object]] = []
                 for raw_batch in iter_preferred_audio_versions(
-                    session.get_active_client(),
+                    resolver,
                     None,
                     raw_tracks,
                     _RESOLUTION_BATCH_SIZE,
@@ -278,7 +279,7 @@ def stream_playlist(playlist_id: str) -> RouteResponse:
             yield send({"type": "header", "title": playlist.get("title", ""), "thumbnail": thumbnail, "total": total})
             all_tracks: list[dict[str, object]] = []
             for raw_batch in iter_preferred_audio_versions(
-                session.get_active_client(),
+                resolver,
                 playlist_id,
                 raw_tracks,
                 _RESOLUTION_BATCH_SIZE,
@@ -310,6 +311,7 @@ def get_playlist(playlist_id: str) -> RouteResponse:
     session = music_session()
     profile_repo = profiles()
     profile_name = session.state.current_profile
+    resolver = session.get_system_client()
     try:
         if profile_repo.is_local(profile_name):
             with profile_repo.local_database(profile_name or "default") as db:
@@ -338,14 +340,14 @@ def get_playlist(playlist_id: str) -> RouteResponse:
             songs = session.get_active_client().get_liked_songs()
             raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
             tracks = [format_track(track) for track in prefer_audio_versions(
-                session.get_active_client(), None, raw_tracks, metadata_cache()
+                resolver, None, raw_tracks, metadata_cache()
             )]
             return jsonify({"title": "Liked Songs", "thumbnail": "", "tracks": tracks})
 
         playlist = session.get_active_client().get_playlist(playlist_id, limit=None)
         raw_tracks = [t for t in playlist.get("tracks", []) if t.get("videoId")]
         raw_tracks = prefer_audio_versions(
-            session.get_active_client(), playlist_id, raw_tracks, metadata_cache()
+            resolver, playlist_id, raw_tracks, metadata_cache()
         )
         tracks = [format_track(t) for t in raw_tracks]
         return jsonify({

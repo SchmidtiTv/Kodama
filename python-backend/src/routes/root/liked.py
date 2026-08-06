@@ -51,7 +51,7 @@ def liked_songs() -> RouteResponse:
         raw_tracks = [track for track in songs.get("tracks", []) if track.get("videoId")]
         page_tracks = raw_tracks[offset : offset + limit]
         page_tracks = prefer_audio_versions(
-            session.get_active_client(), None, page_tracks, metadata_cache()
+            session.get_system_client(), None, page_tracks, metadata_cache()
         )
         total = songs.get("trackCount", len(raw_tracks))
         try:

@@ -15,6 +15,7 @@ from src.type_defs import RouteResponse
 def get_home() -> RouteResponse:
     try:
         client = music_session().get_active_client()
+        resolver = music_session().get_system_client()
         home = client.get_home(limit=15)
         sections = []
         for section in home:
@@ -27,7 +28,7 @@ def get_home() -> RouteResponse:
                 if item.get("videoId") and not is_podcast
             ]
             resolved_songs = iter(
-                prefer_audio_versions(client, None, raw_songs, metadata_cache())
+                prefer_audio_versions(resolver, None, raw_songs, metadata_cache())
             )
             for item in section.get("contents", []):
                 if item.get("videoId") and not is_podcast:

@@ -13,7 +13,8 @@ from src.type_defs import RouteResponse
 @blueprint.route("/radio/<playlist_id>")
 def get_radio(playlist_id: str) -> RouteResponse:
     try:
-        client = music_session().get_active_client()
+        session = music_session()
+        client = session.get_active_client()
         # A song-seeded radio has no playlist ID yet. The frontend uses "_" as the
         # route placeholder and supplies the seed in the query string instead.
         video_id = request.args.get("videoId", "").strip()
@@ -37,7 +38,7 @@ def get_radio(playlist_id: str) -> RouteResponse:
             if isinstance(track, dict) and track.get("videoId")
         ]
         tracks: list[dict[str, object]] = []
-        for t in prefer_audio_versions(client, None, resolvable_tracks, metadata_cache()):
+        for t in prefer_audio_versions(session.get_system_client(), None, resolvable_tracks, metadata_cache()):
             artist_list = t.get("artists") or []
             artists = ", ".join(
                 name for artist in artist_list if isinstance(artist, dict)

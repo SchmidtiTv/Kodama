@@ -58,6 +58,16 @@ class YoutubeMusicSessionTests(unittest.TestCase):
 
         client_factory.assert_called_once_with(str(path), user=profiles.brand_user_id.return_value)
 
+    def test_system_client_is_anonymous_and_reused(self) -> None:
+        client_factory = MagicMock()
+        session = YoutubeMusicSession(profiles=MagicMock(), client_factory=client_factory)
+
+        first = session.get_system_client()
+        second = session.get_system_client()
+
+        self.assertIs(first, second)
+        client_factory.assert_called_once_with()
+
     def test_cookie_refresh_loop_starts_only_once_per_session(self) -> None:
         session = YoutubeMusicSession(profiles=MagicMock())
 

@@ -56,6 +56,16 @@ class LibraryListingRouteTests(RouteTestCase):
         self.assertEqual(self.client.get("/library/albums").json, {"albums": []})
         self.assertEqual(self.client.get("/library/artists").json, {"artists": []})
 
+    def test_library_listing_omits_the_duplicate_liked_songs_playlist(self) -> None:
+        self.music_session.client.get_library_playlists = lambda limit=None: [
+            {"playlistId": "LM", "title": "Liked Songs", "thumbnails": []},
+            {"playlistId": "pl", "title": "Playlist", "thumbnails": []},
+        ]
+
+        playlists = self.client.get("/library/playlists")
+
+        self.assertEqual([playlist["playlistId"] for playlist in playlists.json["playlists"]], ["pl"])
+
 
 class PlaylistRouteTests(RouteTestCase):
     def test_online_playlist_mutation_routes(self) -> None:
@@ -118,7 +128,7 @@ class PlaylistRouteTests(RouteTestCase):
             "thumbnails": [],
             "tracks": tracks,
         }
-        self.music_session.client.get_watch_playlist = lambda **kwargs: {
+        self.music_session.system_client.get_watch_playlist = lambda **kwargs: {
             "tracks": [
                 {
                     **track,

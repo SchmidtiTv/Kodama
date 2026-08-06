@@ -40,7 +40,7 @@ class YoutubeMusicSessionState:
 
 
 class YoutubeMusicSession:
-    """Creates YTMusic clients and maintains one active browser-auth session."""
+    """Owns the user session and an isolated client for background resolution."""
 
     # Old server.py: _SHORT_LIVED_COOKIES
     SHORT_LIVED_COOKIES = {
@@ -79,6 +79,8 @@ class YoutubeMusicSession:
         self._logger = logging.getLogger(__name__)
         self._cookie_refresh_loop_lock = threading.Lock()
         self._cookie_refresh_loop_started = False
+        self._system_client: Optional[YTMusic] = None
+        self._system_client_lock = threading.Lock()
 
     def start_cookie_refresh_loop(self) -> bool:
         """Start the background cookie refresher once for this session."""
@@ -241,6 +243,19 @@ class YoutubeMusicSession:
         if self.state.ytm is None:
             raise Exception("Kein Profil aktiv. Bitte zuerst anmelden.")
         return self.state.ytm
+
+    def get_system_client(self) -> YTMusic:
+        """Return the anonymous client used only for non-user resolution work.
+
+        This client deliberately has no stored profile, browser cookies, or active
+        account state. It must never be used for library, playlist, rating, or
+        history operations. Resolution results are persisted in the shared
+        metadata cache, so every user profile can reuse them.
+        """
+        with self._system_client_lock:
+            if self._system_client is None:
+                self._system_client = self._client_factory()
+            return self._system_client
 
     # Old server.py: fetch_account_info
     def refresh_account_info(self, profile_name: str) -> None:

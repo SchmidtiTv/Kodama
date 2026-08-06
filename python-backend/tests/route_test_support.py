@@ -464,6 +464,7 @@ class FakeMusicSession:
             last_authenticated=True,
         )
         self.client = FakeYoutubeClient()
+        self.system_client = FakeYoutubeClient()
 
     def prepare_auth_headers(self, headers: Mapping[str, str]) -> dict[str, str | bool]:
         return {"prepared": True, **headers}
@@ -498,6 +499,9 @@ class FakeMusicSession:
 
     def get_active_client(self) -> FakeYoutubeClient:
         return self.client
+
+    def get_system_client(self) -> FakeYoutubeClient:
+        return self.system_client
 
 
 class FakeCacheSettings:

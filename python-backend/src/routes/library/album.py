@@ -21,10 +21,11 @@ def get_album(browse_id: str) -> RouteResponse:
             if cached:
                 return jsonify(cached)
 
-        client = music_session().get_active_client()
+        session = music_session()
+        client = session.get_active_client()
         album = client.get_album(browse_id)
         raw_tracks = [track for track in album.get("tracks", []) if track.get("videoId")]
-        raw_tracks = prefer_audio_versions(client, None, raw_tracks, metadata_cache())
+        raw_tracks = prefer_audio_versions(session.get_system_client(), None, raw_tracks, metadata_cache())
         tracks = []
         album_artists = album.get("artists", [])
         album_artist_name = ", ".join(a["name"] for a in album_artists)

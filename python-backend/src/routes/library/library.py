@@ -27,6 +27,11 @@ def library_playlists() -> RouteResponse:
         playlists = session.get_active_client().get_library_playlists(limit=None)
         result = []
         for p in playlists:
+            # Liked Songs has one canonical entry in the app sidebar. The same
+            # account-relative "LM" playlist can also appear in YouTube Music's
+            # library response, which otherwise creates a duplicate playlist card.
+            if p.get("playlistId") == "LM":
+                continue
             result.append({
                 "playlistId": p.get("playlistId", ""),
                 "title": p.get("title", ""),
