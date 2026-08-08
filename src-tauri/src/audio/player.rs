@@ -7,8 +7,8 @@ use super::analyzer;
 use super::decoder::StreamingSource;
 use super::engine::{PlaybackEngine, PlaybackStatus, TransportUpdate};
 use super::source_loader::{
-    build_streaming_source, spawn_automatic_crossfade, spawn_automatic_source,
-    CrossfadeSourceMessage, SourceMessage,
+    build_streaming_source, spawn_automatic_source, spawn_automatic_transition,
+    CrossfadeSourceMessage, PcmTransitionMessage, SourceMessage,
 };
 
 pub enum AudioCmd {
@@ -162,6 +162,7 @@ pub fn start_audio_thread(
         let mut xfade_start: Option<std::time::Instant> = None;
         let mut xfade_dur: f64 = 0.0;
         let (xsource_tx, xsource_rx) = std::sync::mpsc::channel::<CrossfadeSourceMessage>();
+        let (pcm_tx, pcm_rx) = std::sync::mpsc::channel::<PcmTransitionMessage>();
 
         let mut play_gen: u64 = 0;
 
@@ -277,7 +278,66 @@ pub fn start_audio_thread(
                 }
             }
 
-            // Incoming crossfade source: start it on sink2 at volume 0 and begin the ramp.
+            // A prepared Mix transition replaces the current tail with one rendered PCM source,
+            // followed by the buffered incoming continuation on that same sink.
+            while let Ok(message) = pcm_rx.try_recv() {
+                if message.generation != play_gen || sink.is_none() {
+                    continue;
+                }
+                let start_paused = sink.as_ref().is_some_and(|current| current.is_paused());
+                let new_sink = match rodio::Sink::try_new(&handle) {
+                    Ok(sink) => sink,
+                    Err(error) => {
+                        let _ = engine.fail_crossfade();
+                        let _ = app.emit("audio-crossfade-failed", ());
+                        eprintln!("[Audio] PCM transition sink error: {error}");
+                        continue;
+                    }
+                };
+                let committed_track = match engine.commit_crossfade(if start_paused {
+                    PlaybackStatus::Paused
+                } else {
+                    PlaybackStatus::Playing
+                }) {
+                    Ok(Some(track)) => track,
+                    _ => {
+                        new_sink.stop();
+                        continue;
+                    }
+                };
+                let mix_seconds = message.pcm.len() as f64
+                    / (f64::from(message.channels) * f64::from(message.sample_rate));
+                new_sink.set_volume(volume);
+                new_sink.append(rodio::buffer::SamplesBuffer::new(
+                    message.channels,
+                    message.sample_rate,
+                    message.pcm,
+                ));
+                let mut continuation = message.continuation;
+                *current_analysis.lock().unwrap() =
+                    Some(continuation.enable_analysis(Arc::clone(&analysis_enabled_for_player)));
+                new_sink.append(continuation);
+                if start_paused {
+                    new_sink.pause();
+                }
+                if let Some(old_sink) = sink.replace(new_sink) {
+                    old_sink.stop();
+                }
+                duration = message.duration;
+                // Map the combined source clock onto incoming-track time once the PCM prefix ends.
+                seek_offset = message.incoming_offset_seconds - mix_seconds;
+                audio_data = None;
+                source_url = Some(message.url);
+                let _ = app.emit("audio-loaded", serde_json::json!({ "duration": duration }));
+                let _ = app.emit("audio-crossfade-started", ());
+                let _ = app.emit(
+                    "playback-track-changed",
+                    serde_json::json!({ "track": committed_track, "reason": "crossfade" }),
+                );
+                eprintln!("[Audio] Single-sink PCM Mix transition started");
+            }
+
+            // Incoming fallback source: start it on sink2 at volume 0 and begin the ramp.
             while let Ok((mut source, url, dur, gen, automatic)) = xsource_rx.try_recv() {
                 if gen != play_gen {
                     // A seek or track change superseded this build. Its engine request was
@@ -636,9 +696,12 @@ pub fn start_audio_thread(
                 if let Some(current_sink) = sink.as_ref().filter(|sink| !sink.is_paused()) {
                     let position = current_sink.get_pos().as_secs_f64() + seek_offset;
                     if let Ok(Some(request)) = engine.prepare_crossfade(position, duration) {
-                        spawn_automatic_crossfade(
+                        spawn_automatic_transition(
                             request,
+                            source_url.clone(),
+                            position,
                             play_gen,
+                            pcm_tx.clone(),
                             xsource_tx.clone(),
                             app.clone(),
                             engine.clone(),

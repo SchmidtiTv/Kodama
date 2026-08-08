@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Button } from "@heroui/react";
+import { API } from "@/shared/api/client.js";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
 import { useAnimations, useTrackNumbers } from "@/features/settings/display-context.jsx";
@@ -14,6 +15,7 @@ import {
 import { Tooltip } from "@/shared/ui/tooltip.jsx";
 import { ExplicitBadge, ArtistLinks, SkeletonRow } from "@/features/music/components/rows.jsx";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
+import { buildMixTrackOrder } from "@/features/music/mix-track-order.js";
 import { usePlaybackStatus, usePlayerActions } from "@/features/player/player-context.jsx";
 import { useDownloadState, useDownloadActions } from "@/features/downloads/download-context.jsx";
 import {
@@ -24,8 +26,10 @@ import {
   ClockCounterClockwise,
   Crown,
   DownloadSimple,
+  DotsThreeVertical,
   Heart,
   MagnifyingGlass,
+  MusicNote,
   Pause,
   Play,
   Shuffle,
@@ -54,6 +58,13 @@ function findScrollParent(element) {
     }
   }
   return null;
+}
+
+function tableGridColumns({ hasSelection, isAlbum, showMixColumns }) {
+  const selectionColumn = hasSelection ? "28px " : "";
+  const mixColumns = showMixColumns ? "58px 62px " : "";
+  const albumColumn = isAlbum ? "" : "minmax(110px,1fr) ";
+  return `${selectionColumn}36px minmax(180px,2.2fr) ${mixColumns}${albumColumn}28px 52px`;
 }
 
 export function SelActionBtn({ icon, label, onClick, danger, iconOnly, horizontal }) {
@@ -91,18 +102,18 @@ export function TableRow({
   isPremiumOnly,
   selected = false,
   onToggleSelect,
+  mixAnalysis,
+  showMixColumns = false,
 }) {
   const anim = useAnimations();
   const t = useLang();
   const showNum = useTrackNumbers();
 
-  const gridCols = onToggleSelect
-    ? isAlbum
-      ? "28px minmax(0,2fr) minmax(0,1fr) 28px 52px"
-      : "28px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px"
-    : isAlbum
-      ? "minmax(0,2fr) minmax(0,1fr) 28px 52px"
-      : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px";
+  const gridCols = tableGridColumns({
+    hasSelection: Boolean(onToggleSelect),
+    isAlbum,
+    showMixColumns,
+  });
 
   const row = (
     <div
@@ -117,7 +128,7 @@ export function TableRow({
           : undefined
       }
       style={{ gridTemplateColumns: gridCols }}
-      className={`group grid items-center gap-2 px-4 py-1 min-h-[52px] rounded-lg cursor-default transition-colors ${
+      className={`group grid items-center gap-3 px-4 py-2 min-h-[68px] rounded-lg cursor-default transition-colors ${
         selected
           ? "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
           : isPlaying
@@ -140,16 +151,16 @@ export function TableRow({
           )}
         </div>
       )}
-      {/* Title */}
+      <div
+        className={`text-center text-t12 tabular-nums ${isPlaying ? "text-accent" : "text-muted"}`}
+        aria-hidden={!showNum}
+      >
+        {showNum ? index + 1 : ""}
+      </div>
+
+      {/* Title and artist form one compact, scan-friendly identity column. */}
       <div className="flex items-center gap-3 min-w-0">
-        {showNum && (
-          <span
-            className={`w-6 text-right shrink-0 text-t12 tabular-nums ${isPlaying ? "text-accent" : "text-muted"}`}
-          >
-            {index + 1}
-          </span>
-        )}
-        <div className="relative w-10 h-10 shrink-0 overflow-hidden rounded-md bg-elevated">
+        <div className="relative w-12 h-12 shrink-0 overflow-hidden rounded-md bg-elevated">
           {track.thumbnail ? (
             <RetryingImage
               src={thumb(track.thumbnail)}
@@ -177,21 +188,35 @@ export function TableRow({
               )}
             </div>
           )}
+          {!isPlaying && !isPremiumOnly && (
+            <div className="absolute inset-0 hidden items-center justify-center bg-black/45 text-white group-hover:flex">
+              <Play size={17} weight="fill" />
+            </div>
+          )}
         </div>
         <div className="min-w-0">
           <div
-            className={`flex items-center gap-1 overflow-hidden text-t13 font-medium ${isPlaying ? "text-accent" : "text-primary"}`}
+            className={`flex items-center gap-1 overflow-hidden text-t14 font-medium ${isPlaying ? "text-accent" : "text-primary"}`}
           >
             <span className="truncate min-w-0">{track.title}</span>
             {track.isExplicit && <ExplicitBadge />}
           </div>
+          <div className="text-t12 text-secondary mt-0.5 truncate">
+            <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
+            {(!track.artists || (Array.isArray(track.artists) && track.artists.length === 0)) && "—"}
+          </div>
         </div>
       </div>
-      {/* Artist */}
-      <div className="text-t12 text-secondary truncate">
-        <ArtistLinks track={track} onOpenArtist={onOpenArtist} />
-        {(!track.artists || (Array.isArray(track.artists) && track.artists.length === 0)) && "—"}
-      </div>
+      {showMixColumns && (
+        <>
+          <div className="text-t12 text-secondary text-center tabular-nums truncate">
+            {mixAnalysis?.status === "complete" ? mixAnalysis.bpm : mixAnalysis ? "…" : "—"}
+          </div>
+          <div className="text-t12 text-secondary text-center truncate">
+            {mixAnalysis?.status === "complete" ? mixAnalysis.camelotKey : "—"}
+          </div>
+        </>
+      )}
       {/* Album */}
       {!isAlbum && (
         <div
@@ -238,6 +263,7 @@ export function TableRow({
 export function PlaylistLayout({
   title,
   thumbnail,
+  playlistId,
   tracks,
   total,
   loading,
@@ -264,6 +290,7 @@ export function PlaylistLayout({
   hasMore = false,
   loadingMore = false,
   onLoadMore,
+  onCollectionActions,
 }) {
   const { track: currentTrack, isPlaying } = usePlaybackStatus();
   const { handlePlay } = usePlayerActions();
@@ -274,12 +301,110 @@ export function PlaylistLayout({
   const { downloadSong: onDownloadSong } = useDownloadActions();
   const accentColor = useAccentColor(thumbnail);
   const t = useLang();
+  const showNum = useTrackNumbers();
   const [trackSearch, setTrackSearch] = useState("");
   const [searchVisible, setSearchVisible] = useState(false);
   const searchInputRef = useRef(null);
   const loggedVideoIdsRef = useRef(new Set());
   const [sort, setSort] = useState({ key: null, dir: "asc" });
+  const [mixEnabled, setMixEnabled] = useState(false);
+  const [mixLoading, setMixLoading] = useState(false);
+  const [mixConfig, setMixConfig] = useState(null);
   const collectedTracks = useMemo(() => collectTrackVersions(tracks), [tracks]);
+  const playlistOrigin = useMemo(
+    () => (playlistId && !isAlbum ? { kind: "playlist", playlistId } : null),
+    [isAlbum, playlistId]
+  );
+  const mixTrackOrder = useMemo(() => buildMixTrackOrder(tracks), [tracks]);
+  const analysisJobRef = useRef(null);
+
+  useEffect(() => {
+    if (!playlistOrigin) {
+      setMixEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    setMixLoading(true);
+    fetch(`${API}/playlist/${encodeURIComponent(playlistOrigin.playlistId)}/mix`)
+      .then((response) => (response.ok ? response.json() : { enabled: false }))
+      .then((config) => {
+        if (!cancelled) {
+          setMixConfig(config);
+          setMixEnabled(config.enabled === true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMixEnabled(false);
+      })
+      .finally(() => {
+        if (!cancelled) setMixLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playlistOrigin]);
+
+  const toggleMix = async () => {
+    if (!playlistOrigin || mixLoading) return;
+    const enabled = !mixEnabled;
+    setMixLoading(true);
+    try {
+      const response = await fetch(
+        `${API}/playlist/${encodeURIComponent(playlistOrigin.playlistId)}/mix`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        }
+      );
+      if (response.ok) {
+        const config = await response.json();
+        setMixConfig(config);
+        setMixEnabled(config.enabled === true);
+      }
+    } finally {
+      setMixLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!playlistOrigin || !mixEnabled || loading || !mixTrackOrder.length) return;
+    const signature = mixTrackOrder.map(({ instanceId, videoId }) => `${instanceId}:${videoId}`).join("|");
+    if (analysisJobRef.current?.signature === signature) return;
+    let cancelled = false;
+    let timeoutId;
+    const poll = async (jobId) => {
+      try {
+        const response = await fetch(`${API}/playlist/${encodeURIComponent(playlistOrigin.playlistId)}/mix/analysis/${jobId}`);
+        if (!response.ok || cancelled) return;
+        const job = await response.json();
+        setMixConfig((config) => ({ ...config, trackAnalysis: job.tracks || {} }));
+        if (job.status !== "complete") timeoutId = window.setTimeout(() => poll(jobId), 800);
+      } catch {
+        // Analysis failures never interrupt ordinary playlist playback.
+      }
+    };
+    const start = async () => {
+      try {
+        await fetch(`${API}/playlist/${encodeURIComponent(playlistOrigin.playlistId)}/mix`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trackOrder: mixTrackOrder }),
+        });
+        const response = await fetch(`${API}/playlist/${encodeURIComponent(playlistOrigin.playlistId)}/mix/analysis`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tracks: mixTrackOrder }),
+        });
+        if (!response.ok || cancelled) return;
+        const job = await response.json();
+        analysisJobRef.current = { signature, jobId: job.jobId };
+        poll(job.jobId);
+      } catch {
+        // Analysis is an enhancement, so network errors remain silent here.
+      }
+    };
+    start();
+    return () => { cancelled = true; window.clearTimeout(timeoutId); };
+  }, [loading, mixEnabled, mixTrackOrder, playlistOrigin]);
 
   useEffect(() => {
     tracks.filter(isLikelyVideo).forEach((track) => {
@@ -398,7 +523,7 @@ export function PlaylistLayout({
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scrollEl,
-    estimateSize: () => 52,
+    estimateSize: () => 68,
     overscan: 12,
     scrollMargin: listScrollMargin,
   });
@@ -624,12 +749,13 @@ export function PlaylistLayout({
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 12,
+                flexWrap: "wrap",
               }}
             >
               {/* Left: play + shuffle */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                 <button
-                  onClick={() => tracks.length && handlePlay(tracks[0], tracks)}
+                  onClick={() => tracks.length && handlePlay(tracks[0], tracks, playlistOrigin)}
                   style={{
                     background: `rgba(${accentColor},0.18)`,
                     border: `1px solid rgba(${accentColor},0.38)`,
@@ -647,6 +773,8 @@ export function PlaylistLayout({
                     color: "var(--accent)",
                     fontFamily: "var(--font)",
                     backdropFilter: "blur(6px)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = `rgba(${accentColor},0.3)`;
@@ -668,7 +796,7 @@ export function PlaylistLayout({
                   onClick={() => {
                     if (!tracks.length) return;
                     const sh = [...tracks].sort(() => Math.random() - 0.5);
-                    handlePlay(sh[0], sh);
+                    handlePlay(sh[0], sh, playlistOrigin);
                   }}
                   style={{
                     background: "rgba(255,255,255,0.06)",
@@ -686,6 +814,8 @@ export function PlaylistLayout({
                     fontWeight: 600,
                     color: "var(--text-secondary)",
                     fontFamily: "var(--font)",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "rgba(255,255,255,0.12)";
@@ -702,7 +832,48 @@ export function PlaylistLayout({
               </div>
 
               {/* Right: secondary actions */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  flexShrink: 0,
+                }}
+              >
+                {playlistOrigin && (
+                  <Tooltip text={t("mixSetup")}>
+                    <button
+                      type="button"
+                      aria-pressed={mixEnabled}
+                      disabled={mixLoading}
+                      onClick={toggleMix}
+                      style={{
+                        background: mixEnabled ? "var(--accent)" : "rgba(255,255,255,0.06)",
+                        border: `1px solid ${mixEnabled ? "var(--accent)" : "var(--border)"}`,
+                        borderRadius: "var(--r-full)",
+                        color: mixEnabled ? "#fff" : "var(--text-secondary)",
+                        cursor: mixLoading ? "wait" : "default",
+                        fontFamily: "var(--font)",
+                        fontSize: "var(--t12)",
+                        fontWeight: 700,
+                        height: 42,
+                        opacity: mixLoading ? 0.65 : 1,
+                        padding: "0 13px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <MusicNote size={13} weight="fill" />
+                      {t("mix")}
+                    </button>
+                  </Tooltip>
+                )}
                 {extraActions}
                 {/* Inline search input */}
                 <div
@@ -801,6 +972,8 @@ export function PlaylistLayout({
                       fontFamily: "var(--font)",
                       backdropFilter: "blur(6px)",
                       border: "0.5px solid rgba(255,255,255,0.15)",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     };
                     return allCached ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -912,6 +1085,38 @@ export function PlaylistLayout({
                     </button>
                   </Tooltip>
                 )}
+                {onCollectionActions && (
+                  <Tooltip text={t("moreActions")}>
+                    <button
+                      type="button"
+                      aria-label={t("moreActions")}
+                      onClick={onCollectionActions}
+                      style={{
+                        background: "rgba(0,0,0,0.3)",
+                        border: "0.5px solid rgba(255,255,255,0.15)",
+                        borderRadius: "50%",
+                        width: 42,
+                        height: 42,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "default",
+                        transition: "background 0.15s",
+                        color: "rgba(255,255,255,0.85)",
+                        padding: 0,
+                        backdropFilter: "blur(6px)",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "rgba(255,255,255,0.14)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "rgba(0,0,0,0.3)")
+                      }
+                    >
+                      <DotsThreeVertical size={16} />
+                    </button>
+                  </Tooltip>
+                )}
               </div>
             </div>
           </div>
@@ -954,14 +1159,12 @@ export function PlaylistLayout({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: onToggleSelect
-            ? isAlbum
-              ? "28px minmax(0,2fr) minmax(0,1fr) 28px 52px"
-              : "28px minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px"
-            : isAlbum
-              ? "minmax(0,2fr) minmax(0,1fr) 28px 52px"
-              : "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 28px 52px",
-          gap: 8,
+          gridTemplateColumns: tableGridColumns({
+            hasSelection: Boolean(onToggleSelect),
+            isAlbum,
+            showMixColumns: mixEnabled,
+          }),
+          gap: 12,
           padding: "8px 16px",
           margin: "0 12px",
           borderBottom: "0.5px solid var(--border)",
@@ -1004,8 +1207,14 @@ export function PlaylistLayout({
               </div>
             );
           })()}
+        <div style={{ textAlign: "center" }}>{showNum ? "#" : ""}</div>
         {sortableHead("title", t("colTitle"))}
-        {sortableHead("artists", t("colArtist"))}
+        {mixEnabled && (
+          <>
+            <div style={{ textAlign: "center" }}>{t("colBpm")}</div>
+            <div style={{ textAlign: "center" }}>{t("colKey")}</div>
+          </>
+        )}
         {!isAlbum && sortableHead("album", t("colAlbum"))}
         <div></div>
         {sortableHead("duration", <Clock size={13} />, "right", t("colDuration"))}
@@ -1029,7 +1238,7 @@ export function PlaylistLayout({
                   top: 0,
                   left: 0,
                   width: "100%",
-                  height: 52,
+                  height: 68,
                   transform: `translateY(${vi.start - listScrollMargin}px)`,
                 }}
               >
@@ -1038,7 +1247,7 @@ export function PlaylistLayout({
                     track={tr}
                     index={i}
                     isPlaying={isPlaying && currentTrack?.videoId === tr.videoId}
-                    onPlay={() => handlePlay(tr, visibleTracks)}
+                    onPlay={() => handlePlay(tr, visibleTracks, playlistOrigin)}
                     onOpenArtist={onOpenArtist}
                     onOpenAlbum={onOpenAlbum}
                     isAlbum={isAlbum}
@@ -1049,6 +1258,8 @@ export function PlaylistLayout({
                     onDownload={onDownloadSong}
                     selected={selectedTracks?.has(tr.videoId)}
                     onToggleSelect={onToggleSelect ? () => onToggleSelect(tr) : undefined}
+                    mixAnalysis={mixConfig?.trackAnalysis?.[mixTrackOrder.find((item) => item.videoId === tr.videoId)?.instanceId]}
+                    showMixColumns={mixEnabled}
                   />
                 ) : (
                   <SkeletonRow />

@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 use super::model::{
-    CrossfadeRequest, PlaybackIntegrationSettings, PlaybackSnapshot, PlaybackStatus, PlaybackTrack,
-    TransportUpdate,
+    CrossfadeRequest, MixTransition, PlaybackIntegrationSettings, PlaybackSnapshot, PlaybackStatus,
+    PlaybackTrack, TransportUpdate,
 };
 
 pub(super) const MAX_QUEUE_TRACKS: usize = 10_000;
@@ -15,6 +15,9 @@ pub(super) struct TransitionPolicy {
     pub crossfade_overrides: HashMap<(String, String), f64>,
     pub progressive: bool,
     pub automatic_crossfade: bool,
+    pub mix_transitions: HashMap<(String, String), MixTransition>,
+    pub mix_enabled: bool,
+    pub mix_tempo_lock: bool,
 }
 
 impl Default for TransitionPolicy {
@@ -24,6 +27,9 @@ impl Default for TransitionPolicy {
             crossfade_overrides: HashMap::new(),
             progressive: true,
             automatic_crossfade: true,
+            mix_transitions: HashMap::new(),
+            mix_enabled: true,
+            mix_tempo_lock: true,
         }
     }
 }

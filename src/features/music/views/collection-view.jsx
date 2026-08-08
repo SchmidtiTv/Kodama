@@ -4,6 +4,7 @@ import { useDownloadActions } from "@/features/downloads/download-context.jsx";
 export function CollectionView({
   title,
   thumbnail,
+  playlistId,
   tracks,
   total,
   loading,
@@ -24,6 +25,8 @@ export function CollectionView({
   selectedTracks,
   onToggleSelect,
   onSelectAll,
+  browseId,
+  onCollectionActions,
 }) {
   // "Download all" needs this collection's own title/thumbnail/artists metadata, so it's built
   // here rather than sourced from DownloadContext.
@@ -32,6 +35,7 @@ export function CollectionView({
     <PlaylistLayout
       title={title}
       thumbnail={thumbnail}
+      playlistId={playlistId}
       tracks={tracks}
       total={total}
       loading={loading}
@@ -56,6 +60,13 @@ export function CollectionView({
       selectedTracks={selectedTracks}
       onToggleSelect={onToggleSelect}
       onSelectAll={onSelectAll}
+      onCollectionActions={(event) =>
+        onCollectionActions?.(event, {
+          ...(isAlbum ? { browseId, type: "album" } : { playlistId }),
+          title,
+          thumbnail,
+        })
+      }
     />
   );
 }

@@ -1,6 +1,7 @@
 use super::model::{
-    CrossfadeOverride, PlaybackIntegrationSettings, PlaybackStatus, PlaybackTrack, RepeatMode,
-    TransitionPolicyUpdate, TransportUpdate,
+    CrossfadeOverride, MixEffect, MixEqCurve, MixPreset, MixTransition, MixVolumeCurve,
+    PlaybackIntegrationSettings, PlaybackStatus, PlaybackTrack, RepeatMode, TransitionPolicyUpdate,
+    TransportUpdate,
 };
 use super::state::PlaybackEngine;
 use super::state::MAX_QUEUE_TRACKS;
@@ -111,6 +112,56 @@ fn transition_override_can_disable_one_pair() {
         })
         .unwrap();
     assert_eq!(engine.prepare_crossfade(179.0, 180.0).unwrap(), None);
+}
+
+#[test]
+fn mix_transition_policy_is_attached_to_its_prepared_pair() {
+    let engine = engine_with_queue();
+    engine
+        .update_transition_policy(TransitionPolicyUpdate {
+            crossfade_seconds: Some(5.0),
+            mix_transitions: Some(vec![MixTransition {
+                from_video_id: "one".to_string(),
+                to_video_id: "two".to_string(),
+                preset: MixPreset::Blend,
+                bars: 8,
+                volume_curve: MixVolumeCurve::Overlap,
+                eq_curve: MixEqCurve::EndBassSwap,
+                effect: MixEffect::LowPass,
+                beat_offset_ms: -24.0,
+                from_bpm: Some(120.0),
+                to_bpm: Some(124.0),
+            }]),
+            ..TransitionPolicyUpdate::default()
+        })
+        .unwrap();
+
+    let request = engine.prepare_crossfade(176.0, 180.0).unwrap().unwrap();
+    assert_eq!(request.mix_transition.unwrap().preset, MixPreset::Blend);
+}
+
+#[test]
+fn mix_transition_policy_rejects_invalid_pair_settings() {
+    let engine = engine_with_queue();
+    let error = engine
+        .update_transition_policy(TransitionPolicyUpdate {
+            mix_transitions: Some(vec![MixTransition {
+                from_video_id: "one".to_string(),
+                to_video_id: "two".to_string(),
+                preset: MixPreset::Auto,
+                bars: 3,
+                volume_curve: MixVolumeCurve::Smooth,
+                eq_curve: MixEqCurve::None,
+                effect: MixEffect::None,
+                beat_offset_ms: 0.0,
+                from_bpm: None,
+                to_bpm: None,
+            }]),
+            ..TransitionPolicyUpdate::default()
+        })
+        .unwrap_err();
+
+    assert!(error.contains("bars"));
 }
 
 #[test]

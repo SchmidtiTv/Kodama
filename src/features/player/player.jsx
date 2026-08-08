@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getPlaylistMix } from "@/features/music/mix-api.js";
 import { API } from "@/shared/api/client.js";
+import { resolveMixTransitionPolicy } from "@/features/music/mix-transition-policy.js";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { useAnimations } from "@/features/settings/display-context.jsx";
 import { useAppearanceSettings } from "@/features/settings/settings-context.jsx";
@@ -66,10 +68,10 @@ export function Player({
   onAddToPlaylist,
   buildShareLink,
 }) {
-  const { track, isPlaying, audioRef, restoredTrackId } = usePlaybackStatus();
+  const { track, isPlaying, audioRef, restoredTrackId, playbackOrigin } = usePlaybackStatus();
   const { playerBarControls } = useAppearanceSettings();
   const { queue } = useQueueState();
-  const { crossfade, crossfadeOverrides, playbackProgressive } = usePlaybackConfig();
+  const { crossfade, crossfadeOverrides, playbackProgressive, mixTransitionsEnabled, mixTempoLockEnabled } = usePlaybackConfig();
   const { setTrack, setIsPlaying, startSongRadio } = usePlayerActions();
   // Cached/downloading id sets + download/export/premium-detected actions come from
   // DownloadContext rather than props.
@@ -94,6 +96,7 @@ export function Player({
   const [streamUrl, setStreamUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [mixTransitions, setMixTransitions] = useState([]);
   const [likePulsing, setLikePulsing] = useState(false);
   const [prevBouncing, setPrevBouncing] = useState(false);
   const [nextBouncing, setNextBouncing] = useState(false);
@@ -123,6 +126,25 @@ export function Player({
   const restoredTrackIdRef = useRef(restoredTrackId);
   const volumeRef = useRef(volume);
   const prevVolumeRef = useRef(volume > 0 ? volume : 0.4);
+
+  useEffect(() => {
+    const playlistId = playbackOrigin?.kind === "playlist" ? playbackOrigin.playlistId : null;
+    if (!playlistId) {
+      setMixTransitions([]);
+      return;
+    }
+    let cancelled = false;
+    getPlaylistMix(playlistId)
+      .then((config) => {
+        if (!cancelled) setMixTransitions(resolveMixTransitionPolicy(config, queue));
+      })
+      .catch(() => {
+        if (!cancelled) setMixTransitions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [playbackOrigin, queue]);
   // Quadratic volume curve — human hearing is logarithmic, so v² feels linear
   const volCurve = (v) => v * v;
 
@@ -153,6 +175,9 @@ export function Player({
     crossfade,
     crossfadeOverrides,
     playbackProgressive,
+    mixTransitionsEnabled,
+    mixTempoLockEnabled,
+    mixTransitions,
     showVideoView,
     queueRef,
     trackRef,

@@ -128,6 +128,10 @@ export function SettingsPanel({
     onRemoveCrossfadeOverride,
     playbackProgressive,
     onPlaybackProgressiveChange,
+    mixTransitionsEnabled,
+    onMixTransitionsEnabledChange,
+    mixTempoLockEnabled,
+    onMixTempoLockEnabledChange,
     videoSyncEnabled,
     onToggleVideoSync,
     videoSyncQuality = "auto",
@@ -578,6 +582,10 @@ export function SettingsPanel({
               onCrossfadeChange={onCrossfadeChange}
               onHideExplicitChange={onHideExplicitChange}
               onPlaybackProgressiveChange={onPlaybackProgressiveChange}
+              mixTransitionsEnabled={mixTransitionsEnabled}
+              onMixTransitionsEnabledChange={onMixTransitionsEnabledChange}
+              mixTempoLockEnabled={mixTempoLockEnabled}
+              onMixTempoLockEnabledChange={onMixTempoLockEnabledChange}
               onRemoveCrossfadeOverride={onRemoveCrossfadeOverride}
               onTrackNumbersChange={onTrackNumbersChange}
               playbackProgressive={playbackProgressive}

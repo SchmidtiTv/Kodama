@@ -15,11 +15,14 @@ from src.lib import (
     ExportService,
     FFmpeg,
     LyricsService,
+    MixAnalysisService,
     MetadataCache,
     MusixMatch,
     NetworkSettings,
     OverlayServer,
     Playlist,
+    PlaylistMix,
+    NumpyTrackAnalyzer,
     Profile,
     RemoteControl,
     SongCreditsCache,
@@ -65,6 +68,7 @@ def create_app() -> Flask:
         app.extensions["metadata_cache"] = metadata_cache
         playlist_cache = Playlist(metadata_cache=metadata_cache)
         app.extensions["playlist_cache"] = playlist_cache
+        app.extensions["playlist_mix"] = PlaylistMix(metadata_cache)
         music_session = YoutubeMusicSession(
             profiles=profile_repository,
             playlist_cache=playlist_cache,
@@ -96,6 +100,12 @@ def create_app() -> Flask:
 
         ffmpeg = FFmpeg()
         app.extensions["ffmpeg"] = ffmpeg
+        app.extensions["mix_analysis_service"] = MixAnalysisService(
+            stream_service=app.extensions["stream_service"],
+            metadata_cache=metadata_cache,
+            playlist_mix=app.extensions["playlist_mix"],
+            analyzer=NumpyTrackAnalyzer(ffmpeg),
+        )
         app.extensions["video_sync_service"] = VideoSyncService(
             music_session=music_session,
             ytdlp=ytdlp,

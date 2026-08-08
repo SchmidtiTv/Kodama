@@ -24,6 +24,7 @@ export function PlayerProvider({ controller, children }) {
     isPlaying,
     queue,
     queueRef,
+    playbackOrigin,
     restoredTrackId,
     setCurrentTrack,
     setIsPlaying,
@@ -38,21 +39,25 @@ export function PlayerProvider({ controller, children }) {
     crossfadeOverrides,
     playbackProgressive,
     setPlaybackProgressive,
+    mixTransitionsEnabled,
+    setMixTransitionsEnabled,
+    mixTempoLockEnabled,
+    setMixTempoLockEnabled,
     setCrossfadeOverride,
     removeCrossfadeOverride,
   } = controller;
 
   // Playback state: the currently playing track, its playing flag, and the audio element ref.
   const playbackStatus = useMemo(
-    () => ({ track: currentTrack, isPlaying, audioRef, restoredTrackId }),
-    [currentTrack, isPlaying, audioRef, restoredTrackId]
+    () => ({ track: currentTrack, isPlaying, audioRef, restoredTrackId, playbackOrigin }),
+    [currentTrack, isPlaying, audioRef, restoredTrackId, playbackOrigin]
   );
   // Queue state: the queue itself and its stale-closure-safe ref.
   const queueState = useMemo(() => ({ queue, queueRef }), [queue, queueRef]);
   // Playback configuration: autoplay, crossfade (+ per-transition overrides), progressive mode.
   const playbackConfig = useMemo(
-    () => ({ autoplay, crossfade, crossfadeOverrides, playbackProgressive }),
-    [autoplay, crossfade, crossfadeOverrides, playbackProgressive]
+    () => ({ autoplay, crossfade, crossfadeOverrides, playbackProgressive, mixTransitionsEnabled, mixTempoLockEnabled }),
+    [autoplay, crossfade, crossfadeOverrides, playbackProgressive, mixTransitionsEnabled, mixTempoLockEnabled]
   );
   const selectTrack = useCallback(
     (nextTrack) => {
@@ -78,6 +83,8 @@ export function PlayerProvider({ controller, children }) {
       setAutoplay,
       setCrossfade,
       setPlaybackProgressive,
+      setMixTransitionsEnabled,
+      setMixTempoLockEnabled,
       setCrossfadeOverride,
       removeCrossfadeOverride,
     }),
@@ -91,6 +98,8 @@ export function PlayerProvider({ controller, children }) {
       setAutoplay,
       setCrossfade,
       setPlaybackProgressive,
+      setMixTransitionsEnabled,
+      setMixTempoLockEnabled,
       setCrossfadeOverride,
       removeCrossfadeOverride,
     ]

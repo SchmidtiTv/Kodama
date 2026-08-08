@@ -1,0 +1,5 @@
+# Keep Rust build scripts and C/C++ dependencies (notably Signalsmith via `ssstretch`)
+# aligned with Tauri's macOS 11 deployment target. Without this, a cache compiled on the host
+# macOS version can be mixed into a link targeting 11.0 and fail with undefined symbols.
+[env]
+MACOSX_DEPLOYMENT_TARGET = { value = "11.0", force = true }

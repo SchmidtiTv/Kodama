@@ -84,6 +84,9 @@ export function updateNativeTransitionPolicy({
   queue,
   playbackProgressive,
   automaticCrossfade,
+  mixTransitions,
+  mixTransitionsEnabled,
+  mixTempoLockEnabled,
 }) {
   return invokeEngine(() =>
     native.updatePlaybackTransitionPolicy({
@@ -91,6 +94,9 @@ export function updateNativeTransitionPolicy({
       crossfadeOverrides: transitionOverrides(crossfadeOverrides, queue),
       progressive: !!playbackProgressive,
       automaticCrossfade: !!automaticCrossfade,
+      mixTransitions: Array.isArray(mixTransitions) ? mixTransitions : [],
+      mixEnabled: !!mixTransitionsEnabled,
+      mixTempoLock: !!mixTempoLockEnabled,
     })
   );
 }

@@ -34,6 +34,9 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
   const [currentTrack, setCurrentTrack] = useState(() => restoredSession?.track || null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueue] = useState(() => restoredSession?.queue || []);
+  // A queue can originate from many surfaces. Mix is deliberately available only when a
+  // playlist explicitly supplies this origin; never infer it from matching track ids.
+  const [playbackOrigin, setPlaybackOrigin] = useState(null);
   const currentTrackRef = useRef(null);
 
   // Latest track/queue for async and keyboard callbacks without stale closures.
@@ -106,6 +109,20 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
     setPlaybackProgressiveState(v);
     localStorage.setItem("kodama-playback-mode", v ? "progressive" : "classic");
   }, []);
+  const [mixTransitionsEnabled, setMixTransitionsEnabledState] = useState(
+    () => localStorage.getItem("kodama-mix-transitions-enabled") !== "false"
+  );
+  const setMixTransitionsEnabled = useCallback((enabled) => {
+    setMixTransitionsEnabledState(enabled);
+    localStorage.setItem("kodama-mix-transitions-enabled", String(enabled));
+  }, []);
+  const [mixTempoLockEnabled, setMixTempoLockEnabledState] = useState(
+    () => localStorage.getItem("kodama-mix-tempo-lock-enabled") !== "false"
+  );
+  const setMixTempoLockEnabled = useCallback((enabled) => {
+    setMixTempoLockEnabledState(enabled);
+    localStorage.setItem("kodama-mix-tempo-lock-enabled", String(enabled));
+  }, []);
   const [crossfadeOverrides, setCrossfadeOverrides] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("kodama-crossfade-overrides")) || {};
@@ -130,11 +147,16 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
     });
   }, []);
 
-  const handlePlay = useCallback((track, trackList) => {
+  const handlePlay = useCallback((track, trackList, origin = null) => {
     setCurrentTrack((current) =>
       current?.videoId && current.videoId === track?.videoId ? { ...track } : track
     );
     resetLyricsSessionRef.current?.();
+    setPlaybackOrigin(
+      origin?.kind === "playlist" && origin.playlistId
+        ? { kind: "playlist", playlistId: origin.playlistId }
+        : null
+    );
     if (trackList) {
       setQueue(dedupeTracks(trackList));
     }
@@ -166,6 +188,7 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
         return;
       }
       if (track.videoId === currentTrack.videoId) return;
+      setPlaybackOrigin(null);
       setQueue((q) => {
         const n = q.filter((x) => x.videoId !== track.videoId); // move if already queued
         const i = n.findIndex((x) => x.videoId === currentTrack.videoId);
@@ -265,6 +288,7 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
     stopPlayback,
     queue,
     setQueue,
+    playbackOrigin,
     queueRef,
     restoredTrackId: restoredSession?.track?.videoId || null,
     handlePlay,
@@ -277,6 +301,10 @@ export function usePlayerController({ addToast, resetLyricsSessionRef, integrati
     setCrossfade,
     playbackProgressive,
     setPlaybackProgressive,
+    mixTransitionsEnabled,
+    setMixTransitionsEnabled,
+    mixTempoLockEnabled,
+    setMixTempoLockEnabled,
     crossfadeOverrides,
     setCrossfadeOverride,
     removeCrossfadeOverride,

@@ -49,6 +49,8 @@
   "colTitle": "Judul",
   "colArtist": "Artis",
   "colAlbum": "Album",
+  "colBpm": "BPM",
+  "colKey": "Nada",
   "colDuration": "Durasi",
   "searchPrompt": "Ketik sesuatu dan tekan Enter.",
   "searchResultsFor": "Hasil pencarian untuk",

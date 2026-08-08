@@ -140,6 +140,8 @@ export function MainContent({
           <CollectionView
             title={collection.title}
             thumbnail={collection.thumbnail}
+            playlistId={collection.playlistId}
+            browseId={collection.browseId}
             tracks={collection.tracks}
             total={collection.total}
             loading={collection.loading}
@@ -189,6 +191,7 @@ export function MainContent({
             selectedTracks={selectedTracks}
             onToggleSelect={toggleTrackSelection}
             onSelectAll={selectAllTracks}
+            onCollectionActions={openContextMenu}
           />
         </AnimatedView>
       )}

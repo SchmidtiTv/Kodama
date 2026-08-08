@@ -41,6 +41,7 @@ discord-rich-presence = "1.1"
 rodio      = { version = "0.20", features = ["symphonia-all"] }
 symphonia  = { version = "0.5",  features = ["all"] }
 rustfft    = "6"
+ssstretch  = "0.1.0"
 base64     = "0.22"
 # OS media controls (Windows SMTC, macOS Now Playing, Linux MPRIS) + media keys.
 souvlaki   = "0.7"

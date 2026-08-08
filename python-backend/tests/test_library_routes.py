@@ -68,6 +68,72 @@ class LibraryListingRouteTests(RouteTestCase):
 
 
 class PlaylistRouteTests(RouteTestCase):
+    def test_playlist_mix_is_profile_scoped_and_local_to_kodama(self) -> None:
+        self.assertEqual(
+            self.client.get("/playlist/pl/mix").json,
+            {
+                "playlistId": "pl",
+                "version": 1,
+                "enabled": False,
+                "analysisVersion": None,
+                "smartReorder": False,
+                "trackOrder": [],
+                "trackAnalysis": {},
+                "transitions": [],
+            },
+        )
+
+        enabled = self.client.put("/playlist/pl/mix", json={"enabled": True})
+        self.assertEqual(enabled.status_code, 200)
+        self.assertEqual(enabled.json["enabled"], True)
+
+        self.music_session.state.current_profile = "second"
+        self.assertEqual(self.client.get("/playlist/pl/mix").json["enabled"], False)
+
+        self.music_session.state.current_profile = "default"
+        self.assertEqual(self.client.delete("/playlist/pl/mix").json, {"ok": True})
+        self.assertEqual(self.client.get("/playlist/pl/mix").json["enabled"], False)
+
+    def test_playlist_mix_validates_its_local_config_boundary(self) -> None:
+        self.assertEqual(self.client.put("/playlist/pl/mix", json={}).status_code, 400)
+        self.assertEqual(self.client.put("/playlist/pl/mix", json={"enabled": "yes"}).status_code, 400)
+
+    def test_playlist_mix_persists_playlist_track_instances_and_transitions(self) -> None:
+        updated = self.client.put(
+            "/playlist/pl/mix",
+            json={
+                "smartReorder": True,
+                "trackOrder": [
+                    {"instanceId": "set-a", "videoId": "video-a"},
+                    {"instanceId": "set-b", "videoId": "video-b"},
+                ],
+                "transitions": [
+                    {
+                        "fromTrackInstanceId": "set-a",
+                        "toTrackInstanceId": "set-b",
+                        "preset": "blend",
+                        "bars": 4,
+                        "volumeCurve": "smooth",
+                        "eqCurve": "centerBass",
+                        "effect": "lowPass",
+                        "beatOffsetMs": -12,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(updated.status_code, 200)
+        self.assertTrue(updated.json["smartReorder"])
+        self.assertEqual(updated.json["trackOrder"][1]["instanceId"], "set-b")
+        self.assertEqual(updated.json["transitions"][0]["preset"], "blend")
+        self.assertEqual(updated.json["transitions"][0]["beatOffsetMs"], -12.0)
+
+        invalid = self.client.put(
+            "/playlist/pl/mix",
+            json={"transitions": [{"fromTrackInstanceId": "a", "toTrackInstanceId": "b"}]},
+        )
+        self.assertEqual(invalid.status_code, 400)
+
     def test_online_playlist_mutation_routes(self) -> None:
         self.assertEqual(self.client.post("/playlist/create", json={}).status_code, 400)
         created = self.client.post(

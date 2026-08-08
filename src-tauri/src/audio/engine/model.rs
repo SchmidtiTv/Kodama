@@ -100,6 +100,62 @@ pub struct CrossfadeOverride {
     pub seconds: f64,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum MixPreset {
+    Auto,
+    Fade,
+    Rise,
+    Blend,
+    Wave,
+    Melt,
+    Slam,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum MixVolumeCurve {
+    Smooth,
+    Overlap,
+    Cut,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum MixEqCurve {
+    CenterBass,
+    EndBassSwap,
+    ThreeBandFade,
+    None,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum MixEffect {
+    None,
+    LowPass,
+    HighPass,
+}
+
+/// A Mix setting resolved to an actual queue pair. Track-instance identifiers stay in the
+/// playlist configuration; only native-safe video identifiers cross the Tauri boundary.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MixTransition {
+    pub from_video_id: String,
+    pub to_video_id: String,
+    pub preset: MixPreset,
+    pub bars: u8,
+    pub volume_curve: MixVolumeCurve,
+    pub eq_curve: MixEqCurve,
+    pub effect: MixEffect,
+    pub beat_offset_ms: f64,
+    #[serde(default)]
+    pub from_bpm: Option<f32>,
+    #[serde(default)]
+    pub to_bpm: Option<f32>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitionPolicyUpdate {
@@ -107,6 +163,9 @@ pub struct TransitionPolicyUpdate {
     pub crossfade_overrides: Option<Vec<CrossfadeOverride>>,
     pub progressive: Option<bool>,
     pub automatic_crossfade: Option<bool>,
+    pub mix_transitions: Option<Vec<MixTransition>>,
+    pub mix_enabled: Option<bool>,
+    pub mix_tempo_lock: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -168,6 +227,10 @@ pub struct CrossfadeRequest {
     pub to_track: PlaybackTrack,
     pub seconds: f64,
     pub progressive: bool,
+    /// Mix policy is carried with the prepared pair for the future DSP mixer. It does not alter
+    /// the current crossfade renderer yet.
+    pub mix_transition: Option<MixTransition>,
+    pub mix_tempo_lock: bool,
 }
 
 pub(super) fn validate_seconds(name: &str, value: Option<f64>) -> Result<(), String> {

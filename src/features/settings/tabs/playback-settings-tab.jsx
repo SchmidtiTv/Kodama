@@ -27,6 +27,10 @@ export function PlaybackSettingsTab({
   onCrossfadeChange,
   onHideExplicitChange,
   onPlaybackProgressiveChange,
+  mixTransitionsEnabled,
+  onMixTransitionsEnabledChange,
+  mixTempoLockEnabled,
+  onMixTempoLockEnabledChange,
   onRemoveCrossfadeOverride,
   onTrackNumbersChange,
   playbackProgressive,
@@ -54,6 +58,22 @@ export function PlaybackSettingsTab({
       >
         <Toggle value={playbackProgressive} onChange={onPlaybackProgressiveChange} />
       </SettingRow>
+      <SettingsSectionLabel>{t("mixPlaybackTitle")}</SettingsSectionLabel>
+      <SettingRow
+        label={t("mixPlayback")}
+        description={t("mixPlaybackDesc")}
+        icon={<WaveformLines />}
+      >
+        <Toggle value={mixTransitionsEnabled} onChange={onMixTransitionsEnabledChange} />
+      </SettingRow>
+      <SettingRow
+        label={t("mixTempoLock")}
+        description={t("mixTempoLockDesc")}
+        icon={<Sliders />}
+      >
+        <Toggle value={mixTempoLockEnabled} onChange={onMixTempoLockEnabledChange} />
+      </SettingRow>
+      <div className="text-t11 text-muted px-1 mb-2 leading-snug">{t("mixFallbackDesc")}</div>
       <SettingRow
         label={
           <span

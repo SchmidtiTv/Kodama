@@ -11,6 +11,7 @@ from unittest.mock import patch
 from flask import Flask, Response
 
 from src.lib.runtime.metadata_cache import MetadataCache
+from src.lib.music.playlist_mix import PlaylistMix
 from src.routes import register_blueprints
 
 
@@ -990,6 +991,7 @@ class RouteTestCase(unittest.TestCase):
         self.overlay_server = FakeOverlayServer()
         self.remote_control = FakeRemoteControl()
         self.metadata_cache = MetadataCache(self.root / "cache.sqlite3")
+        self.playlist_mix = PlaylistMix(self.metadata_cache)
         self.app.extensions.update(
             {
                 "profile_repository": self.profile_repository,
@@ -1012,6 +1014,7 @@ class RouteTestCase(unittest.TestCase):
                 "overlay_server": self.overlay_server,
                 "remote_control": self.remote_control,
                 "metadata_cache": self.metadata_cache,
+                "playlist_mix": self.playlist_mix,
                 "server_start_time": 1000.0,
                 "feedback_webhook_url": "",
             }

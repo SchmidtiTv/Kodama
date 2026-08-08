@@ -2,6 +2,7 @@ pub mod analyzer;
 pub mod decoder;
 pub mod engine;
 pub mod http_source;
+mod mix_processor;
 pub mod player;
 mod source_loader;
 

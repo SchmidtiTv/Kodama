@@ -24,6 +24,9 @@ export function useNativePlaybackEngine({
   crossfade,
   crossfadeOverrides,
   playbackProgressive,
+  mixTransitions,
+  mixTransitionsEnabled,
+  mixTempoLockEnabled,
   showVideoView,
   queueRef,
   trackRef,
@@ -146,8 +149,11 @@ export function useNativePlaybackEngine({
       queue,
       playbackProgressive,
       automaticCrossfade: !showVideoView,
+      mixTransitions,
+      mixTransitionsEnabled,
+      mixTempoLockEnabled,
     });
-  }, [crossfade, crossfadeOverrides, nativeAvailable, playbackProgressive, queue, showVideoView]);
+  }, [crossfade, crossfadeOverrides, mixTempoLockEnabled, mixTransitions, mixTransitionsEnabled, nativeAvailable, playbackProgressive, queue, showVideoView]);
 
   useEffect(() => {
     let unlisten = () => {};

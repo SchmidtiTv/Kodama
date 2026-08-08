@@ -13,7 +13,9 @@ from .music.download import DownloadService
 from .music.credits import SongCreditsCache
 from .music.export import ExportService
 from .music.lyrics import LyricsService
+from .music.mix_analysis import MixAnalysisService, NumpyTrackAnalyzer
 from .music.playlist import Playlist
+from .music.playlist_mix import PlaylistMix
 from .music.stream import StreamService
 from .music.video_sync import VideoSyncService
 from .music.youtube_data import YoutubeResponseMapper
@@ -46,10 +48,13 @@ __all__ = [
     "FFmpeg",
     "LastFM",
     "LyricsService",
+    "MixAnalysisService",
     "MusixMatch",
     "NetworkSettings",
+    "NumpyTrackAnalyzer",
     "OverlayServer",
     "Playlist",
+    "PlaylistMix",
     "Profile",
     "ProfileAuthHeaders",
     "RemoteControl",

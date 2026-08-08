@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use super::model::{
-    CrossfadeOverride, CrossfadeRequest, PlaybackSnapshot, PlaybackSourceRequest, PlaybackStatus,
-    PlaybackTrack, RepeatMode, TransitionPolicyUpdate,
+    CrossfadeOverride, CrossfadeRequest, MixTransition, PlaybackSnapshot, PlaybackSourceRequest,
+    PlaybackStatus, PlaybackTrack, RepeatMode, TransitionPolicyUpdate,
 };
 use super::state::{bump_revision, set_native_current_track, EngineState, PlaybackEngine};
 
@@ -17,6 +17,10 @@ impl PlaybackEngine {
         let overrides = update
             .crossfade_overrides
             .map(normalize_crossfade_overrides)
+            .transpose()?;
+        let mix_transitions = update
+            .mix_transitions
+            .map(normalize_mix_transitions)
             .transpose()?;
 
         self.mutate(|state| {
@@ -34,6 +38,15 @@ impl PlaybackEngine {
                 if !enabled {
                     state.pending_crossfade = None;
                 }
+            }
+            if let Some(mix_transitions) = mix_transitions {
+                state.policy.mix_transitions = mix_transitions;
+            }
+            if let Some(enabled) = update.mix_enabled {
+                state.policy.mix_enabled = enabled;
+            }
+            if let Some(enabled) = update.mix_tempo_lock {
+                state.policy.mix_tempo_lock = enabled;
             }
             Ok(())
         })
@@ -69,11 +82,24 @@ impl PlaybackEngine {
             advance_shuffle_state(&mut state);
         }
 
+        let mix_transition = state
+            .policy
+            .mix_enabled
+            .then(|| {
+                state
+                    .policy
+                    .mix_transitions
+                    .get(&(current.video_id.clone(), next.video_id.clone()))
+                    .cloned()
+            })
+            .flatten();
         let request = CrossfadeRequest {
             from_track: current,
             to_track: next,
             seconds,
             progressive: state.policy.progressive,
+            mix_transition,
+            mix_tempo_lock: state.policy.mix_tempo_lock,
         };
         state.pending_crossfade = Some(request.clone());
         Ok(Some(request))
@@ -305,6 +331,31 @@ fn normalize_crossfade_overrides(
         super::model::validate_video_id("toVideoId", &item.to_video_id)?;
         validate_crossfade_seconds(Some(item.seconds))?;
         normalized.insert((item.from_video_id, item.to_video_id), item.seconds);
+    }
+    Ok(normalized)
+}
+
+fn normalize_mix_transitions(
+    transitions: Vec<MixTransition>,
+) -> Result<HashMap<(String, String), MixTransition>, String> {
+    let mut normalized = HashMap::with_capacity(transitions.len());
+    for item in transitions {
+        super::model::validate_video_id("fromVideoId", &item.from_video_id)?;
+        super::model::validate_video_id("toVideoId", &item.to_video_id)?;
+        if !matches!(item.bars, 2 | 4 | 8) {
+            return Err("mix transition bars must be 2, 4, or 8".to_string());
+        }
+        if !item.beat_offset_ms.is_finite() || !(-100.0..=100.0).contains(&item.beat_offset_ms) {
+            return Err(
+                "mix transition beatOffsetMs must be finite and between -100 and 100".to_string(),
+            );
+        }
+        for (name, bpm) in [("fromBpm", item.from_bpm), ("toBpm", item.to_bpm)] {
+            if bpm.is_some_and(|value| !value.is_finite() || !(40.0..=300.0).contains(&value)) {
+                return Err(format!("mix transition {name} must be between 40 and 300"));
+            }
+        }
+        normalized.insert((item.from_video_id.clone(), item.to_video_id.clone()), item);
     }
     Ok(normalized)
 }

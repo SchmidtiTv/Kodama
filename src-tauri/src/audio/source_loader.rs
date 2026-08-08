@@ -1,12 +1,25 @@
+use rodio::Source;
 use tauri::Emitter;
 
 use super::decoder::StreamingSource;
 use super::engine::{
     CrossfadeRequest, PlaybackEngine, PlaybackSourceRequest, PlaybackStatus, TransportUpdate,
 };
+use super::mix_processor::render_transition;
 
 pub(super) type SourceMessage = (StreamingSource, u64, bool, String);
 pub(super) type CrossfadeSourceMessage = (StreamingSource, String, f64, u64, bool);
+
+pub(super) struct PcmTransitionMessage {
+    pub pcm: Vec<f32>,
+    pub channels: u16,
+    pub sample_rate: u32,
+    pub continuation: StreamingSource,
+    pub url: String,
+    pub duration: f64,
+    pub incoming_offset_seconds: f64,
+    pub generation: u64,
+}
 
 pub(super) fn build_streaming_source(url: &str, seek_to: f64) -> Result<StreamingSource, String> {
     if url.contains("/audio-stream/") {
@@ -149,4 +162,90 @@ pub(super) fn spawn_automatic_crossfade(
             }
         }
     });
+}
+
+/// Builds a bounded, single-sink PCM handoff when a Mix pair is available. Every preparation
+/// error deliberately falls through to the existing two-sink crossfade sender.
+pub(super) fn spawn_automatic_transition(
+    request: CrossfadeRequest,
+    outgoing_url: Option<String>,
+    outgoing_position: f64,
+    generation: u64,
+    pcm_tx: std::sync::mpsc::Sender<PcmTransitionMessage>,
+    crossfade_tx: std::sync::mpsc::Sender<CrossfadeSourceMessage>,
+    app: tauri::AppHandle,
+    engine: PlaybackEngine,
+) {
+    let Some(transition) = request.mix_transition.clone() else {
+        spawn_automatic_crossfade(request, generation, crossfade_tx, app, engine);
+        return;
+    };
+    let Some(outgoing_url) = outgoing_url else {
+        spawn_automatic_crossfade(request, generation, crossfade_tx, app, engine);
+        return;
+    };
+    std::thread::spawn(move || {
+        let fallback_request = request.clone();
+        let rendered = (|| -> Result<PcmTransitionMessage, String> {
+            let source_request = PlaybackSourceRequest {
+                track: request.to_track.clone(),
+                progressive: request.progressive,
+            };
+            let incoming_url = resolve_automatic_source(&source_request)?;
+            let mut outgoing = build_streaming_source(&outgoing_url, outgoing_position)?;
+            let mut incoming = build_streaming_source(&incoming_url, 0.0)?;
+            if outgoing.channels() != incoming.channels()
+                || outgoing.sample_rate() != incoming.sample_rate()
+            {
+                return Err("PCM transition source formats do not match".to_string());
+            }
+            let channels = incoming.channels();
+            let sample_rate = incoming.sample_rate();
+            let frames = (request.seconds * sample_rate as f64).ceil() as usize;
+            // Allow the stretcher's fastest supported ratio plus a beat-leading window.
+            let incoming_frames = ((frames as f32 * 1.5).ceil() as usize)
+                .saturating_add((sample_rate as f64 * 0.1) as usize);
+            let outgoing_pcm = collect_frames(&mut outgoing, frames, channels);
+            let incoming_pcm = collect_frames(&mut incoming, incoming_frames, channels);
+            let rendered = render_transition(
+                &outgoing_pcm,
+                &incoming_pcm,
+                channels,
+                sample_rate,
+                request.seconds,
+                &transition,
+                request.mix_tempo_lock,
+            )?;
+            let continuation =
+                build_streaming_source(&incoming_url, rendered.incoming_offset_seconds)?;
+            let duration = continuation
+                .total_duration()
+                .map(|value| value.as_secs_f64())
+                .unwrap_or(0.0);
+            Ok(PcmTransitionMessage {
+                pcm: rendered.pcm,
+                channels,
+                sample_rate,
+                continuation,
+                url: incoming_url,
+                duration,
+                incoming_offset_seconds: rendered.incoming_offset_seconds,
+                generation,
+            })
+        })();
+        match rendered {
+            Ok(message) => {
+                let _ = pcm_tx.send(message);
+            }
+            Err(error) => {
+                eprintln!("[Audio] PCM Mix transition unavailable; using sink crossfade: {error}");
+                spawn_automatic_crossfade(fallback_request, generation, crossfade_tx, app, engine);
+            }
+        }
+    });
+}
+
+fn collect_frames(source: &mut StreamingSource, frames: usize, channels: u16) -> Vec<f32> {
+    let samples = frames.saturating_mul(usize::from(channels));
+    source.by_ref().take(samples).collect()
 }
