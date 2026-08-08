@@ -21,6 +21,7 @@ import {
   MusicNote,
   Play,
   PodcastIcon,
+  Shuffle,
   Sun,
   SunHorizon,
 } from "@/shared/icons/icons.jsx";
@@ -31,6 +32,7 @@ import { useLang } from "@/shared/i18n/context.jsx";
 import { Carousel } from "../components/carousel.jsx";
 import { usePlayerActions } from "../../player/player-context.jsx";
 import { useAnimations } from "@/features/settings/display-context.jsx";
+import { shuffleTracks } from "@/features/music/shuffle-tracks.js";
 
 // Home is unmounted when the user navigates to another primary view. Keep the
 // response in memory per profile so returning to it is instant, while still
@@ -272,29 +274,42 @@ export function HomeView({
   );
 
   // ── Shared: play-direct for carousels ────────────────────────────────────
-  const handleCardPlayDirect = (e, item, section) => {
+  const handleCardPlayDirect = (e, item, section, shuffle = false) => {
     e.stopPropagation();
     if (item.type === "podcast" || item.type === "podcast_episode") {
       handlePodcastClick(item);
       return;
     }
     if (item.type === "song") {
-      handlePlay(
-        item,
-        (section?.items || []).filter((x) => x.type === "song")
-      );
+      const tracks = (section?.items || []).filter((x) => x.type === "song");
+      const queue = shuffle ? shuffleTracks(tracks) : tracks;
+      handlePlay(shuffle ? queue[0] : item, queue);
       return;
     }
     if (item.type === "album") {
       fetch(`${API}/album/${item.browseId}`)
         .then((r) => r.json())
         .then((d) => {
-          if (d.tracks?.length) handlePlay(d.tracks[0], d.tracks);
+          if (!d.tracks?.length) return;
+          const queue = shuffle ? shuffleTracks(d.tracks) : d.tracks;
+          handlePlay(queue[0], queue);
         })
         .catch(() => {});
       return;
     }
     if (item.type === "playlist") {
+      if (shuffle) {
+        fetch(`${API}/playlist/${item.playlistId}`)
+          .then((r) => r.json())
+          .then((d) => {
+            const tracks = (d.tracks || []).filter((track) => track.videoId);
+            if (!tracks.length) return;
+            const queue = shuffleTracks(tracks);
+            handlePlay(queue[0], queue);
+          })
+          .catch(() => {});
+        return;
+      }
       const es = new EventSource(`${API}/playlist/${item.playlistId}/stream`);
       const tracks = [];
       let startedTrackId = null;
@@ -371,6 +386,7 @@ export function HomeView({
   const MediaCard = ({ item, section, size = 160 }) => {
     const isArtist = item.type === "artist";
     const isPodcast = item.type === "podcast" || item.type === "podcast_episode";
+    const isShuffleableCollection = item.type === "album" || item.type === "playlist";
     const isLoading =
       podcastLoading && (podcastLoading === item.playlistId || podcastLoading === item.browseId);
     const ctx = getContextItem(item);
@@ -449,32 +465,56 @@ export function HomeView({
                 pointerEvents: "none",
               }}
             >
-              <div
-                className="home-card-play-btn"
-                onClick={(e) => handleCardPlayDirect(e, item, section)}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: "var(--accent)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  pointerEvents: "auto",
-                  cursor: "default",
-                  boxShadow: "var(--elevation-2)",
-                }}
-              >
-                {isLoading ? (
-                  <Spinner
-                    size="sm"
-                    classNames={{ circle1: "border-white", circle2: "border-white" }}
-                  />
-                ) : isPodcast ? (
-                  <Headphones size={17} style={{ color: "white" }} />
-                ) : (
-                  <Play size={17} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {isShuffleableCollection && (
+                  <div
+                    className="home-card-play-btn"
+                    onClick={(e) => handleCardPlayDirect(e, item, section, true)}
+                    title={t("shuffle")}
+                    aria-label={t("shuffle")}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: "var(--bg-elevated)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      pointerEvents: "auto",
+                      cursor: "default",
+                      boxShadow: "var(--elevation-2)",
+                    }}
+                  >
+                    <Shuffle size={15} style={{ color: "var(--text-primary)" }} />
+                  </div>
                 )}
+                <div
+                  className="home-card-play-btn"
+                  onClick={(e) => handleCardPlayDirect(e, item, section)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "auto",
+                    cursor: "default",
+                    boxShadow: "var(--elevation-2)",
+                  }}
+                >
+                  {isLoading ? (
+                    <Spinner
+                      size="sm"
+                      classNames={{ circle1: "border-white", circle2: "border-white" }}
+                    />
+                  ) : isPodcast ? (
+                    <Headphones size={17} style={{ color: "white" }} />
+                  ) : (
+                    <Play size={17} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -606,8 +646,8 @@ export function HomeView({
     <div data-testid="view-home" className="home-view" style={{ padding: "0 0 40px 0" }}>
       <style>{`
         @keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}
-        .home-view{container-type:inline-size}
-        .home-top-row--split{grid-template-columns:minmax(0,1fr) minmax(0,460px)}
+        .home-view{container-type:inline-size;--home-card-size:148px;--speed-dial-width:calc(var(--home-card-size) + var(--home-card-size) + var(--home-card-size) + 52px)}
+        .home-top-row--split{grid-template-columns:minmax(0,1fr) minmax(0,var(--speed-dial-width))}
         @container (max-width:760px){
           .home-top-row--split{grid-template-columns:minmax(0,1fr)}
         }
@@ -701,7 +741,7 @@ export function HomeView({
                   hasLeft && hasSpeedDial
                     ? undefined
                     : hasSpeedDial
-                      ? "minmax(0, 460px)"
+                      ? "minmax(0, var(--speed-dial-width))"
                       : "1fr",
                 gap: 16,
                 paddingLeft: 28,

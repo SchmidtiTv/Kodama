@@ -14,6 +14,7 @@ import { API } from "@/shared/api/client.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { usePlayerActions } from "@/features/player/player-context.jsx";
+import { shuffleTracks } from "@/features/music/shuffle-tracks.js";
 
 export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onContextMenu }) {
   const [tab, setTab] = useState("playlists");
@@ -109,13 +110,8 @@ export function LibraryView({ onOpenPlaylist, onOpenAlbum, onOpenArtist, onConte
       const payload = await response.json();
       const tracks = (payload.tracks || []).filter((track) => track.videoId);
       if (!tracks.length) return;
-      if (shuffle) {
-        for (let index = tracks.length - 1; index > 0; index -= 1) {
-          const swapIndex = Math.floor(Math.random() * (index + 1));
-          [tracks[index], tracks[swapIndex]] = [tracks[swapIndex], tracks[index]];
-        }
-      }
-      handlePlay(tracks[0], tracks);
+      const queue = shuffle ? shuffleTracks(tracks) : tracks;
+      handlePlay(queue[0], queue);
     } catch {
       // Opening the card remains available if the quick action cannot load the collection.
     }

@@ -20,6 +20,7 @@ import { useLang } from "@/shared/i18n/context.jsx";
 import { ArtistDescription } from "../components/artist-description.jsx";
 import { MediaTile } from "../components/media-tile.jsx";
 import { usePlaybackStatus, usePlayerActions } from "../../player/player-context.jsx";
+import { shuffleTracks } from "@/features/music/shuffle-tracks.js";
 
 export function ArtistView({
   browseId,
@@ -128,11 +129,13 @@ export function ArtistView({
       .catch((e) => console.error("Radio error:", e))
       .finally(() => setRadioLoading(false));
   };
-  const playAlbumDirect = (browseId) => {
+  const playAlbumDirect = (browseId, shuffle = false) => {
     fetch(`${API}/album/${browseId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.tracks?.length) handlePlay(d.tracks[0], d.tracks);
+        if (!d.tracks?.length) return;
+        const queue = shuffle ? shuffleTracks(d.tracks) : d.tracks;
+        handlePlay(queue[0], queue);
       })
       .catch(() => {});
   };
@@ -449,6 +452,7 @@ export function ArtistView({
                           })
                         }
                         onPlay={() => playAlbumDirect(a.browseId)}
+                        onShuffle={() => playAlbumDirect(a.browseId, true)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onContextMenu?.(e, {
@@ -480,6 +484,7 @@ export function ArtistView({
                           })
                         }
                         onPlay={() => playAlbumDirect(a.browseId)}
+                        onShuffle={() => playAlbumDirect(a.browseId, true)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onContextMenu?.(e, {
@@ -552,6 +557,7 @@ export function ArtistView({
                           })
                         }
                         onPlay={() => playAlbumDirect(s.browseId)}
+                        onShuffle={() => playAlbumDirect(s.browseId, true)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onContextMenu?.(e, {
@@ -583,6 +589,7 @@ export function ArtistView({
                           })
                         }
                         onPlay={() => playAlbumDirect(s.browseId)}
+                        onShuffle={() => playAlbumDirect(s.browseId, true)}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           onContextMenu?.(e, {

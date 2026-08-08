@@ -6,6 +6,8 @@ import { PlaylistLayout } from "@/features/music/components/track-table.jsx";
 import { GridCard } from "@/features/music/components/rows.jsx";
 import { Microphone, MusicNote, VinylRecord } from "@/shared/icons/icons.jsx";
 import { useDownloadState } from "@/features/downloads/download-context.jsx";
+import { usePlayerActions } from "@/features/player/player-context.jsx";
+import { shuffleTracks } from "@/features/music/shuffle-tracks.js";
 
 export function DownloadsView({
   onTrackContextMenu,
@@ -19,6 +21,7 @@ export function DownloadsView({
   // Cached/downloading/premium id sets come from DownloadContext; this view still
   // needs cachedSongIds directly (not just for PlaylistLayout) to re-list on cache changes.
   const { cachedSongIds } = useDownloadState();
+  const { handlePlay } = usePlayerActions();
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("songs");
@@ -89,6 +92,12 @@ export function DownloadsView({
     { id: "albums", label: t("filterAlbums"), icon: <VinylRecord size={14} /> },
     { id: "artists", label: t("filterArtists"), icon: <Microphone size={14} /> },
   ];
+
+  const playGroup = (groupSongs, shuffle) => {
+    if (!groupSongs.length) return;
+    const queue = shuffle ? shuffleTracks(groupSongs) : groupSongs;
+    handlePlay(queue[0], queue);
+  };
 
   // Detail view for a selected album or artist
   if (selectedGroup) {
@@ -222,6 +231,10 @@ export function DownloadsView({
                       songs: album.songs,
                     })
                   }
+                  onPlay={() => playGroup(album.songs, false)}
+                  onShuffle={() => playGroup(album.songs, true)}
+                  playLabel={t("playAll")}
+                  shuffleLabel={t("shuffle")}
                 />
               ))}
             {tab === "artists" &&

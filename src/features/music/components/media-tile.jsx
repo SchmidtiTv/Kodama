@@ -1,8 +1,9 @@
 import { CardRoot } from "@heroui/react";
 
-import { Microphone, MusicNote, Play } from "@/shared/icons/icons.jsx";
+import { Microphone, MusicNote, Play, Shuffle } from "@/shared/icons/icons.jsx";
 import { thumb } from "@/shared/api/thumbnails.js";
 import { RetryingImage } from "@/shared/ui/retrying-image.jsx";
+import { useLang } from "@/shared/i18n/context.jsx";
 
 // Reusable media tile matching the Home-page card behavior (hover image-scale,
 // play overlay, CardRoot). shape: "square" | "circle" | "video".
@@ -15,8 +16,10 @@ export function MediaTile({
   size = 148,
   onOpen,
   onPlay,
+  onShuffle,
   onContextMenu,
 }) {
+  const t = useLang();
   const isVideo = shape === "video";
   const isCircle = shape === "circle";
   const w = isVideo ? 200 : size;
@@ -68,7 +71,7 @@ export function MediaTile({
             </div>
           )}
         </div>
-        {onPlay && !isCircle && (
+        {(onPlay || onShuffle) && !isCircle && (
           <div
             className="home-card-play"
             style={{
@@ -81,26 +84,55 @@ export function MediaTile({
               pointerEvents: "none",
             }}
           >
-            <div
-              className="home-card-play-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlay(e);
-              }}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                background: "var(--accent)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "auto",
-                cursor: "default",
-                boxShadow: "var(--elevation-2)",
-              }}
-            >
-              <Play size={17} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {onShuffle && (
+                <div
+                  className="home-card-play-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShuffle(e);
+                  }}
+                  title={t("shuffle")}
+                  aria-label={t("shuffle")}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "50%",
+                    background: "var(--bg-elevated)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "auto",
+                    cursor: "default",
+                    boxShadow: "var(--elevation-2)",
+                  }}
+                >
+                  <Shuffle size={15} style={{ color: "var(--text-primary)" }} />
+                </div>
+              )}
+              {onPlay && (
+                <div
+                  className="home-card-play-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlay(e);
+                  }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "auto",
+                    cursor: "default",
+                    boxShadow: "var(--elevation-2)",
+                  }}
+                >
+                  <Play size={17} weight="fill" style={{ color: "white", marginLeft: 2 }} />
+                </div>
+              )}
             </div>
           </div>
         )}

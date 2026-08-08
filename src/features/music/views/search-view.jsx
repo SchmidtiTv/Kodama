@@ -6,6 +6,7 @@ import { thumb } from "@/shared/api/thumbnails.js";
 import { useLang } from "@/shared/i18n/context.jsx";
 import { LoadingState } from "@/shared/ui/loading-state.jsx";
 import { usePlaybackStatus, usePlayerActions } from "../../player/player-context.jsx";
+import { shuffleTracks } from "@/features/music/shuffle-tracks.js";
 
 export function SearchView({
   query,
@@ -70,6 +71,21 @@ export function SearchView({
       onContextMenu={onTrackContextMenu}
     />
   );
+  const playCollection = async (kind, id, shuffle) => {
+    if (!id) return;
+    const endpoint = kind === "album" ? `${API}/album/${id}` : `${API}/playlist/${id}`;
+    try {
+      const response = await fetch(endpoint);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const tracks = (payload.tracks || []).filter((track) => track.videoId);
+      if (!tracks.length) return;
+      const queue = shuffle ? shuffleTracks(tracks) : tracks;
+      handlePlay(queue[0], queue);
+    } catch {
+      // The card remains available for navigation if its collection cannot be loaded.
+    }
+  };
   const renderArtist = (a, i) => (
     <div
       key={a.browseId || i}
@@ -143,6 +159,10 @@ export function SearchView({
         a.browseId &&
         onOpenAlbum?.({ browseId: a.browseId, title: a.title, thumbnail: a.thumbnail })
       }
+      onPlay={() => playCollection("album", a.browseId, false)}
+      onShuffle={() => playCollection("album", a.browseId, true)}
+      playLabel={t("playAll")}
+      shuffleLabel={t("shuffle")}
       onContextMenu={
         a.browseId
           ? (e) =>
@@ -167,6 +187,10 @@ export function SearchView({
         onClick={() =>
           pid && onOpenPlaylist?.({ playlistId: pid, title: p.title, thumbnail: p.thumbnail })
         }
+        onPlay={() => playCollection("playlist", pid, false)}
+        onShuffle={() => playCollection("playlist", pid, true)}
+        playLabel={t("playAll")}
+        shuffleLabel={t("shuffle")}
         onContextMenu={
           pid
             ? (e) =>
