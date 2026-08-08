@@ -13,6 +13,7 @@ import { fetchLyrics } from "@/features/lyrics/fetch.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
 import { parseDurationToSeconds } from "@/features/lyrics/parse.js";
 import { paintLineWords } from "@/features/lyrics/paint.js";
+import { sustainedLineScale } from "@/features/lyrics/sustained-line.js";
 
 // Real-world calibration (2026-07-18): a confirmed correct match ("Nachos") scored 10.5, a
 // second plausible one scored 5.2 — but a confidence of 3.38 turned out to be a false positive
@@ -335,12 +336,16 @@ function useCaptionLine(track, audioRef, enabled, showTranslation, translationLa
 // without fighting the parent's re-renders.
 function KaraokeLine({ line, timeRef, fluid, syllableZoom, mainFontSize, bgFontSize }) {
   const brightRefs = useRef([]);
+  const sustainedLineRef = useRef(null);
   const wordIdxRef = useRef({}).current; // plain mutable bag (paintWordSeq indexes it by string key)
   const zoomMaxRef = useRef(-1);
 
   useEffect(() => {
     let raf = 0;
     const loop = () => {
+      if (sustainedLineRef.current) {
+        sustainedLineRef.current.style.transform = `scale(${sustainedLineScale(line, timeRef.current).toFixed(4)})`;
+      }
       paintLineWords(
         line,
         brightRefs.current,
@@ -400,7 +405,10 @@ function KaraokeLine({ line, timeRef, fluid, syllableZoom, mainFontSize, bgFontS
   const bgRow = bgWordsAll.length ? renderRow(bgWordsAll, mainNonSpaceCount) : null;
 
   return (
-    <>
+    <div
+      ref={sustainedLineRef}
+      style={{ transformOrigin: "center center", willChange: "transform" }}
+    >
       <span style={{ whiteSpace: "pre-wrap", fontSize: mainFontSize }}>
         {line.wordSync ? mainRow : line.text}
       </span>
@@ -409,7 +417,7 @@ function KaraokeLine({ line, timeRef, fluid, syllableZoom, mainFontSize, bgFontS
           {bgRow}
         </div>
       )}
-    </>
+    </div>
   );
 }
 

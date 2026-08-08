@@ -12,6 +12,7 @@ import { fetchLyrics } from "@/features/lyrics/fetch.js";
 import { DEFAULT_LYRICS_PROVIDERS } from "@/features/lyrics/providers.js";
 import { LyricsBrowserModal } from "@/features/lyrics/lyrics-browser-modal.jsx";
 import { openComposer } from "./composer-window.js";
+import { sustainedLineScale } from "./sustained-line.js";
 
 // zoomMaxRef: pass a ref to enable the per-syllable zoom (active line); pass null to
 // disable it (trailing line — it just finishes its wipe quietly, no attention-grab).
@@ -295,6 +296,7 @@ function LyricsOverlayContent({
   });
   const trailingIdxRef = useRef(-1); // mirror of trailingIdx for RAF access without stale closure
   const wordElsRef = useRef([]); // DOM refs to active line's word spans
+  const activeLineRef = useRef(null); // visual-only sustained-vocal scale target
   const activeWordIdxRef = useRef(-1); // tracks active word within line
   const activeWordMaxRef = useRef(-1); // highest syllable already zoomed (dedupes the pop)
   const trailWordElsRef = useRef([]); // DOM refs to trailing line's word spans
@@ -429,6 +431,9 @@ function LyricsOverlayContent({
       }
 
       if (displayIdx !== lastIdxRef.current) {
+        // React does not own the frame-by-frame transform, so clear it explicitly before this
+        // line is rendered as past/trailing content.
+        if (activeLineRef.current) activeLineRef.current.style.transform = "";
         const prevIdx = lastIdxRef.current;
         // If the previous line's endTime hasn't been reached yet, keep it visible as
         // a "trailing" line so it finishes naturally while the new line is already active.
@@ -493,6 +498,9 @@ function LyricsOverlayContent({
       // endTime) keeps animating in parallel so it finishes its syllable wipe instead
       // of snapping fully white. Both run through the same paintLineWords routine.
       const lyrLine = lyr?.[newIdx];
+      if (activeLineRef.current) {
+        activeLineRef.current.style.transform = `scale(${sustainedLineScale(lyrLine, t).toFixed(4)})`;
+      }
       // Zoom enabled only when the setting is on (pass null to disable per-syllable pop).
       paintLineWords(
         lyrLine,
@@ -540,9 +548,11 @@ function LyricsOverlayContent({
       const lineEl = root.querySelector(`[data-lyric-idx="${idx}"]`);
       wordElsRef.current = lineEl ? Array.from(lineEl.querySelectorAll("[data-word-bright]")) : [];
       bgContainerRef.current = lineEl ? lineEl.querySelector("[data-bg-container]") : null;
+      activeLineRef.current = lineEl ? lineEl.querySelector("[data-lyric-sustain]") : null;
     } else {
       wordElsRef.current = [];
       bgContainerRef.current = null;
+      activeLineRef.current = null;
     }
     // Trailing line: cache its word spans and paint them immediately so already-sung
     // syllables stay bright (no 1-frame dim flash) while the line finishes its wipe.
@@ -1493,109 +1503,111 @@ function LyricsOverlayContent({
                   textAlign,
                 }}
               >
-                {(isActive || isTrailing) && line.wordSync ? (
-                  <span style={{ whiteSpace: "pre-wrap" }}>
-                    {renderWords.map((word, wi) =>
-                      word.isSpace ? (
-                        <span key={wi}>{word.text}</span>
-                      ) : (
-                        <span key={wi} style={{ position: "relative", display: "inline-block" }}>
-                          <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
-                          <span
-                            data-word-bright="true"
-                            style={{
-                              position: "absolute",
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              color: "white",
-                              opacity: 0,
-                              WebkitMaskImage:
-                                "linear-gradient(to right, black -6px, transparent 6px)",
-                              maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
-                              pointerEvents: "none",
-                            }}
-                          >
-                            {word.text}
+                <div data-lyric-sustain="true" style={{ transformOrigin: "center center" }}>
+                  {(isActive || isTrailing) && line.wordSync ? (
+                    <span style={{ whiteSpace: "pre-wrap" }}>
+                      {renderWords.map((word, wi) =>
+                        word.isSpace ? (
+                          <span key={wi}>{word.text}</span>
+                        ) : (
+                          <span key={wi} style={{ position: "relative", display: "inline-block" }}>
+                            <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+                            <span
+                              data-word-bright="true"
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                color: "white",
+                                opacity: 0,
+                                WebkitMaskImage:
+                                  "linear-gradient(to right, black -6px, transparent 6px)",
+                                maskImage: "linear-gradient(to right, black -6px, transparent 6px)",
+                                pointerEvents: "none",
+                              }}
+                            >
+                              {word.text}
+                            </span>
                           </span>
-                        </span>
-                      )
-                    )}
-                  </span>
-                ) : (
-                  <span style={{ color: "#fff" }}>{lineText}</span>
-                )}
-                {/* Background vocals — rendered in smaller text below the main line.
+                        )
+                      )}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#fff" }}>{lineText}</span>
+                  )}
+                  {/* Background vocals — rendered in smaller text below the main line.
                   Initial opacity when isActive: 0.35 (dim). RAF loop sets it to 1
                   only when t >= bgWords[0].time so it activates independently. */}
-                {line.bgWords?.length > 0 && (
-                  <div
-                    data-bg-container="true"
-                    style={{
-                      fontSize: "0.68em",
-                      fontWeight: 600,
-                      marginTop: 3,
-                      lineHeight: 1.4,
-                      opacity: isActive ? 0.35 : 0.9,
-                      transition: "opacity 0.3s ease",
-                    }}
-                  >
-                    {isActive || isTrailing ? (
-                      <span style={{ whiteSpace: "pre-wrap" }}>
-                        {line.bgWords.map((word, wi) =>
-                          word.isSpace ? (
-                            <span key={wi}>{word.text}</span>
-                          ) : (
-                            <span
-                              key={wi}
-                              style={{ position: "relative", display: "inline-block" }}
-                            >
-                              <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+                  {line.bgWords?.length > 0 && (
+                    <div
+                      data-bg-container="true"
+                      style={{
+                        fontSize: "0.68em",
+                        fontWeight: 600,
+                        marginTop: 3,
+                        lineHeight: 1.4,
+                        opacity: isActive ? 0.35 : 0.9,
+                        transition: "opacity 0.3s ease",
+                      }}
+                    >
+                      {isActive || isTrailing ? (
+                        <span style={{ whiteSpace: "pre-wrap" }}>
+                          {line.bgWords.map((word, wi) =>
+                            word.isSpace ? (
+                              <span key={wi}>{word.text}</span>
+                            ) : (
                               <span
-                                data-word-bright="true"
-                                style={{
-                                  position: "absolute",
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  color: "white",
-                                  opacity: 0,
-                                  WebkitMaskImage:
-                                    "linear-gradient(to right, black -6px, transparent 6px)",
-                                  maskImage:
-                                    "linear-gradient(to right, black -6px, transparent 6px)",
-                                  pointerEvents: "none",
-                                }}
+                                key={wi}
+                                style={{ position: "relative", display: "inline-block" }}
                               >
-                                {word.text}
+                                <span style={{ color: "rgba(255,255,255,0.25)" }}>{word.text}</span>
+                                <span
+                                  data-word-bright="true"
+                                  style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    color: "white",
+                                    opacity: 0,
+                                    WebkitMaskImage:
+                                      "linear-gradient(to right, black -6px, transparent 6px)",
+                                    maskImage:
+                                      "linear-gradient(to right, black -6px, transparent 6px)",
+                                    pointerEvents: "none",
+                                  }}
+                                >
+                                  {word.text}
+                                </span>
                               </span>
-                            </span>
-                          )
-                        )}
-                      </span>
-                    ) : (
-                      <span style={{ color: "rgba(255,255,255,0.55)" }}>
-                        {line.bgWords.map((w) => w.text).join("")}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {line.bgText && (
-                  <div
-                    style={{
-                      fontSize: "0.68em",
-                      fontWeight: 600,
-                      marginTop: 3,
-                      lineHeight: 1.4,
-                      opacity: isActive ? 0.35 : 0.9,
-                      color: "#fff",
-                    }}
-                  >
-                    {line.bgText}
-                  </div>
-                )}
+                            )
+                          )}
+                        </span>
+                      ) : (
+                        <span style={{ color: "rgba(255,255,255,0.55)" }}>
+                          {line.bgWords.map((w) => w.text).join("")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {line.bgText && (
+                    <div
+                      style={{
+                        fontSize: "0.68em",
+                        fontWeight: 600,
+                        marginTop: 3,
+                        lineHeight: 1.4,
+                        opacity: isActive ? 0.35 : 0.9,
+                        color: "#fff",
+                      }}
+                    >
+                      {line.bgText}
+                    </div>
+                  )}
+                </div>
                 {showRomaji && romajiLines?.[i] && (
                   <div
                     style={{
