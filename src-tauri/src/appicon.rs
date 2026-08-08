@@ -47,16 +47,48 @@ pub fn set_app_icon(app: tauri::AppHandle, file: String) -> Result<(), String> {
 // Keep the compatibility warning contained to this legacy Cocoa interop.
 #[allow(unexpected_cfgs)]
 unsafe fn set_macos_icon(png_path: &str) {
+    use cocoa::appkit::NSCompositingOperation;
     use cocoa::base::{id, nil};
-    use cocoa::foundation::NSString;
+    use cocoa::foundation::{NSPoint, NSRect, NSSize, NSString};
     use objc::{class, msg_send, sel, sel_impl};
 
+    // macOS sizes app-switcher slots by image canvas, not the visible artwork. The
+    // selectable PNGs are full-bleed, unlike most native macOS icons, so preserve
+    // an optical safe area before giving the image to AppKit.
+    const ICON_ARTWORK_SCALE: f64 = 0.84;
+
     let path: id = NSString::alloc(nil).init_str(png_path);
-    let image: id = msg_send![class!(NSImage), alloc];
-    let image: id = msg_send![image, initWithContentsOfFile: path];
-    if image == nil {
+    let source_image: id = msg_send![class!(NSImage), alloc];
+    let source_image: id = msg_send![source_image, initWithContentsOfFile: path];
+    if source_image == nil {
         return;
     }
+
+    let source_size: NSSize = msg_send![source_image, size];
+    if source_size.width <= 0.0 || source_size.height <= 0.0 {
+        return;
+    }
+    let inset_x = source_size.width * (1.0 - ICON_ARTWORK_SCALE) / 2.0;
+    let inset_y = source_size.height * (1.0 - ICON_ARTWORK_SCALE) / 2.0;
+    let destination_rect = NSRect::new(
+        NSPoint::new(inset_x, inset_y),
+        NSSize::new(
+            source_size.width * ICON_ARTWORK_SCALE,
+            source_size.height * ICON_ARTWORK_SCALE,
+        ),
+    );
+    let source_rect = NSRect::new(NSPoint::new(0.0, 0.0), source_size);
+
+    let image: id = msg_send![class!(NSImage), alloc];
+    let image: id = msg_send![image, initWithSize: source_size];
+    let _: () = msg_send![image, lockFocus];
+    let _: () = msg_send![source_image,
+        drawInRect: destination_rect
+        fromRect: source_rect
+        operation: NSCompositingOperation::NSCompositeSourceOver
+        fraction: 1.0f64
+    ];
+    let _: () = msg_send![image, unlockFocus];
 
     // Dock icon of the running instance.
     let nsapp: id = msg_send![class!(NSApplication), sharedApplication];
