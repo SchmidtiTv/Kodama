@@ -29,6 +29,11 @@ pub enum AudioCmd {
 
 pub struct AudioPlayer(Mutex<Option<std::sync::mpsc::SyncSender<AudioCmd>>>);
 
+fn crossfade_volumes(volume: f32, progress: f32) -> (f32, f32) {
+    let angle = progress.clamp(0.0, 1.0) * std::f32::consts::FRAC_PI_2;
+    (volume * angle.cos(), volume * angle.sin())
+}
+
 impl AudioPlayer {
     pub fn new() -> Self {
         AudioPlayer(Mutex::new(None))
@@ -150,7 +155,7 @@ pub fn start_audio_thread(
         // the audio thread (so the probe's network reads don't block command handling).
         let (source_tx, source_rx) = std::sync::mpsc::channel::<SourceMessage>();
 
-        // ── Crossfade: a second sink for the incoming track + a linear volume ramp ──
+        // ── Crossfade: a second sink for the incoming track + an equal-power volume ramp ──
         let mut sink2: Option<rodio::Sink> = None;
         let mut duration2: f64 = 0.0;
         let mut source_url2: Option<String> = None;
@@ -274,9 +279,14 @@ pub fn start_audio_thread(
 
             // Incoming crossfade source: start it on sink2 at volume 0 and begin the ramp.
             while let Ok((mut source, url, dur, gen, automatic)) = xsource_rx.try_recv() {
-                if gen != play_gen || sink.is_none() {
-                    // Superseded (track changed) or the outgoing track already ended
-                    // during the build — abort so the frontend can resume normally.
+                if gen != play_gen {
+                    // A seek or track change superseded this build. Its engine request was
+                    // already cancelled with the generation change, so it is not a failure.
+                    continue;
+                }
+                if sink.is_none() {
+                    // The outgoing track ended while the source was being built — abort so the
+                    // regular end-of-track path can load the next item normally.
                     if automatic {
                         let _ = engine.fail_crossfade();
                     }
@@ -293,8 +303,13 @@ pub fn start_audio_thread(
                 source_url2 = Some(url);
                 match rodio::Sink::try_new(&handle) {
                     Ok(s2) => {
+                        let start_paused = sink.as_ref().is_some_and(|current| current.is_paused());
                         let committed_track = if automatic {
-                            match engine.commit_crossfade() {
+                            match engine.commit_crossfade(if start_paused {
+                                PlaybackStatus::Paused
+                            } else {
+                                PlaybackStatus::Playing
+                            }) {
                                 Ok(Some(track)) => Some(track),
                                 _ => {
                                     s2.stop();
@@ -309,6 +324,9 @@ pub fn start_audio_thread(
                         *current_analysis.lock().unwrap() =
                             Some(source.enable_analysis(Arc::clone(&analysis_enabled_for_player)));
                         s2.append(source);
+                        if start_paused {
+                            s2.pause();
+                        }
                         sink2 = Some(s2);
                         xfade_start = Some(std::time::Instant::now());
                         xfade_dur = dur.max(0.1);
@@ -519,6 +537,15 @@ pub fn start_audio_thread(
                         });
                     }
                     AudioCmd::Seek(t) => {
+                        // A seek changes the outgoing track's fade window. Discard any source
+                        // that was still being built for its previous position before rebuilding
+                        // the primary source below.
+                        let _ = engine.cancel_crossfade();
+                        // Do not invalidate an initial source that is still loading: there is no
+                        // active sink (and therefore no fade) to replace yet.
+                        if sink.is_some() {
+                            play_gen = play_gen.wrapping_add(1);
+                        }
                         // The engine commits the incoming track when a crossfade starts. Promote
                         // that matching sink before seeking so the old source cannot replace it.
                         if xfade_start.is_some() {
@@ -546,7 +573,6 @@ pub fn start_audio_thread(
                                 s.stop();
                             }
                             seek_offset = t;
-                            play_gen += 1;
                             let gen = play_gen;
                             let stx = source_tx.clone();
                             std::thread::spawn(move || {
@@ -586,11 +612,12 @@ pub fn start_audio_thread(
                         if let Some(start) = xfade_start {
                             let p =
                                 (start.elapsed().as_secs_f64() / xfade_dur).clamp(0.0, 1.0) as f32;
+                            let (outgoing, incoming) = crossfade_volumes(v, p);
                             if let Some(s) = &sink {
-                                s.set_volume(v * (1.0 - p));
+                                s.set_volume(outgoing);
                             }
                             if let Some(s) = &sink2 {
-                                s.set_volume(v * p);
+                                s.set_volume(incoming);
                             }
                         } else if let Some(s) = &sink {
                             s.set_volume(v);
@@ -623,11 +650,12 @@ pub fn start_audio_thread(
             // ── Crossfade ramp + promotion ──
             if let Some(start) = xfade_start {
                 let p = (start.elapsed().as_secs_f64() / xfade_dur).clamp(0.0, 1.0) as f32;
+                let (outgoing, incoming) = crossfade_volumes(volume, p);
                 if let Some(s) = &sink {
-                    s.set_volume(volume * (1.0 - p));
+                    s.set_volume(outgoing);
                 }
                 if let Some(s) = &sink2 {
-                    s.set_volume(volume * p);
+                    s.set_volume(incoming);
                 }
                 // Done when the ramp completes or the outgoing track runs out.
                 let out_ended = sink.as_ref().map(|s| s.empty()).unwrap_or(true);
@@ -725,7 +753,7 @@ pub fn start_audio_thread(
                 }
             }
 
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(20));
         }
     });
 

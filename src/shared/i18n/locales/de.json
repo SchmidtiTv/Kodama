@@ -278,6 +278,7 @@
   "linkCopied": "Link kopiert",
   "crossfade": "Überblendung",
   "crossfadeDesc": "Sanfte Überblendung zwischen Songs",
+  "crossfadeUnavailableInVideo": "Während der Videoansicht nicht verfügbar",
   "customCrossfade": "Eigene Überblendung",
   "customCrossfadeHint": "Überblendung für diesen Übergang: %secs s",
   "crossfadeHardCut": "Harter Schnitt (keine Überblendung)",

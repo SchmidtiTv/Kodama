@@ -6,11 +6,21 @@ import {
   Slider,
   Toggle,
 } from "@/shared/ui/settings-controls.jsx";
+
+function isActiveCrossfadeOverride(key, videoIds) {
+  return [...videoIds].some((fromVideoId) => {
+    const prefix = `${fromVideoId}__`;
+    return key.startsWith(prefix) && videoIds.has(key.slice(prefix.length));
+  });
+}
+
 export function PlaybackSettingsTab({
   anonStats,
   autoplay,
   crossfade,
   crossfadeOverrides,
+  crossfadeQueue,
+  crossfadeDisabled,
   hideExplicit,
   onAnonStatsChange,
   onAutoplayChange,
@@ -23,6 +33,11 @@ export function PlaybackSettingsTab({
   showTrackNumbers,
   t,
 }) {
+  const queueVideoIds = new Set((crossfadeQueue || []).map((track) => track?.videoId));
+  const activeCrossfadeOverrides = Object.entries(crossfadeOverrides).filter(([key]) =>
+    isActiveCrossfadeOverride(key, queueVideoIds)
+  );
+
   return (
     <>
       <SettingsSectionLabel>{t("general")}</SettingsSectionLabel>
@@ -65,7 +80,9 @@ export function PlaybackSettingsTab({
             </span>
           </span>
         }
-        description={`${t("crossfadeDesc")}: ${crossfade}s`}
+        description={`${t("crossfadeDesc")}: ${crossfade}s${
+          crossfadeDisabled ? ` · ${t("crossfadeUnavailableInVideo")}` : ""
+        }`}
         icon={<Sliders />}
       >
         <div
@@ -104,7 +121,7 @@ export function PlaybackSettingsTab({
       >
         {t("customCrossfadesDesc")}
       </div>
-      {Object.keys(crossfadeOverrides).length > 0 && (
+      {activeCrossfadeOverrides.length > 0 && (
         <div
           style={{
             margin: "2px 0 6px",
@@ -129,7 +146,7 @@ export function PlaybackSettingsTab({
               gap: 6,
             }}
           >
-            {Object.entries(crossfadeOverrides).map(([key, ov]) => (
+            {activeCrossfadeOverrides.map(([key, ov]) => (
               <div
                 key={key}
                 style={{

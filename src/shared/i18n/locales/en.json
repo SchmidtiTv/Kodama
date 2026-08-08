@@ -278,6 +278,7 @@
   "linkCopied": "Link copied",
   "crossfade": "Crossfade",
   "crossfadeDesc": "Crossfade between songs",
+  "crossfadeUnavailableInVideo": "Unavailable while video view is active",
   "customCrossfade": "Custom Crossfade",
   "customCrossfadeHint": "Crossfade for this transition: %secs s",
   "crossfadeHardCut": "Hard cut (no crossfade)",

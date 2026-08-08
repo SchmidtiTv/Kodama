@@ -123,11 +123,36 @@ fn committing_crossfade_advances_native_current_track() {
         })
         .unwrap();
     engine.prepare_crossfade(176.0, 180.0).unwrap();
-    assert_eq!(engine.commit_crossfade().unwrap().unwrap().video_id, "two");
+    assert_eq!(
+        engine
+            .commit_crossfade(PlaybackStatus::Playing)
+            .unwrap()
+            .unwrap()
+            .video_id,
+        "two"
+    );
     assert_eq!(
         engine.snapshot().unwrap().current_track.unwrap().video_id,
         "two"
     );
+}
+
+#[test]
+fn committing_crossfade_preserves_a_paused_transport() {
+    let engine = engine_with_queue();
+    engine
+        .update_transition_policy(TransitionPolicyUpdate {
+            crossfade_seconds: Some(5.0),
+            ..TransitionPolicyUpdate::default()
+        })
+        .unwrap();
+    engine.prepare_crossfade(176.0, 180.0).unwrap();
+
+    engine.commit_crossfade(PlaybackStatus::Paused).unwrap();
+
+    let snapshot = engine.snapshot().unwrap();
+    assert_eq!(snapshot.current_track.unwrap().video_id, "two");
+    assert_eq!(snapshot.status, PlaybackStatus::Paused);
 }
 
 #[test]

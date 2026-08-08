@@ -123,6 +123,8 @@ export function SettingsPanel({
     crossfade,
     onCrossfadeChange,
     crossfadeOverrides = {},
+    crossfadeQueue = [],
+    crossfadeDisabled = false,
     onRemoveCrossfadeOverride,
     playbackProgressive,
     onPlaybackProgressiveChange,
@@ -568,6 +570,8 @@ export function SettingsPanel({
               autoplay={autoplay}
               crossfade={crossfade}
               crossfadeOverrides={crossfadeOverrides}
+              crossfadeQueue={crossfadeQueue}
+              crossfadeDisabled={crossfadeDisabled}
               hideExplicit={hideExplicit}
               onAnonStatsChange={onAnonStatsChange}
               onAutoplayChange={onAutoplayChange}

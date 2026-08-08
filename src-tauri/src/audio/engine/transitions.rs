@@ -79,7 +79,10 @@ impl PlaybackEngine {
         Ok(Some(request))
     }
 
-    pub fn commit_crossfade(&self) -> Result<Option<PlaybackTrack>, String> {
+    pub fn commit_crossfade(
+        &self,
+        status: PlaybackStatus,
+    ) -> Result<Option<PlaybackTrack>, String> {
         let mut state = self.write_state()?;
         let Some(pending) = state.pending_crossfade.take() else {
             return Ok(None);
@@ -93,11 +96,7 @@ impl PlaybackEngine {
         {
             return Ok(None);
         }
-        set_native_current_track(
-            &mut state,
-            pending.to_track.clone(),
-            PlaybackStatus::Playing,
-        );
+        set_native_current_track(&mut state, pending.to_track.clone(), status);
         state.failed_crossfade_from = None;
         bump_revision(&mut state.snapshot);
         Ok(Some(pending.to_track))
